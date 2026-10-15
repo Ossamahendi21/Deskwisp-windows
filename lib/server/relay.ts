@@ -1,6 +1,6 @@
 import "server-only";
 import { execFile, spawn, type ChildProcess } from "node:child_process";
-import { accessSync, constants, readFileSync } from "node:fs";
+import { accessSync, constants } from "node:fs";
 import { hostname } from "node:os";
 import { delimiter, join } from "node:path";
 import { live, workBot, type RelayRoute } from "@/lib/types";
@@ -9,6 +9,7 @@ import { loadHorafirmKey, horafirmKey, signedInUser } from "./horafirm-auth";
 import { egress, horafirm, horafirmUnavailable } from "./horafirm";
 import { onPostgres } from "./persist";
 import { getState, stateEpoch, stateReady, update } from "./store";
+import { vmFile } from "./vm-file";
 
 /**
  * Route the bots' computers through this PC. Horafirm's personal-device egress: this PC is paired with
@@ -301,7 +302,7 @@ function inUse(computerId: string) {
   return st.sessions.some((s) => live(s) && s.runsOn !== "mac" && on(s.botId)) || (st.takeover?.display !== undefined && on(st.takeover.botId));
 }
 
-const keepScreens = () => Buffer.from(readFileSync(join(process.cwd(), "vm/bin/deskwisp-keep-screens"))).toString("base64");
+const keepScreens = () => Buffer.from(vmFile("bin/deskwisp-keep-screens")).toString("base64");
 
 /** Note each screen's page before Horafirm restarts the computer's Chrome. */
 async function saveScreens(computerId: string) {

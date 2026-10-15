@@ -37,7 +37,9 @@ COPY vm/screen_mcp.py /opt/deskwisp/screen_mcp.py
 COPY vm/deskwisp-home.py /opt/deskwisp/deskwisp-home.py
 COPY vm/bin/deskwisp-chrome vm/bin/deskwisp-seed-profiles vm/bin/deskwisp-exec vm/bin/deskwisp-screens vm/bin/deskwisp-desktop vm/bin/deskwisp-reset-screen /usr/local/bin/
 COPY dcloud/template/deskwisp-screens /usr/local/bin/deskwisp-screens
-RUN chmod 755 /usr/local/bin/deskwisp-* /usr/local/bin/deskwisp-screens /opt/deskwisp/deskwisp-home.py
+# Windows line endings (a checkout with core.autocrlf) would break these scripts: strip them.
+RUN sed -i 's/\r$//' /usr/local/bin/deskwisp-* /usr/local/bin/deskwisp-screens /opt/deskwisp/*.py \
+    && chmod 755 /usr/local/bin/deskwisp-* /usr/local/bin/deskwisp-screens /opt/deskwisp/deskwisp-home.py
 
 # Chrome as root needs --no-sandbox, which deskwisp-chrome passes; this is where it looks for it.
 RUN ln -sf /usr/bin/google-chrome-stable /usr/local/bin/google-chrome

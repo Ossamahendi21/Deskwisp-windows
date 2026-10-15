@@ -32,20 +32,25 @@ the app ──► Deskwisp Cloud ──► E2B sandbox (one per computer)
 
 You need Node 22.6 or newer (24 runs TypeScript directly; on 22 add `--experimental-strip-types`).
 
-**1. Build the computer template on E2B** (once, about 10 minutes):
-
-```bash
-E2B_API_KEY=e2b_... node --experimental-strip-types dcloud/template/build.ts
-```
-
-**2. Start Deskwisp Cloud:**
+**1. Put your settings in `dcloud/.env`** (git ignores it; keys never go in a command or a chat):
 
 ```bash
 cp dcloud/.env.example dcloud/.env      # then fill in E2B_API_KEY and DESKWISP_API_KEYS
+```
+
+**2. Build the computer template on E2B** (once, about 10 minutes):
+
+```bash
+node --experimental-strip-types --env-file=dcloud/.env dcloud/template/build.ts
+```
+
+**3. Start Deskwisp Cloud:**
+
+```bash
 node --experimental-strip-types --env-file=dcloud/.env dcloud/src/server.ts
 ```
 
-**3. Point the app at it**, in `%APPDATA%\Deskwisp\.env.local` (or `.env.local` for `next dev`):
+**4. Point the app at it**, in `%APPDATA%\Deskwisp\.env.local` (or `.env.local` for `next dev`):
 
 ```
 DESKWISP_SELF_HOSTED=1

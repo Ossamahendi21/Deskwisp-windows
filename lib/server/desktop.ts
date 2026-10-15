@@ -1,6 +1,4 @@
 import "server-only";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { mascotSvg } from "@/lib/mascot";
 import { botWash } from "@/lib/look";
 import { live, type Bot } from "@/lib/types";
@@ -8,6 +6,7 @@ import { chose, decide } from "./decide";
 import { horafirm } from "./horafirm";
 import { sameComputer } from "./screens";
 import { getState } from "./store";
+import { vmFile } from "./vm-file";
 
 /**
  * Dresses a bot's Horafirm computer as the bot's own: its wallpaper (the bot's wash, with faint line
@@ -195,12 +194,12 @@ export async function applyDesktop(b: Bot, { restartChrome = true }: { restartCh
     ["/opt/deskwisp/desktop/wall.html", wallpaper(b, motif), "0644"],
     ["/opt/deskwisp/desktop/home.html", home(b, motif), "0644"],
     ["/opt/deskwisp/desktop/favicon.svg", mascotSvg(b.id, b.color, 32), "0644"],
-    ["/opt/deskwisp/deskwisp-home.py", readFileSync(join(process.cwd(), "vm/deskwisp-home.py")), "0755"],
-    ["/usr/local/bin/deskwisp-desktop", readFileSync(join(process.cwd(), "vm/bin/deskwisp-desktop")), "0755"],
-    ["/usr/local/bin/deskwisp-chrome", readFileSync(join(process.cwd(), "vm/bin/deskwisp-chrome")), "0755"],
+    ["/opt/deskwisp/deskwisp-home.py", vmFile("deskwisp-home.py"), "0755"],
+    ["/usr/local/bin/deskwisp-desktop", vmFile("bin/deskwisp-desktop"), "0755"],
+    ["/usr/local/bin/deskwisp-chrome", vmFile("bin/deskwisp-chrome"), "0755"],
     // The screen tools and their ledger, kept current with Deskwisp (threads, helpers, one agent per screen).
-    ["/opt/deskwisp/screen_mcp.py", readFileSync(join(process.cwd(), "vm/screen_mcp.py")), "0644"],
-    ["/usr/local/bin/deskwisp-screens", readFileSync(join(process.cwd(), "vm/bin/deskwisp-screens")), "0755"],
+    ["/opt/deskwisp/screen_mcp.py", vmFile("screen_mcp.py"), "0644"],
+    ["/usr/local/bin/deskwisp-screens", vmFile("bin/deskwisp-screens"), "0755"],
   ];
   // Mid-task means any bot's task on this computer: bots that share the main bot's work on its Chrome too.
   const busy = !restartChrome || getState().sessions.some((s) => sameComputer(s.botId, b.id) && live(s));

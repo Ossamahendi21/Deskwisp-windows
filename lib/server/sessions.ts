@@ -39,6 +39,7 @@ import { addMessage, bot, getState, id, ownerLine, ownerName, patchSession, sess
 import { recordTokens, usageTags } from "./usage";
 import { computerToolOn, computerTurn } from "./computer-task";
 import { freeHoursUsed, sayInUse, START_SAY_MS, wakeForUser } from "./free-hours";
+import { vmFile } from "./vm-file";
 
 /**
  * Session runner. A session is one long-running task on one screen of the computer its bot works on
@@ -1104,7 +1105,7 @@ export async function resetScreens(botId: string, displays: number[] = DISPLAYS,
   if (reset.length) {
     // A stopped task lets go of its screen when its turn ends.
     if (force) await new Promise((r) => setTimeout(r, 1500));
-    const script = Buffer.from(readFileSync(join(process.cwd(), "vm/bin/deskwisp-reset-screen"))).toString("base64");
+    const script = Buffer.from(vmFile("bin/deskwisp-reset-screen")).toString("base64");
     const out = await horafirm.bash(computerId, `echo ${script} | base64 -d > /usr/local/bin/deskwisp-reset-screen && chmod 0755 /usr/local/bin/deskwisp-reset-screen && deskwisp-reset-screen ${reset.join(" ")}`, 90);
     if (!out.output.includes("reset ")) throw new Error(`the reset didn't finish: ${out.output.slice(-200)}`);
   }
@@ -1467,7 +1468,7 @@ const browserReady = new Set<string>();
 async function ensureBrowserTool(computerId: string) {
   if (browserReady.has(computerId)) return;
   const v = JSON.parse(readFileSync(join(process.cwd(), "node_modules/@playwright/mcp/package.json"), "utf8")).version as string;
-  const front = readFileSync(join(process.cwd(), "vm/browser-front.cjs")).toString("base64");
+  const front = vmFile("browser-front.cjs").toString("base64");
   const r = await horafirm.bash(
     computerId,
     `mkdir -p /opt/deskwisp/pw && echo ${front} | base64 -d > ${BROWSER_FRONT} && cd /opt/deskwisp/pw && (grep -q '"version": "${v}"' node_modules/@playwright/mcp/package.json 2>/dev/null || npm install --silent --no-audit --no-fund @playwright/mcp@${v} >/tmp/pw-install.log 2>&1) && test -f ${BROWSER_MCP} && echo ok`,

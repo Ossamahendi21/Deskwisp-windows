@@ -2,7 +2,7 @@
  * Builds the Deskwisp computer template on E2B, from dcloud/template/e2b.Dockerfile with the repo as
  * its build context. Run it once (and again after changing the Dockerfile or vm/):
  *
- *   E2B_API_KEY=e2b_... node dcloud/template/build.ts
+ *   node --experimental-strip-types --env-file=dcloud/.env dcloud/template/build.ts
  *
  * Then set E2B_TEMPLATE=deskwisp-computer (the default) in Deskwisp Cloud's environment.
  */

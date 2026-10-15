@@ -8,7 +8,8 @@ import type { Box } from "./providers/types.ts";
  * 100-102 are the others ("screen-100"...), as the app names them (lib/server/horafirm.ts screenId).
  */
 
-const SCRIPT = readFileSync(new URL("../template/deskwisp-screens", import.meta.url));
+// Without "\r": a Windows checkout may have given the script CRLF endings, which bash rejects.
+const SCRIPT = Buffer.from(readFileSync(new URL("../template/deskwisp-screens", import.meta.url), "utf8").replace(/\r\n/g, "\n"));
 const SCRIPT_HASH = (() => {
   let h = 0;
   for (const b of SCRIPT) h = (h * 31 + b) >>> 0;
