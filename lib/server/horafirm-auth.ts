@@ -29,8 +29,16 @@ const g = globalThis as unknown as {
 /** How long a failed Keychain read stands before it's tried again (it may have been locked, or a prompt turned down). */
 const RETRY_MS = 10_000;
 
+/**
+ * Self-hosting on a key of your own (DESKWISP_SELF_HOSTED=1 with HORAFIRM_API_KEY, the key for DESKWISP_HORAFIRM_ORIGIN):
+ * a key kept from an earlier Sign in with Horafirm is set aside. It belongs to deskwisp.com, so it must never be
+ * sent to another server such as Deskwisp Cloud, and it would win over the key you set.
+ */
+const ownKey = () => process.env.DESKWISP_SELF_HOSTED === "1" && !!process.env.HORAFIRM_API_KEY;
+
 /** Read the signed-in key from the Keychain: once per server process, and again a little later if it wasn't there. */
 export function loadHorafirmKey(): Promise<string | null> {
+  if (ownKey()) return Promise.resolve(null);
   if (g.deskwispHorafirmKey) return Promise.resolve(g.deskwispHorafirmKey);
   if (g.deskwispHorafirmKey === null && Date.now() - (g.deskwispHorafirmKeyMissAt ?? 0) < RETRY_MS) return Promise.resolve(null);
   const load = (g.deskwispHorafirmKeyLoad ??= getSecret(KEY_ACCOUNT).then((k) => {
@@ -52,7 +60,7 @@ function setKey(key: string | null) {
 }
 
 /** The signed-in user's Horafirm API key, if it's been loaded (call loadHorafirmKey() first on a cold start). */
-export const horafirmKey = (): string | null => g.deskwispHorafirmKey ?? null;
+export const horafirmKey = (): string | null => (ownKey() ? null : (g.deskwispHorafirmKey ?? null));
 
 /** Who's signed in (kept in state so the UI can show it without a round trip). */
 export const signedInUser = (): HorafirmUser | null => getState().account?.user ?? null;

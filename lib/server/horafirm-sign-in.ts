@@ -342,7 +342,8 @@ export async function authStatus({ retry = false } = {}) {
   const cloudProblem = !!key && stateInCloud() && !signedInUser() && !!loading.failed;
   // Signed in per the state, but the Keychain wouldn't give the key (locked, or a prompt turned down):
   // the app opens, and its account page says so (instead of a sign-in that mints yet another key).
-  const keyUnreadable = !key && !!signedInUser();
   const selfHostedKey = process.env.DESKWISP_SELF_HOSTED === "1" && !!process.env.HORAFIRM_API_KEY;
+  // (Self-hosting on your own key sets a kept Horafirm key aside on purpose: that's not an unreadable Keychain.)
+  const keyUnreadable = !key && !!signedInUser() && !selfHostedKey;
   return { signedIn, user: signedIn || keyUnreadable ? signedInUser() : null, needsSignIn: !signedIn && !keyUnreadable && !selfHostedKey && !cloudProblem, cloudProblem };
 }
