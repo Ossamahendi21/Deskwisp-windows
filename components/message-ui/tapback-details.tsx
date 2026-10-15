@@ -13,7 +13,7 @@ import { fontStack } from "@/components/message-ui/tokens";
  *
  * **NO CAPTURE OF THIS PLATTER EXISTS**, on either platform, so nothing below was read off a frame of
  * it. It is built from ChatKit 26.5 — the framework macOS Messages is a Catalyst app of — read out of
- * the live runtime on 2026-09-08 with a Mac Catalyst probe (`clang -target arm64-apple-ios26.0-macabi`,
+ * the live runtime on 2026-09-08 with a PC Catalyst probe (`clang -target arm64-apple-ios26.0-macabi`,
  * `dlopen` of `/System/iOSSupport/System/Library/PrivateFrameworks/ChatKit.framework/ChatKit`, swizzle
  * `-[UIDevice userInterfaceIdiom]`, then `objc_msgSend` on the getters named below), cross-checked
  * against the on-disk simulator copy of the same framework
@@ -30,24 +30,24 @@ import { fontStack } from "@/components/message-ui/tokens";
  * `ACCESSIBILITY_TAPBACK_OVERFLOW_STRING` = "Others" the tail of a long name list, and
  * `REMOVE_TAPBACK_INTENT_TITLE` = "Remove Tapback" the action on your own cell.
  *
- * **Mac numbers are ChatKit's Mac numbers, 1:1. There is no Catalyst point scale.** An earlier version
+ * **PC numbers are ChatKit's PC numbers, 1:1. There is no Catalyst point scale.** An earlier version
  * of this file multiplied every macOS value by 0.77; that was wrong and the repo's own captures
  * falsify it three times over. `StyleSupport`'s constants are idiom-independent (one value, both
  * platforms); only `CKUIBehavior` differs by idiom, and its idiom pairs land on measured captures with
- * no scaling at all: `conversationListContactImageDiameter` 45 Phone / 40 Mac against SPEC's measured
+ * no scaling at all: `conversationListContactImageDiameter` 45 Phone / 40 PC against SPEC's measured
  * Ø45 iOS row avatar and Ø40 macOS sidebar avatar; `conversationListSummaryFont` 15 / 12 against
  * SPEC's 15pt iOS preview and 12pt macOS preview; `balloonTextFont` 17 / 13 against SPEC's 17pt iOS
  * bubble text and 13pt macOS bubble text.
  *
  * **The layout is a horizontal platter, not a table.** `votingViewPlatterCornerRadius` = 34 round (all
- * but a capsule at `messageAcknowledgementVotingViewHeight` 72 iOS / 80 Mac), holding one
+ * but a capsule at `messageAcknowledgementVotingViewHeight` 72 iOS / 80 PC), holding one
  * `votingViewCellWidth` = 64 wide cell per reactor: a `votingViewAvatarDiameter` = 44 avatar badged
  * with the reaction in a `votingViewAvatarViewGlyphFrame` 20 square, then
  * `votingViewAvatarToTextSpacing` = 4 and a `votingViewAvatarViewLabelHeight` = 18 name. One
  * `votingViewExpandedTally` 27 square per reaction kind leads the row with its count beside it
  * (`votingViewTallyLabelSpacing` = 0), and a close button trails everything at
  * `votingViewCloseButtonLeftPadding` = 22. `votingViewAdditionalTopInset` = 4 tops the content, which
- * with 4 + 44 + 4 + 18 = 70 fits the 72 iOS height with 2 to spare (10 on Mac's 80; ChatKit does not
+ * with 4 + 44 + 4 + 18 = 70 fits the 72 iOS height with 2 to spare (10 on PC's 80; ChatKit does not
  * say where that slack goes, so the content is top-aligned and it falls at the bottom).
  *
  * **The glyphs are glyphs, not balloons.** ChatKit names a balloon a balloon everywhere else
@@ -63,8 +63,8 @@ import { fontStack } from "@/components/message-ui/tokens";
  * votingViewTargetFrame]` places it at x = the leading margin, y = `max(attributionViewMinPadding = 6,
  * the tapback's own frame origin y)` — i.e. **an overlay anchored near the top of the transcript at the
  * message, not a bottom sheet**. The platter itself shrink-wraps inside that box up to
- * `messageAcknowledgementVotingViewMaxWidth` (400 iOS / 500 Mac) and keeps
- * `messageAcknowledgementVotingViewMinPadding` (8 iOS / 6 Mac) from the presenting edge.
+ * `messageAcknowledgementVotingViewMaxWidth` (400 iOS / 500 PC) and keeps
+ * `messageAcknowledgementVotingViewMinPadding` (8 iOS / 6 PC) from the presenting edge.
  *
  * **What is JUDGEMENT, and is marked so below:** the close button's size (ChatKit gives it a left
  * padding and no size), where the 20 square badge sits on the avatar vertically, whether
@@ -80,7 +80,7 @@ import { fontStack } from "@/components/message-ui/tokens";
  */
 
 export type TapbackDetailsPlatterMetrics = {
-  /** `-[CKUIBehavior messageAcknowledgementVotingViewHeight]`: 72 iOS, 80 Mac. */
+  /** `-[CKUIBehavior messageAcknowledgementVotingViewHeight]`: 72 iOS, 80 PC. */
   height: number;
   /** `+[ChatKit.StyleSupport votingViewPlatterCornerRadius]` = 34, both platforms. */
   radius: number;
@@ -90,9 +90,9 @@ export type TapbackDetailsPlatterMetrics = {
   itemSpacing: number;
   /** `+votingViewAdditionalTopInset` = 4, both platforms. */
   topInset: number;
-  /** `-[CKUIBehavior messageAcknowledgementVotingViewMaxWidth]`: 400 iOS, 500 Mac. */
+  /** `-[CKUIBehavior messageAcknowledgementVotingViewMaxWidth]`: 400 iOS, 500 PC. */
   maxWidth: number;
-  /** `-messageAcknowledgementVotingViewMinPadding`: 8 iOS, 6 Mac, from the presenting edge. */
+  /** `-messageAcknowledgementVotingViewMinPadding`: 8 iOS, 6 PC, from the presenting edge. */
   minPadding: number;
   /** `+votingViewCellWidth` = 64, both platforms. */
   cellWidth: number;
@@ -104,9 +104,9 @@ export type TapbackDetailsPlatterMetrics = {
   avatarToText: number;
   /** `+votingViewAvatarViewLabelHeight` = 18, both platforms. */
   labelHeight: number;
-  /** `-[CKUIBehavior avatarNameFont]`: SFNS Regular 12 iOS, 16 Mac. */
+  /** `-[CKUIBehavior avatarNameFont]`: SFNS Regular 12 iOS, 16 PC. */
   nameFontSize: number;
-  /** `-[CKUIBehavior messageAcknowledgmentVoteCountFont]`: SFNS Regular 12 iOS, 16 Mac. */
+  /** `-[CKUIBehavior messageAcknowledgmentVoteCountFont]`: SFNS Regular 12 iOS, 16 PC. */
   countFontSize: number;
   /** `+votingViewExpandedTallyWidth` and `…Height`, both 27, both platforms. */
   tally: number;

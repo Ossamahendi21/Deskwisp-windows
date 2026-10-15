@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { id, userDir } from "./store";
 
 /**
- * Images the user attaches in chat, kept on this Mac in the signed-in user's folder
+ * Images the user attaches in chat, kept on this PC in the signed-in user's folder
  * (.data/users/<id>/uploads): another account signed in here can't open them. Messages refer to them
  * by id; the page shows them from /api/uploads/<id>, and bots see them as images (dataUrlOf).
  */

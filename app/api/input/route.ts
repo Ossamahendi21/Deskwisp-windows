@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   if (t?.botId !== b.id || (body.macScreen !== undefined ? t.macScreen !== body.macScreen : body.display === undefined || t.display !== body.display))
     return Response.json({ error: "take over this screen first" }, { status: 409 });
   try {
-    // Straight to the screen's Chrome when we can reach it (a Mac task's own, the Mac, or Horafirm over the tailnet); else through Horafirm's API.
+    // Straight to the screen's Chrome when we can reach it (a PC task's own, the PC, or Horafirm over the tailnet); else through Horafirm's API.
     const port = t.macScreen !== undefined ? macTaskPort(state.bots.indexOf(b), t.macScreen) : screenEndpoint(b, t.display);
     if (port) {
       if (body.kind === "click" || body.kind === "scroll") {

@@ -114,7 +114,7 @@ export function SignInCard({
         })}
         {!code && (
           <label className="flex items-center gap-2 text-[12.5px] leading-4 text-[#3A3A38]">
-            <input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} className="size-3.5 accent-[#0A0A0A]" />
+            <input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} className="size-3.5 accent-[#16132B]" />
             Save to your vault, so {b.name} can sign in next time
           </label>
         )}
@@ -128,7 +128,7 @@ export function SignInCard({
           </button>
         </div>
         <span className="text-[11px] leading-[15px] text-[#9A9A98]">
-          Goes straight into the page on {b.name}&apos;s screen. {save ? "Saved logins stay in your Mac's Keychain." : "Deskwisp doesn't keep it."} No AI sees it.
+          Goes straight into the page on {b.name}&apos;s screen. {save ? "Saved logins stay in your PC's Keychain." : "Deskwisp doesn't keep it."} No AI sees it.
         </span>
       </form>
     </CardShell>
@@ -184,7 +184,7 @@ function CardShell({
   );
 }
 
-const fieldClass = "rounded-xl bg-[#F7F7F6] px-3 py-2.5 text-[14px] leading-5 outline-none shadow-[inset_0_0_0_1px_#E6E6E3] focus:bg-white focus:shadow-[inset_0_0_0_1.5px_#0A0A0A]";
+const fieldClass = "rounded-xl bg-[#F7F7F6] px-3 py-2.5 text-[14px] leading-5 outline-none shadow-[inset_0_0_0_1px_#E6E6E3] focus:bg-white focus:shadow-[inset_0_0_0_1.5px_#16132B]";
 const primary = "flex-1 rounded-full bg-ink px-4 py-2.5 text-[14px] font-semibold leading-[18px] text-highlighter disabled:opacity-40";
 const secondary = "rounded-full px-3.5 py-2.5 text-[13px] font-medium leading-[18px] text-[#3A3A38] shadow-[inset_0_0_0_1px_#E2E2DF] hover:bg-[#F7F7F6]";
 
@@ -291,13 +291,13 @@ export function EmailCard({
             value={draft?.[k] ?? ""}
             onChange={(ev) => setDraft({ ...draft, [k]: ev.target.value })}
             rows={compact ? 5 : 8}
-            className="resize-none rounded-xl bg-[#F7F7F6] px-3 py-2.5 text-[13.5px] leading-5 outline-none shadow-[inset_0_0_0_1px_#E6E6E3] focus:bg-white focus:shadow-[inset_0_0_0_1.5px_#0A0A0A]"
+            className="resize-none rounded-xl bg-[#F7F7F6] px-3 py-2.5 text-[13.5px] leading-5 outline-none shadow-[inset_0_0_0_1px_#E6E6E3] focus:bg-white focus:shadow-[inset_0_0_0_1.5px_#16132B]"
           />
         ) : (
           <input
             value={draft?.[k] ?? ""}
             onChange={(ev) => setDraft({ ...draft, [k]: ev.target.value })}
-            className="rounded-xl bg-[#F7F7F6] px-3 py-2 text-[13.5px] leading-5 outline-none shadow-[inset_0_0_0_1px_#E6E6E3] focus:bg-white focus:shadow-[inset_0_0_0_1.5px_#0A0A0A]"
+            className="rounded-xl bg-[#F7F7F6] px-3 py-2 text-[13.5px] leading-5 outline-none shadow-[inset_0_0_0_1px_#E6E6E3] focus:bg-white focus:shadow-[inset_0_0_0_1.5px_#16132B]"
           />
         )}
       </label>

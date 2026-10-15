@@ -6,7 +6,7 @@ import { notReady } from "@/lib/server/ready";
 /**
  * The "Sign in for <bot>" card: fill the sign-in or code fields Jev matched on the bot's page,
  * submit, and look again (see sign-in.ts). Values go straight into the page; they're never logged
- * or shown to a model, and kept only if the user ticks "Save to vault" (then in the Mac's Keychain).
+ * or shown to a model, and kept only if the user ticks "Save to vault" (then in the PC's Keychain).
  */
 export async function POST(request: Request) {
   const unready = notReady();

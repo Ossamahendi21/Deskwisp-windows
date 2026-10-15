@@ -26,7 +26,7 @@ export function contactLine(b: Bot, spoken = false) {
   return [b.email ? `Your own email address is ${say(b.email)}; anyone can email you there, and you can give it out.` : "You don't have an email address yet.", phone].join(" ");
 }
 
-const COLORS = ["#FF9F43", "#2EC4B6", "#A78BFA", "#F87171", "#60A5FA", "#34D399", "#E9FF3B", "#FF6FB5"];
+const COLORS = ["#FF9F43", "#2EC4B6", "#A78BFA", "#F87171", "#60A5FA", "#34D399", "#C9BDFF", "#FF6FB5"];
 
 /** A bot id from a name, unique across all workspaces ("sam", then "sam-2"…). */
 export function freeBotId(name: string) {

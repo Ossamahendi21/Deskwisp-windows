@@ -2,11 +2,11 @@ import "server-only";
 import { timingSafeEqual } from "node:crypto";
 
 /**
- * Whether a request comes from the Deskwisp window on this Mac. desktop/main.cjs keeps a token, gives it to
+ * Whether a request comes from the Deskwisp window on this PC. desktop/main.cjs keeps a token, gives it to
  * this server (DESKWISP_UI_TOKEN) and sets it in the window's session as an httpOnly cookie, so every
  * request the window makes carries it and no page script can read it; main.cjs's own calls send it as
  * x-deskwisp-window. A page that reached this server some other way can't have it: a bot's Chrome on this
- * Mac browsing to it, above all. proxy.ts asks for it on every request but a read; the routes for what
+ * PC browsing to it, above all. proxy.ts asks for it on every request but a read; the routes for what
  * only the user may turn on (Full access, a bot's settings) ask again. Without a token set (a hosted
  * server, or a dev server run outside the app), any request counts.
  */

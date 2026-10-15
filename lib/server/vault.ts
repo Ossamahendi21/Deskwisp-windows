@@ -11,7 +11,7 @@ import { bot, getState, id, ownerName, session, stateUser, update } from "./stor
 
 /**
  * The vault: logins bots can sign in with. Deskwisp keeps the site, the username and who may use it;
- * the password and the 2FA setup key go to the Mac's Keychain. Signing in fills the page's fields
+ * the password and the 2FA setup key go to the PC's Keychain. Signing in fills the page's fields
  * straight from the Keychain (see sign-in.ts), and 2FA codes are made here, so no model, log or
  * state file ever holds a secret.
  */
@@ -236,7 +236,7 @@ const pending = new Map<string, { site: string; username?: string; at: number }>
 
 /** Save what the user typed into a sign-in card, if they asked to. The values come from them, not from the page. */
 export async function rememberTyped(botId: string, display: number, url: string, values: SignInValues) {
-  // Whose sign-in it is too: a username typed for another account on this Mac never joins this one's password.
+  // Whose sign-in it is too: a username typed for another account on this PC never joins this one's password.
   const key = `${stateUser() ?? ""}:${botId}:${display}`;
   const site = siteOfUrl(url);
   const before = pending.get(key);

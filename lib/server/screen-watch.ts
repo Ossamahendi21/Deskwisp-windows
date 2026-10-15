@@ -10,7 +10,7 @@ import { getState, ownerName, patchSession, session, update } from "./store";
  * the page text and answers at once: is something here only the user can get past, does the bot need
  * to get past it for its task, and does the page show private data. On a sign-in or verification
  * page a second call matches the page's fields (which one takes the email, the password, the code)
- * so Deskwisp can draw a native card that fills them. Runs wherever the mirror can reach: the Mac, or
+ * so Deskwisp can draw a native card that fills them. Runs wherever the mirror can reach: the PC, or
  * Horafirm over the tailnet.
  */
 

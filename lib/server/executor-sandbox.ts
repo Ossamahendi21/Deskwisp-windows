@@ -4,9 +4,9 @@ import { homedir } from "node:os";
 import { delimiter, dirname, join, sep } from "node:path";
 
 /**
- * The macOS sandbox (Seatbelt) a Mac task's executor runs in.
+ * The macOS sandbox (Seatbelt) a PC task's executor runs in.
  *
- * `codex exec-server` runs whatever the agent asks for on this Mac: the browser tools, but also a shell
+ * `codex exec-server` runs whatever the agent asks for on this PC: the browser tools, but also a shell
  * (exec_command), file reads and writes, with the user's own permissions. Neither the Agents API nor
  * the executor has a setting that leaves the shell out, and the executor only sandboxes a command when
  * the caller asks it to. So Deskwisp starts the executor itself inside a sandbox of its own, which holds
@@ -17,7 +17,7 @@ import { delimiter, dirname, join, sep } from "node:path";
  *   beyond the task's own folder and the folders those programs live in;
  * - it writes only in the task's own folder and its browser tools' sockets folder (both deleted when
  *   the task ends), and can't run code from there;
- * - its network reaches OpenAI (the port of its remote) and the task's own Chrome on this Mac, nothing else
+ * - its network reaches OpenAI (the port of its remote) and the task's own Chrome on this PC, nothing else
  *   (Deskwisp answers its app calls on a socket in its sockets folder: composio.ts serveApps);
  * - it can't send Apple Events, so it can't script other apps.
  */
@@ -35,7 +35,7 @@ export type ExecutorSandbox = {
   readable: string[];
   /** The port its link to OpenAI uses. */
   remotePort: number;
-  /** The DevTools port of the task's Chrome on this Mac. */
+  /** The DevTools port of the task's Chrome on this PC. */
   cdpPort: number;
 };
 
@@ -145,7 +145,7 @@ const head = (path: string) => {
 
 /**
  * How to run Codex in the sandbox: its own binary, and the programs and folders that takes. npm's
- * `codex` is a Node script that starts the binary for this Mac's chip, so Deskwisp runs that binary
+ * `codex` is a Node script that starts the binary for this PC's chip, so Deskwisp runs that binary
  * directly; any other script runs through its interpreter.
  */
 export function codexInSandbox(found: string, path: string): { command: string; programs: string[]; readable: string[] } {

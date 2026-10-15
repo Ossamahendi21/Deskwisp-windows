@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 const local = (request: Request) => ["localhost", "127.0.0.1", "::1"].includes(new URL(request.url).hostname);
 
 /**
- * Only from this Mac: numbers for sale near ?areaCode= (the user's own mobile's area code, else 415,
+ * Only from this PC: numbers for sale near ?areaCode= (the user's own mobile's area code, else 415,
  * when there's none), grouped by area code and city, for picking where a bot's number is from
  * (lib/server/phone.ts searchNumbers). Nothing is bought here: that's POST /api/phone, "provision".
  */

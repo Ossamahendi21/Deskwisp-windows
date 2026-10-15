@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 /**
- * Live pictures of the windows bots use on the user's Mac, for the previews in Deskwisp. Cua Driver
+ * Live pictures of the windows bots use on the user's PC, for the previews in Deskwisp. Cua Driver
  * (installed with permission to see the screen) captures one window at a time, in the background,
  * without touching what the user is doing. Nothing else on the screen is captured.
  */
@@ -92,7 +92,7 @@ export async function capture(app: string, max = 640) {
   return shot;
 }
 
-/** Every window open on the Mac that's worth watching (normal windows of real apps), for the Watch picker. */
+/** Every window open on the PC that's worth watching (normal windows of real apps), for the Watch picker. */
 export async function listWindows() {
   const skip = /^(Deskwisp|Electron|Cua Driver|cua-spacesd|Dock|Window Server|Control Center|Notification Center|CursorUIViewService|Wallpaper)$/i;
   return (await allWindows())

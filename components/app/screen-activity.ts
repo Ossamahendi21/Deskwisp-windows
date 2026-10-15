@@ -5,7 +5,7 @@ import type { Bot } from "@/lib/types";
 
 /**
  * When an agent last acted (clicked, typed, scrolled) on each of a bot's screens, by display, in
- * this Mac's clock. Streamed live from the computer's home server over the tailnet, so following
+ * this PC's clock. Streamed live from the computer's home server over the tailnet, so following
  * the action lags by well under a second. Empty for computers Deskwisp can't reach directly.
  */
 export function useScreenActivity(b: Bot) {

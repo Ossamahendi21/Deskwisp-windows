@@ -3,11 +3,11 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 /**
- * Where each Horafirm user's things on this Mac go. Deskwisp keeps the state itself in Deskwisp Cloud
- * (persist-cloud.ts), but some things stay on the Mac: images attached in chat, pages bots made,
+ * Where each Horafirm user's things on this PC go. Deskwisp keeps the state itself in Deskwisp Cloud
+ * (persist-cloud.ts), but some things stay on the PC: images attached in chat, pages bots made,
  * memory reviews, phone secrets and call logs (.data/users/<id>/), and each bot's Chrome profile and
  * the bots' workspace (~/.deskwisp/users/<id>/, ~/.deskwisp/chrome/<id>/). Each user's are their own, so
- * another account signed in on this Mac never sees them. Without a user (a self-hosted install
+ * another account signed in on this PC never sees them. Without a user (a self-hosted install
  * running on its own key) they're where they always were: .data/ and ~/.deskwisp/.
  */
 
@@ -37,7 +37,7 @@ const BESIDE = ["uploads", "pages", "memory-reviews.json", "phone-secrets.json",
 /**
  * Whose a state file from before is, if that's sure: the one Horafirm user it names anywhere (who was
  * signed in, whose cloud backup it was, whose account the bots' computers are in, who verified a
- * number or an address). None, or more than one (another account signed in on this Mac and its
+ * number or an address). None, or more than one (another account signed in on this PC and its
  * work mixed in), is nobody's for sure.
  */
 export function legacyOwner(raw: unknown): string | null {
@@ -100,7 +100,7 @@ export type LegacyMove = { owner: string | null; to: string };
 /**
  * The first start of a build that keeps each user's state apart: the one state file from before goes
  * to the user it's surely the user of, with what was beside it, and is gone from where every account
- * on this Mac read it. `name` is what it's called there: "legacy-state.json", to be uploaded to the
+ * on this PC read it. `name` is what it's called there: "legacy-state.json", to be uploaded to the
  * cloud at their next sign-in (persist-cloud.ts), or "state.json", their file on a self-hosted
  * install. A file that's nobody's for sure is kept aside in .data/legacy/<time>/ when `asideUnknown`
  * (it's never uploaded for whoever signs in), else left where it is. Null when there's nothing to move.

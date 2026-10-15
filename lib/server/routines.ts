@@ -70,7 +70,7 @@ export function setRoutineEnabled(routineId: string, enabled: boolean) {
   });
 }
 
-/** Where a routine's task runs from now on: the user's Mac, the cloud, or decided each time (auto). */
+/** Where a routine's task runs from now on: the user's PC, the cloud, or decided each time (auto). */
 export function setRoutineWhere(routineId: string, where: "auto" | "cloud" | "mac") {
   update((s) => {
     const r = s.routines.find((x) => x.id === routineId);
@@ -84,7 +84,7 @@ export function deleteRoutine(routineId: string) {
 
 /** Run everything that's due. Called on a timer. */
 function tick() {
-  // Signed out on the Mac app: nobody's routines to run.
+  // Signed out on the PC app: nobody's routines to run.
   if (!stateReady()) return;
   const now = Date.now();
   for (const r of getState().routines.filter((x) => x.enabled && x.nextRunAt && x.nextRunAt <= now)) {
@@ -119,7 +119,7 @@ export function routinesNote(botIds: string[]) {
   if (!mine.length) return "Routines: none yet.";
   const owner = ownerName();
   const line = (r: Routine) =>
-    `${r.id}: "${r.title}"${botIds.length > 1 ? ` (${bot(r.botId)?.name ?? r.botId})` : ""} · ${describeSchedule(r.schedule)}${r.enabled ? "" : " · paused"} · ${r.reminder ? "reminder message" : `task, runs ${r.where && r.where !== "auto" ? `on ${r.where === "mac" ? `${owner}'s Mac` : "the cloud computer"}` : "where Deskwisp picks"}`}`;
+    `${r.id}: "${r.title}"${botIds.length > 1 ? ` (${bot(r.botId)?.name ?? r.botId})` : ""} · ${describeSchedule(r.schedule)}${r.enabled ? "" : " · paused"} · ${r.reminder ? "reminder message" : `task, runs ${r.where && r.where !== "auto" ? `on ${r.where === "mac" ? `${owner}'s PC` : "the cloud computer"}` : "where Deskwisp picks"}`}`;
   return `Routines (change them with manage_routine):\n${mine.map(line).join("\n")}`;
 }
 

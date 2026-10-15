@@ -13,7 +13,7 @@ import { bot, update } from "./store";
 
 const joining = new Map<string, Promise<string | null>>();
 
-/** True when this Mac can reach the computer's Chrome over the tailnet right now. */
+/** True when this PC can reach the computer's Chrome over the tailnet right now. */
 export async function tailnetUp(b: Bot) {
   if (!b.tailnet) return false;
   try {

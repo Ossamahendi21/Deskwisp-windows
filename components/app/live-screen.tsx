@@ -36,7 +36,7 @@ export function LiveScreen({
   onInput?: (action: ScreenInput) => void;
   /** A screenshot didn't come (the computer may have fallen asleep since: the caller looks again). */
   onFail?: () => void;
-  /** The Chrome a task of the bot's has of its own on the user's Mac (Session.macScreen), instead of a screen. */
+  /** The Chrome a task of the bot's has of its own on the user's PC (Session.macScreen), instead of a screen. */
   mac?: number;
 }) {
   const [src, setSrc] = useState<string | null>(null);

@@ -8,7 +8,7 @@ import { getState, ownerName } from "./store";
 
 /**
  * What a bot is told about what it can use and where it's reached, the same in each of its own
- * instructions: its chat (chat.ts), its tasks on a computer or on the user's Mac (sessions.ts) and its
+ * instructions: its chat (chat.ts), its tasks on a computer or on the user's PC (sessions.ts) and its
  * calls (call.ts).
  *
  * - Its apps: the accounts the user gave it, each by name with read only or read & act, straight
@@ -25,7 +25,7 @@ import { getState, ownerName } from "./store";
 type Mode =
   /** Its chat turn: the tools are there (when it has apps), and use_app's asking goes on while the chat answers. */
   | "chat"
-  /** A task on a computer or the Mac. `tools`: whether find_app_actions and use_app reach Deskwisp from there. */
+  /** A task on a computer or the PC. `tools`: whether find_app_actions and use_app reach Deskwisp from there. */
   | "task"
   /** A call: it delegates, and its delegate (the chat) uses the apps. */
   | "call";
@@ -71,7 +71,7 @@ export function appsNote(b: Bot, mode: Mode, opts: { tools?: boolean } = {}) {
       : `use_app asks them for you and waits for their answer, so don't ask first`;
   return [
     yours,
-    `They work through Deskwisp' app gateway (Composio's tool router), which knows every action each app has. To use one: first call find_app_actions with the job in plain words ("add a row to the Q3 budget sheet", "my open Jira issues"); it searches only your apps and answers with the exact action names (like GOOGLESHEETS_BATCH_UPDATE), their inputs, how to use them and known pitfalls. Then call use_app with one exact name from that answer and its inputs. With more than one account in an app, set account to the one the job is about (its label or address, as listed above) and say which you used.`,
+    `They work through Deskwisp's app gateway (Composio's tool router), which knows every action each app has. To use one: first call find_app_actions with the job in plain words ("add a row to the Q3 budget sheet", "my open Jira issues"); it searches only your apps and answers with the exact action names (like GOOGLESHEETS_BATCH_UPDATE), their inputs, how to use them and known pitfalls. Then call use_app with one exact name from that answer and its inputs. With more than one account in an app, set account to the one the job is about (its label or address, as listed above) and say which you used.`,
     b.autoApprove
       ? `Never make up an action name or guess its inputs: if nothing fits, search again with other words. ${owner} set you to "Just do it": every action runs at once, without asking them, so do what the job needs and say what you did.`
       : `Never make up an action name or guess its inputs: if nothing fits, search again with other words. Reading runs at once. Small changes only to ${owner}'s own things (a label, a draft for them) may go at once; anything that sends, posts, shares, deletes or pays waits for ${owner}'s OK: ${asking}.`,

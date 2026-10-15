@@ -5,7 +5,7 @@ import { ownerName } from "./store";
  * How every bot writes and speaks (WRITING, SPEAKING), what it knows about Deskwisp (ABOUT_DESKWISP), how it
  * asks (ASKING) and how its answer is tidied (tidyAnswer). The text lives in cloud/style.ts, which Deskwisp
  * Cloud imports too: it answers the main bot's chat from the iPhone, so a bot says the same things on
- * the Mac and in the cloud.
+ * the PC and in the cloud.
  */
 export { ABOUT_DESKWISP, ASKING, SPEAKING, tidyAnswer, WRITING } from "@/cloud/style";
 

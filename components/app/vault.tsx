@@ -10,7 +10,7 @@ import { ago, CloseButton, post, teamOf } from "./ui";
 /*
  * The vault: everything your bots can get into, in one place. Apps (any of Composio's catalog, several
  * accounts each) with how much each bot may do in them, and logins bots sign in with. For logins, Deskwisp shows the site,
- * the username and who may use each; the password and 2FA setup key live in the Mac's Keychain and
+ * the username and who may use each; the password and 2FA setup key live in the PC's Keychain and
  * are filled straight into the sign-in page, so no AI ever sees them.
  */
 
@@ -38,7 +38,7 @@ export function VaultTab({ state, onClose }: { state: AppState; onClose: () => v
         <div className="flex items-end justify-between gap-3 pt-2">
           <div className="flex flex-col gap-0.5">
             <span className="text-[15px] font-semibold leading-5">Logins</span>
-            <span className="text-[12.5px] leading-[17px] text-[#6B6B6B]">Passwords and 2FA keys stay in your Mac&apos;s Keychain and go straight into the sign-in page. No AI ever sees them.</span>
+            <span className="text-[12.5px] leading-[17px] text-[#6B6B6B]">Passwords and 2FA keys stay in your PC&apos;s Keychain and go straight into the sign-in page. No AI ever sees them.</span>
           </div>
           {editing !== "new" && (
             <button onClick={() => setEditing("new")} className="shrink-0 rounded-full bg-ink px-3.5 py-2 text-[13px] font-semibold leading-4 text-white">
@@ -138,7 +138,7 @@ function LoginForm({ state, login, onDone }: { state: AppState; login?: VaultLog
   const [auto, setAuto] = useState(login?.auto ?? false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const field = "w-full rounded-xl bg-[#F7F7F6] px-3 py-2 text-[13.5px] leading-[18px] outline-none placeholder:text-[#9A9A98] focus:bg-white focus:shadow-[0_0_0_1.5px_#0A0A0A]";
+  const field = "w-full rounded-xl bg-[#F7F7F6] px-3 py-2 text-[13.5px] leading-[18px] outline-none placeholder:text-[#9A9A98] focus:bg-white focus:shadow-[0_0_0_1.5px_#16132B]";
   const toggleBot = (id: string) => {
     const now = bots === "all" ? state.bots.map((b) => b.id) : bots;
     const next = now.includes(id) ? now.filter((x) => x !== id) : [...now, id];
@@ -219,7 +219,7 @@ function LoginForm({ state, login, onDone }: { state: AppState; login?: VaultLog
       </div>
 
       <label className="flex items-center gap-2.5 text-[13px] leading-[18px]">
-        <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} className="size-4 accent-[#0A0A0A]" />
+        <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} className="size-4 accent-[#16132B]" />
         <span>
           Sign in automatically <span className="text-[#6B6B6B]">· otherwise you get a one-tap &ldquo;Sign in as&rdquo; when a bot asks</span>
         </span>
@@ -234,7 +234,7 @@ function LoginForm({ state, login, onDone }: { state: AppState; login?: VaultLog
           Cancel
         </button>
         <span className="flex-1" />
-        <span className="text-[11.5px] leading-4 text-[#9A9A98]">Stored in your Mac&apos;s Keychain</span>
+        <span className="text-[11.5px] leading-4 text-[#9A9A98]">Stored in your PC&apos;s Keychain</span>
       </div>
     </form>
   );

@@ -3,12 +3,12 @@ import { notReady } from "@/lib/server/ready";
 
 export const dynamic = "force-dynamic";
 
-/** Routing the bots' computers through this Mac: { available, reason?, device?, running, online?, routedComputers }. */
+/** Routing the bots' computers through this PC: { available, reason?, device?, running, online?, routedComputers }. */
 export async function GET() {
   return Response.json(await relayStatus());
 }
 
-/** Turn it on (pairs this Mac the first time, starts the relay, switches the computers) or off. */
+/** Turn it on (pairs this PC the first time, starts the relay, switches the computers) or off. */
 export async function POST(request: Request) {
   const unready = notReady();
   if (unready) return unready;

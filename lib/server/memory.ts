@@ -474,7 +474,7 @@ type Review = {
   /** Facts the user said to keep: not flagged again. */
   kept: string[];
 };
-/** The reviews, in the signed-in user's folder on this Mac (null signed out: nothing kept). */
+/** The reviews, in the signed-in user's folder on this PC (null signed out: nothing kept). */
 const reviewsFile = () => {
   const dir = userDir();
   return dir ? join(dir, "memory-reviews.json") : null;

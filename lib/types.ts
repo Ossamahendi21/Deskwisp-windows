@@ -32,7 +32,7 @@ export type Bot = {
   /**
    * Its computer's id while Deskwisp has made it and never had it ready: nothing has run on it, so a setup
    * that fails may delete it (ensureComputer). Cleared once it's ready. A computer Deskwisp didn't make (the
-   * user's free one taken up again, one from another Mac) or once had working never has it: a failed
+   * user's free one taken up again, one from another PC) or once had working never has it: a failed
    * setup never deletes that one, whatever Horafirm says about it.
    */
   computerNeverReady?: string;
@@ -47,7 +47,7 @@ export type Bot = {
    * `paused`: that plan ended, so calls and texts to it go unanswered until the user upgrades again.
    */
   phoneLine?: { numberId: string; agentId: string; plan?: boolean; paused?: boolean };
-  /** The voice it speaks in on calls (voiceFor in lib/server/call.ts), kept so Deskwisp Cloud answers its calls in the same one while the Mac is away. */
+  /** The voice it speaks in on calls (voiceFor in lib/server/call.ts), kept so Deskwisp Cloud answers its calls in the same one while the PC is away. */
   voice?: string;
   /**
    * Its AgentMail inbox (lib/server/mail.ts): the current one, and older ones (mail to them still
@@ -69,7 +69,7 @@ export type Bot = {
   tailnet?: { ip: string; name: string };
   /** How hard it thinks on its threads. "auto" (the default) lets Jev judge each task: high for hard ones, medium otherwise. */
   effort?: Effort;
-  /** Where this bot's tasks run: decided per task (auto), always its cloud computer, or always the user's Mac. */
+  /** Where this bot's tasks run: decided per task (auto), always its cloud computer, or always the user's PC. */
   runsOn?: "auto" | "cloud" | "mac";
   /**
    * "Just do it": it sends, posts, changes and deletes in the user's apps and email without waiting for
@@ -103,7 +103,7 @@ export type Workspace = {
   /**
    * The "Pick your Deskwisp address" step (components/app/mail-address.tsx): waiting for the user to pick
    * the workspace's handle before its first inbox (`offer` unset), or offering to change one Deskwisp
-   * picked for them (`offer`: they chose later, or a plan set it up while the Mac was closed).
+   * picked for them (`offer`: they chose later, or a plan set it up while the PC was closed).
    * Unset once they've picked, kept it, or chosen later.
    */
   mailPick?: { at: number; offer?: boolean };
@@ -165,7 +165,7 @@ export function workBot(b: Bot, bots: Bot[]): Bot {
 
 export type Effort = "auto" | "low" | "medium" | "high";
 
-/** Where bots' screens live: Chrome windows on the user's Mac, or Horafirm cloud computers. */
+/** Where bots' screens live: Chrome windows on the user's PC, or Horafirm cloud computers. */
 export type Host = "mac" | "horafirm";
 
 /** A conversation: one per bot, plus group chats with several bots. */
@@ -296,7 +296,7 @@ export type Session = {
   channelBack?: ChannelPlace;
   /** Started from an email the user sent the bot: its result is emailed back to them as a reply to that email. */
   emailBack?: { inboxId: string; messageId: string };
-  /** The exact window on the user's Mac this task last worked in (from its tools: window id, process id). */
+  /** The exact window on the user's PC this task last worked in (from its tools: window id, process id). */
   macWindow?: { windowId: number; pid?: number; at: number };
   /**
    * Started on a turn someone else began (an email, a text or a call from outside Deskwisp: StartOptions.outside).
@@ -306,14 +306,14 @@ export type Session = {
   fromOutside?: true;
   /** The user dismissed it: it stopped, and it doesn't ask for them again. */
   dismissed?: boolean;
-  /** A newer thread took over this job (moved to the Mac, or asked for again); this one stays quiet. */
+  /** A newer thread took over this job (moved to the PC, or asked for again); this one stays quiet. */
   replacedBy?: string;
-  /** On the Mac: the cloud thread it carries on from (sessions.ts moveToMac). It starts once that one's run has ended, with its record. */
+  /** On the PC: the cloud thread it carries on from (sessions.ts moveToMac). It starts once that one's run has ended, with its record. */
   movedFrom?: string;
   /**
-   * A cloud thread that could carry on on the user's Mac, by the bot's say or someone's words, though the
-   * user didn't ask: the app offers "Move to your Mac?" while it runs, and nothing moves until they tap it.
-   * Cleared when its run ends (a tap then would do the whole task again on the Mac).
+   * A cloud thread that could carry on on the user's PC, by the bot's say or someone's words, though the
+   * user didn't ask: the app offers "Move to your PC?" while it runs, and nothing moves until they tap it.
+   * Cleared when its run ends (a tap then would do the whole task again on the PC).
    */
   offerMac?: boolean;
   id: string;
@@ -343,8 +343,8 @@ export type Session = {
    */
   owed?: { id: string; type: "computer" | "function"; output?: string; checks?: { id: string; code?: string | null; message?: string | null }[] }[];
   /**
-   * The Agents API environment its executor connects to, and the workspace (and Full access on this Mac, MacState.fullAccess, its browser tools' sockets folder, and whether it had the user's apps there; on a computer, the screen its browser tools drive) it was made with, kept so a finished thread can pick up again.
-   * `ui`: it had the Mac tools (Cua Driver), through Deskwisp' own MCP server ("deskwisp"; true was Cua's own, which a thread doesn't pick up again).
+   * The Agents API environment its executor connects to, and the workspace (and Full access on this PC, MacState.fullAccess, its browser tools' sockets folder, and whether it had the user's apps there; on a computer, the screen its browser tools drive) it was made with, kept so a finished thread can pick up again.
+   * `ui`: it had the PC tools (Cua Driver), through Deskwisp's own MCP server ("deskwisp"; true was Cua's own, which a thread doesn't pick up again).
    */
   env?: { id: string; remoteUrl: string; workspace?: string; fullAccess?: boolean; sockets?: string; apps?: boolean; data?: boolean; ui?: boolean | "deskwisp"; display?: number };
   steps: SessionStep[];
@@ -364,17 +364,17 @@ export type Session = {
   helperOrder?: number[];
   /** Set on a thread started from a watched screen: it runs on that screen, on that site. */
   onWatch?: string;
-  /** Where it runs: the bot's cloud computer (also when unset, as older threads are), or a Chrome of its own on the user's Mac. */
+  /** Where it runs: the bot's cloud computer (also when unset, as older threads are), or a Chrome of its own on the user's PC. */
   runsOn?: "cloud" | "mac";
   /** Deskwisp is still deciding where it runs. */
   routing?: boolean;
   /** Deskwisp couldn't tell where it should run, so it's asking the user. */
   askWhere?: boolean;
-  /** A last step to do on the user's Mac once the cloud part is done, given its result ("…then text Maria the summary"). */
+  /** A last step to do on the user's PC once the cloud part is done, given its result ("…then text Maria the summary"). */
   thenOnMac?: string;
-  /** On the Mac: the apps it has used, most recent last (for the live window previews). */
+  /** On the PC: the apps it has used, most recent last (for the live window previews). */
   macApps?: string[];
-  /** On the Mac: which of its bot's Chromes there it uses, or last used (0 to 2; lib/server/local.ts macTaskPort). */
+  /** On the PC: which of its bot's Chromes there it uses, or last used (0 to 2; lib/server/local.ts macTaskPort). */
   macScreen?: number;
   /** What the bot is doing right now, in a word or two ("searching", "filling a form"), for its cursor caption. */
   activity?: string;
@@ -414,7 +414,7 @@ export type Routine = {
 
 /**
  * You've taken control of a bot's screen (`display`), or of the Chrome a task of the bot's has of its
- * own on your Mac (`macScreen`, Session.macScreen); the bot is paused there until you hand it back.
+ * own on your PC (`macScreen`, Session.macScreen); the bot is paused there until you hand it back.
  */
 export type Takeover = { botId: BotId; sessionId?: string; since: number } & ({ display: number; macScreen?: undefined } | { macScreen: number; display?: undefined });
 
@@ -481,7 +481,7 @@ export type AppState = {
   watches?: Watch[];
   /** Logins bots can sign in with. Only what's safe to show is here; secrets live in the Keychain. */
   vault?: VaultLogin[];
-  /** The user's own Mac, where bots can work in a Chrome of their own. */
+  /** The user's own PC, where bots can work in a Chrome of their own. */
   mac?: MacState;
   /** The user's real app accounts, connected through Composio (lib/server/composio.ts). Several per app is fine. */
   accounts?: AppAccount[];
@@ -499,7 +499,7 @@ export type AppState = {
    * from their bots, and when they proved the number is theirs with a texted code
    * (lib/server/verify.ts). Only a verified number counts as the user, for a text or call from it and
    * for texts to it. One saved before verification existed has no verifiedAt, and Settings asks to
-   * verify it. `userId` is the Horafirm user who verified it: another account signed in on this Mac
+   * verify it. `userId` is the Horafirm user who verified it: another account signed in on this PC
    * doesn't inherit it (ofThisUser in lib/server/store.ts). `claimedVia`: it became theirs by being
    * the first to call or text one of their bots' new numbers (Deskwisp Cloud's deskwisp.phone_lines), not
    * by a code; verifiedAt is then when it did.
@@ -528,7 +528,7 @@ export type AppState = {
   /** The Horafirm account signed in to this Deskwisp (a Deskwisp user is an Horafirm user). The key is in the Keychain. */
   account?: { user: { id: string; email?: string; name?: string }; signedInAt: number };
   /**
-   * Settings → You → Share usage data turned off: no usage events from this account, from any Mac or
+   * Settings → You → Share usage data turned off: no usage events from this account, from any PC or
    * from Deskwisp Cloud (which reads it here). Unset: on (README, Privacy).
    */
   analyticsOff?: boolean;
@@ -547,16 +547,16 @@ export type AppState = {
    */
   setup?: { doneAt?: number; skipped?: string[] };
   /**
-   * Routing the bots' computers through this Mac (lib/server/relay.ts). The pairing code is in the
+   * Routing the bots' computers through this PC (lib/server/relay.ts). The pairing code is in the
    * Keychain. It's on by default once Horafirm offers it; `turnedOff` is the user's own "off", which
    * stays until they turn it on again.
    */
   relay?: { deviceId?: string; deviceName?: string; on: boolean; turnedOff?: boolean };
-  /** Per computer routed through this Mac: how its route was before, to put back when routing stops. */
+  /** Per computer routed through this PC: how its route was before, to put back when routing stops. */
   relayRoutes?: Record<string, RelayRoute>;
   /**
-   * What's each of the user's other Macs' own (routing through it, whether bots can work on it, its setup), by device
-   * id, as Deskwisp Cloud keeps the state (lib/server/state-merge.ts). This Mac's own is at the top level
+   * What's each of the user's other PCs' own (routing through it, whether bots can work on it, its setup), by device
+   * id, as Deskwisp Cloud keeps the state (lib/server/state-merge.ts). This PC's own is at the top level
    * (relay, relayRoutes, mac, setup) and goes up under its id.
    */
   macs?: Record<string, { relay?: AppState["relay"]; relayRoutes?: AppState["relayRoutes"]; mac?: MacState; setup?: AppState["setup"] }>;
@@ -571,8 +571,8 @@ export type AppState = {
 };
 
 /**
- * One computer's switch to this Mac's route. `before` is how Horafirm had it (proxy on or off, and through
- * what); `applied` is whether it's on this Mac's route now (a computer at work switches when it's free).
+ * One computer's switch to this PC's route. `before` is how Horafirm had it (proxy on or off, and through
+ * what); `applied` is whether it's on this PC's route now (a computer at work switches when it's free).
  */
 export type RelayRoute = {
   before: { proxyOn: boolean; mode: "residential" | "device"; deviceId?: string };
@@ -598,7 +598,7 @@ export type UsageEvent = {
   qty?: number;
   /**
    * For model.tokens: which model, and what it was for: chat, a task (on a bot's computer or the
-   * user's Mac), memory, a call, or a quick check (Jev).
+   * user's PC), memory, a call, or a quick check (Jev).
    */
   model?: string;
   source?: "chat" | "session" | "memory" | "call" | "decide";
@@ -607,7 +607,7 @@ export type UsageEvent = {
   outputTokens?: number;
 };
 
-/** The user's Mac as a place bots can work: whether it's ready, and the words that send a task there. */
+/** The user's PC as a place bots can work: whether it's ready, and the words that send a task there. */
 export type MacState = {
   /** Bots can work here: the Codex CLI that runs their tools is installed, and Chrome is. */
   ready: boolean;
@@ -616,15 +616,15 @@ export type MacState = {
   /**
    * The one thing it waits on when it isn't ready (lib/server/mac.ts checkMac): the Codex CLI (Deskwisp
    * installs it by itself; `installing` while it does), or Chrome. "elsewhere": this server isn't on
-   * the user's Mac, so there's nothing to do here.
+   * the user's PC, so there's nothing to do here.
    */
   next?: "codex" | "chrome" | "elsewhere";
   installing?: boolean;
   checkedAt?: number;
-  /** Words that mean a task belongs on the Mac (apps like Messages or Notes, "my desktop"…). */
+  /** Words that mean a task belongs on the PC (apps like Messages or Notes, "my desktop"…). */
   rules: string[];
   /**
-   * Full access: bots' tasks here run outside Deskwisp' sandbox (lib/server/executor-sandbox.ts), as the
+   * Full access: bots' tasks here run outside Deskwisp's sandbox (lib/server/executor-sandbox.ts), as the
    * user, with a shell, their files and their apps, and every browser tool. Off by default.
    */
   fullAccess?: boolean;
@@ -725,7 +725,7 @@ export type ChannelPlace = { linkId: string; chat: string; messageId?: string; t
 export type AppApproval = { id: string; botId: string; chatId?: string; sessionId?: string; app: string; action: string; title: string; detail: string; at: number };
 
 /**
- * A saved login. The password and 2FA setup key are in the Mac's Keychain (lib/server/keychain.ts);
+ * A saved login. The password and 2FA setup key are in the PC's Keychain (lib/server/keychain.ts);
  * Deskwisp fills them straight into the sign-in page, so no model ever sees them.
  */
 export type VaultLogin = {
@@ -768,7 +768,7 @@ export type Watch = {
   /** When Jev last read the page (it only reads when the page changed). */
   readAt?: number;
   /**
-   * A window on the user's Mac instead of a bot's screen (then `display` is 0): the app, the window's
+   * A window on the user's PC instead of a bot's screen (then `display` is 0): the app, the window's
    * title (a conversation, a mailbox) to find it again, and its id while it stays open.
    */
   mac?: { app: string; title: string; windowId?: number };
@@ -812,7 +812,7 @@ export const computerAsleep = (status: string | undefined) => status === "suspen
 
 /**
  * Something is using a computer in the cloud right now: a task working there (starting or running, not
- * one on the user's Mac), or the user driving one of its screens. `onIt`: whether a bot works on it.
+ * one on the user's PC), or the user driving one of its screens. `onIt`: whether a bot works on it.
  */
 export const computerInUse = (state: Pick<AppState, "sessions" | "takeover">, onIt: (botId: BotId) => boolean) =>
   state.sessions.some((s) => onIt(s.botId) && s.runsOn !== "mac" && (s.status === "starting" || s.status === "running")) ||

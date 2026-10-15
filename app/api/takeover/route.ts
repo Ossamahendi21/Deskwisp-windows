@@ -1,7 +1,7 @@
 import { returnControl, takeOver, takeOverMacChrome } from "@/lib/server/sessions";
 import { notReady } from "@/lib/server/ready";
 
-/** Take control of one of a bot's screens, or with `macScreen` of a Chrome its Mac tasks use. The thread running there pauses. */
+/** Take control of one of a bot's screens, or with `macScreen` of a Chrome its PC tasks use. The thread running there pauses. */
 export async function POST(request: Request) {
   const unready = notReady();
   if (unready) return unready;

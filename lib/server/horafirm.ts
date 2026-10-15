@@ -188,7 +188,7 @@ const changed = () => void (g.deskwispComputerChanges = computerChanges() + 1);
  * The computers this server made (a create, a fork or a clone) and hasn't had ready yet, by id. Only
  * such a computer may be deleted by a setup that fails (ensureComputer in sessions.ts, which keeps the
  * mark on the bot as computerNeverReady): one Deskwisp didn't make (the user's free computer taken up again,
- * one from another Mac) or once had working is never deleted for a failed setup, whatever Horafirm says.
+ * one from another PC) or once had working is never deleted for a failed setup, whatever Horafirm says.
  */
 const madeHere = (g.deskwispMadeHere ??= new Set());
 /** Whether this server made the computer and hasn't had it ready since (madeReady). */
@@ -393,7 +393,7 @@ export const horafirm = {
    * Horafirm's stream sockets (?token=), and whether Horafirm's WebRTC is on for it (instance_details.webrtc:
    * true, false when someone turned it off on Horafirm, null when nobody chose, which means off on
    * production), and whether it's running. Server-side only: hand the password only to the user's own
-   * app on this Mac, never to anything remote. It changes when the computer restarts, so it's read
+   * app on this PC, never to anything remote. It changes when the computer restarts, so it's read
    * fresh each time.
    */
   streamInfo: async (computerId: string) => {
@@ -444,7 +444,7 @@ export const horafirm = {
 
   /**
    * Delete a computer, but only one in the Deskwisp workspace (or the one DESKWISP_HORAFIRM_WORKSPACE pinned:
-   * computers made there before sign-in are Deskwisp' too, when the account that signed in can reach them).
+   * computers made there before sign-in are Deskwisp's too, when the account that signed in can reach them).
    */
   remove: async (computerId: string) => {
     const epoch = stateEpoch();
@@ -554,7 +554,7 @@ export const computerAsleepError = (e: unknown) => e instanceof HorafirmError &&
 export type HorafirmEgressDevice = { id: string; name: string; online: boolean | null; computers?: unknown };
 
 /**
- * Personal-device egress: a Mac paired with Horafirm carries a computer's browsing out through its own
+ * Personal-device egress: a PC paired with Horafirm carries a computer's browsing out through its own
  * internet. Horafirm answers 403 where it isn't available yet (see HorafirmUnavailable).
  */
 export const egress = {

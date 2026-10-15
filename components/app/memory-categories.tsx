@@ -9,7 +9,7 @@ import { ago, clockTime, CloseButton, currentWorkspace, useNow } from "./ui";
 
 /*
  * What Deskwisp knows, sorted into categories that fill themselves from the workspace's memory
- * (lib/memory-categories.ts, sorted on this Mac by lib/server/memory-categories.ts): under Memory in
+ * (lib/memory-categories.ts, sorted on this PC by lib/server/memory-categories.ts): under Memory in
  * the sidebar, a section each that folds, with what matters now (MemorySections); and a page on the
  * right for one category at a time, with everything (MemoryView), where each item opens to say where
  * it was learned, and can be marked done, renamed, hidden or forgotten. Both show the same copy of a
@@ -411,10 +411,10 @@ function When({ item }: { item: MemoryItem }) {
 /** Items a section shows before "Show all". */
 const FIRST = 5;
 
-/** Where this Mac keeps whether a section is open: per Horafirm account and workspace. */
+/** Where this PC keeps whether a section is open: per Horafirm account and workspace. */
 const openKey = (user: string, ws: string, c: CategoryId) => `deskwisp.memory.open.${user}.${ws}.${c}`;
 
-/** Whether a section is open, as the user left it on this Mac (folded until opened). */
+/** Whether a section is open, as the user left it on this PC (folded until opened). */
 function readOpen(user: string, ws: string, c: CategoryId) {
   try {
     return localStorage.getItem(openKey(user, ws, c)) === "1";
@@ -431,7 +431,7 @@ function writeOpen(user: string, ws: string, c: CategoryId, open: boolean) {
   }
 }
 
-/** Where this Mac keeps whether the whole group is open (open until folded). */
+/** Where this PC keeps whether the whole group is open (open until folded). */
 const groupKey = (user: string, ws: string) => `deskwisp.memory.group.${user}.${ws}`;
 
 function readGroupOpen(user: string, ws: string) {
@@ -464,7 +464,7 @@ function OpenIcon() {
  * start, blank until chats fill it ("Fills in as you chat"), in the registry's order. The name folds
  * the whole group, and an arrow beside it opens the page. Each section counts and lists what matters
  * now (events coming up, open tasks and promises, all of the rest), its first five, folded until the
- * user opens it (this Mac remembers both); one with nothing now but something before offers the page.
+ * user opens it (this PC remembers both); one with nothing now but something before offers the page.
  * While the sidebar searches, only sections with a match, every one open. Nothing for an account the
  * categories aren't open to (lib/memory-categories.ts), or where memory is off.
  */
@@ -487,7 +487,7 @@ function LiveSections({ user, ws, last, query, onOpen }: { user: string; ws: str
 
 /**
  * The sections for a snapshot of the categories (MemorySections, without the fetching). `user`: the
- * Horafirm account, whose folded sections this Mac remembers; `query`: the sidebar's search, as typed.
+ * Horafirm account, whose folded sections this PC remembers; `query`: the sidebar's search, as typed.
  */
 export function SidebarSections({
   user = "",
@@ -502,7 +502,7 @@ export function SidebarSections({
   query?: string;
   onOpen: (open: MemoryOpen) => void;
 }) {
-  // Sections, and the whole group, folded or opened since Deskwisp opened, over what this Mac remembers.
+  // Sections, and the whole group, folded or opened since Deskwisp opened, over what this PC remembers.
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const [groupToggled, setGroupToggled] = useState<Record<string, boolean>>({});
   if (!snap?.on) return null;
@@ -530,7 +530,7 @@ export function SidebarSections({
             writeGroupOpen(user, ws, !shown);
           }}
           aria-expanded={shown}
-          className="flex items-center gap-1.5 rounded-[6px] px-2.5 text-left text-[13px] font-medium leading-4 text-[#9A9A98] outline-none hover:text-[#6B6B6B] focus-visible:shadow-[0_0_0_1.5px_#0A0A0A]"
+          className="flex items-center gap-1.5 rounded-[6px] px-2.5 text-left text-[13px] font-medium leading-4 text-[#9A9A98] outline-none hover:text-[#6B6B6B] focus-visible:shadow-[0_0_0_1.5px_#16132B]"
         >
           {GROUP_NAME}
           <Chevron open={shown} />
@@ -540,7 +540,7 @@ export function SidebarSections({
           onClick={() => onOpen({ category: first.id })}
           aria-label={`Open ${GROUP_NAME}`}
           title={`Open ${GROUP_NAME}`}
-          className="flex size-6 items-center justify-center rounded-[6px] text-[#9A9A98] opacity-0 outline-none hover:bg-black/[0.04] hover:text-[#6B6B6B] focus-visible:opacity-100 focus-visible:shadow-[0_0_0_1.5px_#0A0A0A] group-hover/orbit:opacity-100"
+          className="flex size-6 items-center justify-center rounded-[6px] text-[#9A9A98] opacity-0 outline-none hover:bg-black/[0.04] hover:text-[#6B6B6B] focus-visible:opacity-100 focus-visible:shadow-[0_0_0_1.5px_#16132B] group-hover/orbit:opacity-100"
         >
           <OpenIcon />
         </button>
@@ -564,7 +564,7 @@ export function SidebarSections({
                 writeOpen(user, ws, c.id, !open);
               }}
               aria-expanded={open}
-              className="flex h-[34px] items-center gap-2 rounded-[10px] px-2.5 text-left outline-none hover:bg-black/[0.03] focus-visible:shadow-[inset_0_0_0_1.5px_#0A0A0A]"
+              className="flex h-[34px] items-center gap-2 rounded-[10px] px-2.5 text-left outline-none hover:bg-black/[0.03] focus-visible:shadow-[inset_0_0_0_1.5px_#16132B]"
             >
               <span className="text-[#6B6B6B]">
                 <CategoryIcon id={c.id} />
@@ -581,7 +581,7 @@ export function SidebarSections({
               <button
                 // From a search, the page opens with it filled in, showing the same matches.
                 onClick={() => onOpen(q ? { category: c.id, query: typed } : { category: c.id })}
-                className="flex h-[30px] shrink-0 items-center rounded-[10px] pl-8 pr-2.5 text-left text-[13px] leading-[18px] text-[#6B6B6B] outline-none hover:bg-black/[0.03] hover:text-ink focus-visible:shadow-[inset_0_0_0_1.5px_#0A0A0A]"
+                className="flex h-[30px] shrink-0 items-center rounded-[10px] pl-8 pr-2.5 text-left text-[13px] leading-[18px] text-[#6B6B6B] outline-none hover:bg-black/[0.03] hover:text-ink focus-visible:shadow-[inset_0_0_0_1.5px_#16132B]"
               >
                 {items.length ? `Show all ${items.length}` : c.id === "events" ? `${total} past` : snap.items.every((i) => i.category !== c.id || i.done) ? `${total} done` : `${total} older`}
               </button>
@@ -599,7 +599,7 @@ function SidebarRow({ item, onClick }: { item: MemoryItem; onClick: () => void }
   return (
     <button
       onClick={onClick}
-      className="flex h-[30px] shrink-0 items-center gap-2 rounded-[10px] pl-8 pr-2.5 text-left outline-none hover:bg-black/[0.03] focus-visible:shadow-[inset_0_0_0_1.5px_#0A0A0A]"
+      className="flex h-[30px] shrink-0 items-center gap-2 rounded-[10px] pl-8 pr-2.5 text-left outline-none hover:bg-black/[0.03] focus-visible:shadow-[inset_0_0_0_1.5px_#16132B]"
     >
       <span className="min-w-0 flex-1 truncate text-[13.5px] leading-[18px]">
         <span className={greyed(item) ? "text-[#9A9A98]" : "text-ink"}>{undash(item.title)}</span>
@@ -802,7 +802,7 @@ export function MemoryPage({
                 e.preventDefault();
                 void add();
               }}
-              className="flex h-9 items-center gap-2 rounded-full bg-white pl-3.5 pr-1 shadow-[0_0_0_1px_#E6E6E3] focus-within:shadow-[0_0_0_1.5px_#0A0A0A]"
+              className="flex h-9 items-center gap-2 rounded-full bg-white pl-3.5 pr-1 shadow-[0_0_0_1px_#E6E6E3] focus-within:shadow-[0_0_0_1.5px_#16132B]"
             >
               <span aria-hidden className="text-[16px] leading-none text-[#9A9A98]">
                 +
@@ -821,7 +821,7 @@ export function MemoryPage({
                 </button>
               )}
             </form>
-            <label className="flex h-9 items-center gap-2 rounded-full bg-[#F7F7F6] px-3.5 text-[#9A9A98] focus-within:bg-white focus-within:shadow-[0_0_0_1.5px_#0A0A0A]">
+            <label className="flex h-9 items-center gap-2 rounded-full bg-[#F7F7F6] px-3.5 text-[#9A9A98] focus-within:bg-white focus-within:shadow-[0_0_0_1.5px_#16132B]">
               <SearchIcon />
               <input
                 value={search}
@@ -893,7 +893,7 @@ export function MemoryPage({
             <div className="py-12 text-center text-[13.5px] leading-5 text-[#6B6B6B]">Memory isn&rsquo;t on yet.</div>
           ) : !all.length ? (
             <div className="flex flex-col items-center gap-3 py-12 text-center">
-              <Mascot botId="wispy" color="#0A0A0A" size={52} />
+              <Mascot botId="wispy" color="#16132B" size={52} />
               <span className="max-w-[300px] text-[13.5px] leading-5 text-[#6B6B6B]">
                 {snap.hidden?.some((h) => h.category === c.id) ? "Everything here is hidden." : c.empty}
               </span>
@@ -1030,7 +1030,7 @@ export function ItemRow({ item, last, open, onToggle, act }: { item: MemoryItem;
               disabled={busy}
               aria-label={item.done ? "Mark not done" : "Mark done"}
               className={`mt-px flex size-[18px] shrink-0 items-center justify-center rounded-full disabled:opacity-50 ${
-                item.done ? "bg-[#9A9A98]" : "shadow-[inset_0_0_0_1.5px_#C9C9C6] hover:shadow-[inset_0_0_0_1.5px_#0A0A0A]"
+                item.done ? "bg-[#9A9A98]" : "shadow-[inset_0_0_0_1.5px_#C9C9C6] hover:shadow-[inset_0_0_0_1.5px_#16132B]"
               }`}
             >
               {item.done && <CheckIcon size={11} color="#FFFFFF" />}
@@ -1210,7 +1210,7 @@ export function ForgetConfirm({ busy, onForget, onCancel }: { busy: boolean; onF
           autoFocus
           onClick={onCancel}
           disabled={busy}
-          className="rounded-full px-2.5 py-1 text-[12px] font-medium leading-4 text-[#3A3A38] outline-none hover:bg-white focus-visible:shadow-[0_0_0_1.5px_#0A0A0A] disabled:opacity-40"
+          className="rounded-full px-2.5 py-1 text-[12px] font-medium leading-4 text-[#3A3A38] outline-none hover:bg-white focus-visible:shadow-[0_0_0_1.5px_#16132B] disabled:opacity-40"
         >
           Cancel
         </button>
@@ -1236,7 +1236,7 @@ export function EditForm({
   const [title, setTitle] = useState(item.title);
   const [detail, setDetail] = useState(item.detail);
   const name = useRef<HTMLInputElement>(null);
-  const field = "w-full rounded-xl bg-[#F7F7F6] px-3 py-2 text-[13.5px] leading-[18px] outline-none placeholder:text-[#9A9A98] focus:bg-white focus:shadow-[0_0_0_1.5px_#0A0A0A]";
+  const field = "w-full rounded-xl bg-[#F7F7F6] px-3 py-2 text-[13.5px] leading-[18px] outline-none placeholder:text-[#9A9A98] focus:bg-white focus:shadow-[0_0_0_1.5px_#16132B]";
   return (
     <form
       onSubmit={(e) => {

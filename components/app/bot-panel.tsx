@@ -150,20 +150,20 @@ function Details({
           label={reach ? `Text ${prettyPhone(reach)}` : `Message ${b.name}`}
           onClick={() => (reach ? window.open(`sms:${reach}`) : onOpenChat(botChatId(b.id)))}
         >
-          <path d="M2 6.5C2 4 4.2 2 7 2s5 2 5 4.5S9.8 11 7 11c-.6 0-1.2-.1-1.7-.2L2.5 12l.7-2.3C2.4 8.8 2 7.7 2 6.5z" fill="#0A0A0A" />
+          <path d="M2 6.5C2 4 4.2 2 7 2s5 2 5 4.5S9.8 11 7 11c-.6 0-1.2-.1-1.7-.2L2.5 12l.7-2.3C2.4 8.8 2 7.7 2 6.5z" fill="#16132B" />
         </ActionButton>
         {/* Every number takes calls: the workspace's (the main bot's), or the bot's own. */}
         <ActionButton label={reach ? `Call ${prettyPhone(reach)}` : "Calling arrives with its phone"} disabled={!reach} onClick={() => reach && window.open(`tel:${reach}`)}>
-          <path d="M3 2.2h2.6l1 2.6-1.6 1a7 7 0 003 3l1-1.6 2.6 1V11a.9.9 0 01-.9.9A9.6 9.6 0 012.1 3.1.9.9 0 013 2.2z" fill="#0A0A0A" />
+          <path d="M3 2.2h2.6l1 2.6-1.6 1a7 7 0 003 3l1-1.6 2.6 1V11a.9.9 0 01-.9.9A9.6 9.6 0 012.1 3.1.9.9 0 013 2.2z" fill="#16132B" />
         </ActionButton>
         {/* Video calls with bots aren't here yet; meanwhile it books a video call with the Deskwisp team. */}
         <ActionButton label="Book a 20-minute video call with the Deskwisp team" onClick={() => window.open(BOOK_A_CALL)}>
-          <rect x="1.2" y="3.5" width="8" height="7" rx="1.5" fill="#0A0A0A" />
-          <path d="M9.6 6.2l3.2-2v5.6L9.6 7.8z" fill="#0A0A0A" />
+          <rect x="1.2" y="3.5" width="8" height="7" rx="1.5" fill="#16132B" />
+          <path d="M9.6 6.2l3.2-2v5.6L9.6 7.8z" fill="#16132B" />
         </ActionButton>
         <ActionButton label={b.email ? `Email ${b.email}` : emailRoom ? emailRoom.text : emailOnAsk ? `${b.name} has no email yet` : plan.planNeeded ? "An email comes with Pro and Max" : "Its inbox is coming"} disabled={!b.email} onClick={() => b.email && window.open(`mailto:${b.email}`)}>
-          <rect x="1.5" y="3" width="11" height="8.5" rx="1.5" fill="none" stroke="#0A0A0A" strokeWidth="1.3" />
-          <path d="M2 4l5 4 5-4" fill="none" stroke="#0A0A0A" strokeWidth="1.3" strokeLinejoin="round" />
+          <rect x="1.5" y="3" width="11" height="8.5" rx="1.5" fill="none" stroke="#16132B" strokeWidth="1.3" />
+          <path d="M2 4l5 4 5-4" fill="none" stroke="#16132B" strokeWidth="1.3" strokeLinejoin="round" />
         </ActionButton>
       </div>
       {tabs}
@@ -211,11 +211,11 @@ function Details({
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-[13px] font-semibold leading-4">Works on</span>
           <span className="text-[12px] leading-4 text-[#6B6B6B]">
-            {(b.runsOn ?? "auto") === "auto" ? "Its cloud computer, or your Mac when a task needs it" : b.runsOn === "mac" ? "Your Mac, always" : "Its cloud computer, always"}
+            {(b.runsOn ?? "auto") === "auto" ? "Its cloud computer, or your PC when a task needs it" : b.runsOn === "mac" ? "Your PC, always" : "Its cloud computer, always"}
           </span>
         </div>
         <div className="flex shrink-0 gap-0.5 rounded-full bg-black/[0.05] p-[3px]">
-          {([["auto", "Auto"], ["cloud", "Cloud"], ["mac", "Your Mac"]] as const).map(([v, label]) => (
+          {([["auto", "Auto"], ["cloud", "Cloud"], ["mac", "Your PC"]] as const).map(([v, label]) => (
             <button
               key={v}
               onClick={() => void post("/api/bots", { botId: b.id, runsOn: v }, "PATCH")}
@@ -670,7 +670,7 @@ function GetNumber({ bot: b, plan, room, onUpgrade }: { bot: Bot; plan: PhonePla
           aria-label="Area code"
           inputMode="numeric"
           maxLength={3}
-          className="h-7 w-[64px] rounded-full bg-[#F7F7F6] px-3 text-[13px] tabular-nums outline-none shadow-[0_0_0_1px_#E6E6E3] focus:shadow-[0_0_0_1.5px_#0A0A0A] disabled:opacity-50"
+          className="h-7 w-[64px] rounded-full bg-[#F7F7F6] px-3 text-[13px] tabular-nums outline-none shadow-[0_0_0_1px_#E6E6E3] focus:shadow-[0_0_0_1.5px_#16132B] disabled:opacity-50"
         />
         {(searching || code === null) && <span className="text-[#9A9A98]">Looking for numbers…</span>}
       </label>

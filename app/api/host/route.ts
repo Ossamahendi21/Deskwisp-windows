@@ -2,7 +2,7 @@ import { update } from "@/lib/server/store";
 import type { Host } from "@/lib/types";
 import { notReady } from "@/lib/server/ready";
 
-/** Switch where new sessions run: Chrome windows on this Mac, or Horafirm cloud computers. */
+/** Switch where new sessions run: Chrome windows on this PC, or Horafirm cloud computers. */
 export async function POST(request: Request) {
   const unready = notReady();
   if (unready) return unready;

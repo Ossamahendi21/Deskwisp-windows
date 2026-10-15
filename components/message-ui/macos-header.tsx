@@ -51,7 +51,7 @@ import { GroupAvatar, groupAvatarMetrics } from "@/components/message-ui/group-a
  * merged — what the shared component adds is the `UIBlurEffect` plate behind the faces, which is
  * measured (`groupAvatarPlate`) and which the private copy deliberately did not draw.
  *
- * **Composing** (`compose`). On the Mac a new message is not a sheet and not a screen: the window it
+ * **Composing** (`compose`). On the PC a new message is not a sheet and not a screen: the window it
  * is already in becomes the compose window, and this bar becomes the recipient field. The avatar, the
  * name pill and the FaceTime button go; the measured compose button stays where it is; a "To:" field
  * and a ⊕ take the rest of the bar. Nothing about that state is measured — see `macHeaderMetrics.toField`
@@ -86,7 +86,7 @@ export const macHeaderMetrics = {
    * ChatKit 26.5 through a Catalyst probe that swizzles `-[UIDevice userInterfaceIdiom]` to 5 before
    * ChatKit loads and then reads `+[CKUIBehaviorMac sharedBehaviors]`. **`CKUIBehaviorMac` and
    * `CKUIBehaviorPhone` disagree on almost every one of these**, which is the whole reason they were
-   * read on the Mac rather than inherited; the Phone reading is quoted beside each so the swap is
+   * read on the PC rather than inherited; the Phone reading is quoted beside each so the swap is
    * visible:
    * - `toFieldPreferredHeight` = **44** [Phone 44] — the field's own height.
    * - `toFieldYOffset` = **4** [Phone 0] and `toFieldXOffset` = **4.5** [Phone 0].
@@ -94,7 +94,7 @@ export const macHeaderMetrics = {
    *   clear inside itself, leading then trailing.
    * - `toFieldInterItemSpacing` = **5** [Phone 0] between the label and the first recipient, and
    *   `toFieldInterlineSpacing` = **6** [Phone 6] between wrapped rows of recipients.
-   * - `shouldShowDisclosureChevronInRecipientAtoms` = **0** [Phone **1**]: a recipient token on the Mac
+   * - `shouldShowDisclosureChevronInRecipientAtoms` = **0** [Phone **1**]: a recipient token on the PC
    *   carries no disclosure chevron. `shouldAlignRecipientGlyphsWithMargins` = **1** [Phone 0].
    *
    * `top` is **4**, and that is `toFieldYOffset` and this bar's own measured geometry agreeing rather
@@ -156,7 +156,7 @@ export type MacHeaderProps = Omit<ComponentProps<"header">, "children"> & {
   /** What is typed in the "To:" field. Controlled; leave it out and the field holds its own text. */
   recipient?: string;
   onRecipientChange?: (value: string) => void;
-  /** The ⊕ at the trailing end of the field: on the Mac it opens the system contact picker. */
+  /** The ⊕ at the trailing end of the field: on the PC it opens the system contact picker. */
   onAddRecipient?: () => void;
 };
 

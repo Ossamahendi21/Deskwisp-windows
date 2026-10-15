@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
  * (TAILSCALE_AUTH_KEY, a developer's setup) the app reaches those directly; otherwise, with
  * DESKWISP_SCREEN_STREAM=1 (screenStreamWanted), through the same noVNC proxy with ?screen=<Horafirm's id for
  * the screen>, never over WebRTC, which streams the boot screen only. Without either the app shows them
- * as screenshots. Answers only the app on this Mac, since the reply carries the computer's VNC password.
+ * as screenshots. Answers only the app on this PC, since the reply carries the computer's VNC password.
  */
 export async function GET(request: Request) {
   if (!local(request)) return Response.json({ error: "local only" }, { status: 403 });
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   // The computer it works on: its own, or the main bot's when it shares.
   const c = b && workComputer(b);
   const boot = display === HORAFIRM_STREAM_DISPLAY;
-  // Another of Deskwisp' screens goes over the tailnet when the computer is on it, else through Horafirm when that's on.
+  // Another of Deskwisp's screens goes over the tailnet when the computer is on it, else through Horafirm when that's on.
   const viaHorafirm = boot || (!c?.tailnet && screenStreamWanted() && DISPLAYS.includes(display));
   if (!c?.computerId || getState().host !== "horafirm" || (!viaHorafirm && !c.tailnet)) return Response.json({ error: "no live desktop for this screen" }, { status: 409 });
   const computerId = c.computerId;
@@ -78,5 +78,5 @@ export async function POST(request: Request) {
   }
 }
 
-/** Only the app on this Mac: the plan carries the computer's VNC password. */
+/** Only the app on this PC: the plan carries the computer's VNC password. */
 const local = (request: Request) => ["localhost", "127.0.0.1", "::1"].includes(new URL(request.url).hostname);

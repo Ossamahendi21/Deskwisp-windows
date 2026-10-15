@@ -253,9 +253,9 @@ export type StickerPickerPlatform = "ios" | "macos";
  * A Catalyst probe (`clang -target arm64-apple-ios26.0-macabi`, dlopen ChatKit, `-[UIDevice
  * userInterfaceIdiom]` swizzled to 5 **before** anything latches it) then `+[CKUIBehavior
  * sharedBehaviors]`, which vends `CKUIBehaviorMac`. The idiom-0 reading is beside each one, because
- * the Mac does not inherit the Phone:
+ * the PC does not inherit the Phone:
  *
- * | Selector | idiom 5 (Mac) | idiom 0 (Phone) |
+ * | Selector | idiom 5 (PC) | idiom 0 (Phone) |
  * |---|---|---|
  * | `stickerPopoverSize` | **{320, 480}** | **{393, 680}** |
  * | `attachmentBrowserGridSectionInset` | {8, 8} | {8, 8} |
@@ -286,7 +286,7 @@ export type StickerPickerPlatform = "ios" | "macos";
  * **Columns.** 320 less the grid's own measured 8 pt section inset on each side is 304; at ChatKit's
  * 72.5 cell and 4 pt spacing that is `floor((304 + 4) / 76.5)` = **4** columns, and the tiles stretch
  * to 73 to fill the row — the identical rule, and very nearly the identical tile, that the iPhone
- * sheet gets from the same cell at 5 across. The Mac's own
+ * sheet gets from the same cell at 5 across. The PC's own
  * `attachmentBrowserDefaultSizeForSquare` of 104 is deliberately **not** used here: it would give
  * two 150 pt stickers in a 320 pt popover, which is not a sticker grid, and it describes the
  * attachment browser's own cells rather than StickerKit's. `photo-picker.tsx` does use the 104,
@@ -301,7 +301,7 @@ export type StickerPickerPlatform = "ios" | "macos";
  *   except that a 12 pt corner will not let a 22 pt arrow sit closer than 23 pt to the box's edge,
  *   so at this anchor the tip lands 8 pt right of the button's centre — the clamp UIKit makes too.
  * - **The category strip.** Kept at the measured iPhone geometry (43.3333 chips on a 43.3333 strip).
- *   It is the same StickerKit remote view, but nothing measures what the Mac does to it.
+ *   It is the same StickerKit remote view, but nothing measures what the PC does to it.
  * - **The motion.** Borrowed whole from `macPlusMenuMetrics.motion`, itself borrowed: 160 ms in,
  *   120 ms out, from 0.96 at the anchor corner.
  */
@@ -338,7 +338,7 @@ const macVars =
 
 /**
  * A host that wraps this picker in its own popover box — `macos-messages-app.tsx` does, from before
- * the picker knew what a Mac was — would otherwise double the material: two fills, two rims, two
+ * the picker knew what a PC was — would otherwise double the material: two fills, two rims, two
  * shadows. This switches that box off, but only when the picker inside it is drawing the macOS
  * popover itself. The selector outranks the host's, so it wins wherever the two stylesheets land.
  */
@@ -349,7 +349,7 @@ const macHostInteropCss = `[data-slot="mac-attachment-popover"]:has([data-slot="
  * button is *found*, not assumed: the nearest `[data-im-platform]` ancestor is searched for
  * `[data-slot="attach-button"]`, the slot `macos-composer.tsx` puts on it, so the same component is
  * right inside the app shell's own wrapper and inside a bare pane in a lab route. It always opens
- * **upward**, which is the measured rule rather than a preference: neither Mac popover fits below a
+ * **upward**, which is the measured rule rather than a preference: neither PC popover fits below a
  * button whose bottom is 11 pt off the floor of a 640 pt window, and an AppKit popover flips rather
  * than hangs. `photo-picker.tsx` carries the same hook, copied for the same no-dependency reason.
  */
@@ -661,7 +661,7 @@ type DragState = {
 
 export type StickerPickerProps = Omit<ComponentProps<"div">, "onSelect" | "children"> & {
   /**
-   * The composer button this popover hangs off on the Mac, by `data-slot`. Defaults to the "+", which
+   * The composer button this popover hangs off on the PC, by `data-slot`. Defaults to the "+", which
    * is what opens it from the plus menu; the smiley passes its own so the arrow points at the button
    * that was actually pressed rather than always at the "+".
    */
@@ -798,7 +798,7 @@ export function StickerPicker({
   const mm = macStickerPickerMetrics;
 
   /**
-   * The box. On the Mac it is `stickerPopoverSize` outright and its place comes from the "+" button;
+   * The box. On the PC it is `stickerPopoverSize` outright and its place comes from the "+" button;
    * on iOS it is the caller's, defaulting to the capture's. Everything below — the strip, the grid,
    * the drag's own "did it land inside the card" test and the seeked drag preview — reads these four
    * and not the props, so one set of arithmetic serves both presentations.
@@ -1236,8 +1236,8 @@ export function StickerPicker({
 
       <div
         ref={sheet}
-        // The Mac's box is a popover, not a sheet, and it says so: a host that rewrites
-        // `[data-slot="sheet"]` to strip an iPhone sheet's glass must not strip the Mac's own.
+        // The PC's box is a popover, not a sheet, and it says so: a host that rewrites
+        // `[data-slot="sheet"]` to strip an iPhone sheet's glass must not strip the PC's own.
         data-slot={mac ? "mac-popover" : "sheet"}
         role="dialog"
         // Only a form sheet over a 20% dim makes the rest of the window unavailable. A popover does

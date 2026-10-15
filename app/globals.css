@@ -128,14 +128,14 @@
     @apply font-sans;
   }
 }
-/* Deskwisp palette: highlighter on paper. Yellow only marks what needs you. */
+/* Deskwisp palette: ink on paper, a soft violet marks what needs you. */
 @theme {
-  --color-ink: #0a0a0a;
+  --color-ink: #16132B;
   --color-paper: #ffffff;
   --color-desk: #f4f4f2;
   --color-pencil: #6b6b6b;
   --color-rule: #e5e5e3;
-  --color-highlighter: #e9ff3b;
+  --color-highlighter: #C9BDFF;
 }
 
 @keyframes drift {
@@ -232,7 +232,7 @@
   width: 44px;
   height: 6px;
   border-radius: 50%;
-  background: #0a0a0a;
+  background: #16132B;
   opacity: 0.08;
   animation: wispy-shadow 0.55s ease-in-out infinite;
 }

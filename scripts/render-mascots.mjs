@@ -7,12 +7,11 @@
  */
 import { mkdirSync } from "node:fs";
 import { chromium } from "playwright";
-import { mascotMarkup, PICTURE_COLORS, PICTURE_SHAPES } from "../lib/mascot.ts";
+import { ACCENT, MAIN_COLOR, mascotMarkup, PICTURE_COLORS } from "../lib/mascot.ts";
 
-const CREAM = "#FDFFF6";
-const jobs = [{ name: "main-0A0A0A", markup: mascotMarkup("wispy", "#0A0A0A"), bg: CREAM }];
-for (const c of PICTURE_COLORS) jobs.push({ name: `blob-${c.slice(1)}`, markup: mascotMarkup("bot", c), bg: CREAM });
-for (const [id, c] of Object.entries(PICTURE_SHAPES)) jobs.push({ name: `${id}-${c.slice(1)}`, markup: mascotMarkup(id, c), bg: CREAM });
+const CREAM = "#FBFAFF";
+const jobs = [{ name: `main-${MAIN_COLOR.slice(1)}`, markup: mascotMarkup("wispy", MAIN_COLOR), bg: CREAM }];
+for (const c of PICTURE_COLORS) jobs.push({ name: `wisp-${c.slice(1)}`, markup: mascotMarkup("bot", c), bg: CREAM });
 
 mkdirSync("edge/public/mascot", { recursive: true });
 mkdirSync("edge/public/brand", { recursive: true });
@@ -25,9 +24,9 @@ const shot = async (markup, bg, size, scale, out, jpg) => {
   if (jpg) await page.screenshot({ path: out.replace(/\.png$/, ".jpg"), type: "jpeg", quality: 92, clip: { x: 0, y: 0, width: size, height: size } });
 };
 for (const j of jobs) await shot(j.markup, j.bg, 512, 0.8, `edge/public/mascot/${j.name}.png`, true);
-// The logo: Wispy, vibing, ink headphones on the highlighter.
-const logo = mascotMarkup("wispy", "#0A0A0A", { accent: false });
-await shot(logo, "#E9FF3B", 512, 0.74, "edge/public/brand/deskwisp-512.png");
-await shot(logo, "#E9FF3B", 1024, 0.74, "edge/public/brand/deskwisp-1024.png");
+// The logo: the main wisp, awake, on the accent, its spark in white.
+const logo = mascotMarkup("wispy", MAIN_COLOR, { mood: "awake" }).replaceAll(ACCENT, "#FFFFFF");
+await shot(logo, ACCENT, 512, 0.74, "edge/public/brand/deskwisp-512.png");
+await shot(logo, ACCENT, 1024, 0.74, "edge/public/brand/deskwisp-1024.png");
 await browser.close();
 console.log(`rendered ${jobs.length} mascots and the logo`);

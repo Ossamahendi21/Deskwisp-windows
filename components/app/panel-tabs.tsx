@@ -105,7 +105,7 @@ function Tab({ state, tab: t, on, closable, onPick, onClose }: { state: AppState
           : t.kind === "vault"
             ? "Vault"
             : t.kind === "mac"
-              ? "Your Mac"
+              ? "Your PC"
               : t.kind === "crm"
                 ? t.file
                 : t.kind === "memory"
@@ -121,7 +121,7 @@ function Tab({ state, tab: t, on, closable, onPick, onClose }: { state: AppState
       }`}
     >
       {t.kind === "computer" ? (
-        <MonitorIcon size={14} color={on ? "#0A0A0A" : "#6B6B6B"} />
+        <MonitorIcon size={14} color={on ? "#16132B" : "#6B6B6B"} />
       ) : t.kind === "bot" && b ? (
         <Mascot botId={b.id} color={b.color} size={15} antenna={false} />
       ) : t.kind === "vault" ? (
@@ -137,7 +137,7 @@ function Tab({ state, tab: t, on, closable, onPick, onClose }: { state: AppState
       )}
       <span className={`truncate ${on ? "font-medium" : ""}`}>{label}</span>
       {needsYou ? (
-        <span className="size-[7px] shrink-0 rounded-full bg-highlighter shadow-[0_0_0_1.5px_#0A0A0A]" title="Needs you" />
+        <span className="size-[7px] shrink-0 rounded-full bg-highlighter shadow-[0_0_0_1.5px_#16132B]" title="Needs you" />
       ) : working ? (
         <span className="size-[6px] shrink-0 animate-pulse rounded-full bg-[#2BB673]" title="Working" />
       ) : null}
@@ -177,15 +177,15 @@ export const toAddress = (typed: string) => {
 };
 
 /**
- * A web page in a tab. In the Mac app it's a real browser view (its own signed-in session, kept
+ * A web page in a tab. In the PC app it's a real browser view (its own signed-in session, kept
  * across launches); in a plain browser tab it's a frame, which some sites refuse, hence the
  * "Open in browser" button.
  */
 const webPartition = (user?: string) => (user ? `persist:deskwisp-web-${user.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 80)}` : "persist:deskwisp-web");
 
 /**
- * A web page in a tab. In the Mac app its cookies and storage are the signed-in Horafirm user's own
- * (`user`: a partition each), so another account signed in on this Mac never sees their sign-ins.
+ * A web page in a tab. In the PC app its cookies and storage are the signed-in Horafirm user's own
+ * (`user`: a partition each), so another account signed in on this PC never sees their sign-ins.
  */
 export function WebTab({ url, hidden, user, onPage }: { url: string; hidden: boolean; user?: string; onPage: (url: string, title: string) => void }) {
   // The tab loads its first address once; navigating inside it doesn't reload it from here.
@@ -264,7 +264,7 @@ export function WebTab({ url, hidden, user, onPage }: { url: string; hidden: boo
             }}
             spellCheck={false}
             aria-label="Address"
-            className="min-w-0 flex-1 truncate rounded-full bg-[#F2F2F0] px-3 py-1 font-mono text-[11.5px] leading-4 text-[#6B6B6B] outline-none focus:bg-white focus:text-ink focus:shadow-[0_0_0_1.5px_#0A0A0A]"
+            className="min-w-0 flex-1 truncate rounded-full bg-[#F2F2F0] px-3 py-1 font-mono text-[11.5px] leading-4 text-[#6B6B6B] outline-none focus:bg-white focus:text-ink focus:shadow-[0_0_0_1.5px_#16132B]"
           />
         </form>
         <button onClick={() => window.open(at, "_blank")} className="shrink-0 rounded-full px-2.5 py-1 text-[12px] font-medium text-[#3A3A38] hover:bg-[#F2F2F0]">
@@ -313,7 +313,7 @@ export function NewTab({
         }}
         className="flex w-full max-w-[520px] flex-col gap-1.5"
       >
-        <div className="flex items-center gap-2.5 rounded-full bg-white px-4 shadow-[0_0_0_1px_#E2E2DF,0_8px_24px_-14px_#00000040] focus-within:shadow-[0_0_0_1.5px_#0A0A0A,0_8px_24px_-14px_#00000040]">
+        <div className="flex items-center gap-2.5 rounded-full bg-white px-4 shadow-[0_0_0_1px_#E2E2DF,0_8px_24px_-14px_#00000040] focus-within:shadow-[0_0_0_1.5px_#16132B,0_8px_24px_-14px_#00000040]">
           {/* A magnifier for a search, a globe once it reads as an address. */}
           <span className="flex size-5 shrink-0 items-center justify-center text-[#9A9A98]">
             {typed && site ? (
@@ -376,8 +376,8 @@ export function NewTab({
             <MacIcon />
           </span>
           <span className="flex flex-col">
-            <span className="text-[14px] font-medium leading-[18px]">Your Mac</span>
-            <span className="text-[12px] leading-4 text-[#6B6B6B]">{state.mac?.ready ? "Where bots work when a task needs your Mac" : (state.mac?.reason ?? "Checking…")}</span>
+            <span className="text-[14px] font-medium leading-[18px]">Your PC</span>
+            <span className="text-[12px] leading-4 text-[#6B6B6B]">{state.mac?.ready ? "Where bots work when a task needs your PC" : (state.mac?.reason ?? "Checking…")}</span>
           </span>
         </button>
         <span className="px-1 text-[12px] font-medium leading-4 text-[#9A9A98]">Your bots</span>

@@ -2,7 +2,7 @@ import { readPage } from "@/lib/server/pages";
 
 /**
  * A page a bot made. A model wrote it, so it runs sandboxed: its scripts can draw and react, but it
- * gets an opaque origin, can't reach the network (Deskwisp' own API included), can't submit forms, and
+ * gets an opaque origin, can't reach the network (Deskwisp's own API included), can't submit forms, and
  * can't steer the window it's in.
  */
 export async function GET(_request: Request, ctx: RouteContext<"/api/pages/[pageId]">) {

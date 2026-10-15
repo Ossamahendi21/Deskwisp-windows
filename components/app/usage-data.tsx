@@ -17,7 +17,7 @@ const readInfo = async (): Promise<AnalyticsInfo | null> => {
 /**
  * The window's usage events (lib/analytics.ts): started, switched to another person, or stopped
  * whenever who's signed in or the account's switch changes. Read again when the window comes back
- * to the front, and a few times at first while the Mac is still asking Deskwisp Cloud for the plan, so
+ * to the front, and a few times at first while the PC is still asking Deskwisp Cloud for the plan, so
  * the window's `plan` is the one the user has now.
  */
 export function useAnalytics(state: AppState | null) {
@@ -45,7 +45,7 @@ export function useAnalytics(state: AppState | null) {
   }, [loaded, userId, off]);
 }
 
-/** Whether this Mac may send usage events at all (not self-hosted, DESKWISP_TELEMETRY=0, DO_NOT_TRACK=1 or a development build); false until known. */
+/** Whether this PC may send usage events at all (not self-hosted, DESKWISP_TELEMETRY=0, DO_NOT_TRACK=1 or a development build); false until known. */
 export function useTelemetryHere() {
   const [here, setHere] = useState(false);
   useEffect(() => {
@@ -78,7 +78,7 @@ export function UsageData() {
           <span className="text-[13px] font-medium">Share usage data</span>
           <span className="text-[12px] leading-4 text-[#6B6B6B]">
             Sends Horafirm counts of what you do in Deskwisp, like bots made and tasks run, and error reports. Never your messages, files, screens, contacts or keys.
-            {info.locked && " Turned off on this Mac."}
+            {info.locked && " Turned off on this PC."}
           </span>
         </div>
         <button

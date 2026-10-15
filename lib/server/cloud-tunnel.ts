@@ -11,14 +11,14 @@ import { pullState, stateReady, stateUser } from "./store";
 /**
  * The tunnel to Deskwisp Cloud (cloud/README.md, "The tunnel"): while the app works through the cloud
  * (cloudOn in cloud.ts), one WebSocket to <cloud>/v1/connect on the user's Horafirm key. Webhooks for
- * the user's numbers and Deskwisp' Slack app's events for the user's bots come down it as requests,
+ * the user's numbers and Deskwisp's Slack app's events for the user's bots come down it as requests,
  * which are replayed against this server (only those webhook routes: anything else is turned down
- * here). What waited while the Mac was away comes down as events, handed to /api/cloud/event one at
+ * here). What waited while the PC was away comes down as events, handed to /api/cloud/event one at
  * a time and acknowledged once handled. Dropped, the tunnel comes back after 1 second, then 2, 4… up
  * to a minute; a sign-in starts it over on the new key; a sign-out or the server stopping closes it.
- * When a newer connection of the same user's takes over (another Mac, or another Deskwisp on this one),
+ * When a newer connection of the same user's takes over (another PC, or another Deskwisp on this one),
  * the cloud closes this one as replaced: it stays closed until the next sign-in or start, so two
- * Macs don't keep taking it from each other.
+ * PCs don't keep taking it from each other.
  *
  * A replayed request carries CLOUD_TUNNEL_HEADER with a token made at random when this server
  * started and kept only in its memory: the webhook routes take it as proof that the cloud checked
@@ -115,7 +115,7 @@ async function replay(req: Req): Promise<MacToCloud> {
     });
     return { t: "res", id: req.id, status: res.status, headers: answer, body };
   } catch (e) {
-    return refuse(502, `this Mac's server didn't answer: ${(e as Error).message}`);
+    return refuse(502, `this PC's server didn't answer: ${(e as Error).message}`);
   }
 }
 
@@ -126,7 +126,7 @@ async function replay(req: Req): Promise<MacToCloud> {
  */
 const current = (socket: WebSocket) => tunnel.socket === socket && stateReady() && stateUser() === tunnel.user;
 
-/** Something that waited for this Mac, handed to /api/cloud/event; acknowledged only once handled, so one that wasn't comes again on the next connect. */
+/** Something that waited for this PC, handed to /api/cloud/event; acknowledged only once handled, so one that wasn't comes again on the next connect. */
 async function deliver(socket: WebSocket, event: Event) {
   // Not this tunnel's user any more: not handled, nor acknowledged, so it comes again on their next connect.
   if (!current(socket)) return;
@@ -150,7 +150,7 @@ tunnel.onFrame = (socket, frame) => {
     else void replay(frame).then((res) => send(socket, res));
   }
   else if (frame.t === "event") tunnel.events = tunnel.events.then(() => deliver(socket, frame)).catch(() => {});
-  // Another Mac of the user's changed the state: read what changed.
+  // Another PC of the user's changed the state: read what changed.
   else if (frame.t === "state" && current(socket)) void pullState();
 };
 
@@ -180,7 +180,7 @@ function connect() {
   let replaced = false;
   socket.on("open", () => {
     tunnel.openedAt = Date.now();
-    // Back after being away: what the user's other Macs changed meanwhile.
+    // Back after being away: what the user's other PCs changed meanwhile.
     void pullState();
   });
   socket.on("message", (data) => {

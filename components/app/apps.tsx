@@ -260,7 +260,7 @@ function AccountBlock({ state, account: a, many, onSignIn }: { state: AppState; 
             onBlur={save}
             onKeyDown={(e) => (e.key === "Enter" ? save() : e.key === "Escape" && (e.preventDefault(), setLabel(a.label ?? ""), setNaming(false)))}
             placeholder="Work, Personal…"
-            className="h-7 w-[150px] rounded-lg bg-white px-2 text-[12.5px] outline-none shadow-[0_0_0_1.5px_#0A0A0A]"
+            className="h-7 w-[150px] rounded-lg bg-white px-2 text-[12.5px] outline-none shadow-[0_0_0_1.5px_#16132B]"
           />
         ) : (
           <span className="min-w-0 truncate text-[12.5px] font-medium leading-4 text-[#3A3A38]">{openApp ? "Ready to use" : accountTitle(a)}</span>
@@ -503,7 +503,7 @@ function ConnectStep({ state, app: a, replaces, hasOne, onBack, onDone }: { stat
           {a.auth !== "open" && (
             <label className="flex flex-col gap-1">
               <span className="text-[11.5px] font-medium leading-4 text-[#6B6B6B]">Name it · optional{hasOne ? ", so bots can tell your accounts apart" : ""}</span>
-              <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Work, Personal, Client X…" className="w-full rounded-xl bg-[#F7F7F6] px-3 py-2 text-[13.5px] leading-[18px] outline-none placeholder:text-[#9A9A98] focus:bg-white focus:shadow-[0_0_0_1.5px_#0A0A0A]" />
+              <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Work, Personal, Client X…" className="w-full rounded-xl bg-[#F7F7F6] px-3 py-2 text-[13.5px] leading-[18px] outline-none placeholder:text-[#9A9A98] focus:bg-white focus:shadow-[0_0_0_1.5px_#16132B]" />
             </label>
           )}
           <div className="flex flex-col gap-1.5">
@@ -525,7 +525,7 @@ function ConnectStep({ state, app: a, replaces, hasOne, onBack, onDone }: { stat
             </div>
             <div className="flex gap-1.5 pt-1">
               {APP_LEVELS.map((l) => (
-                <button key={l.id} onClick={() => setLevel(l.id)} className={`flex-1 rounded-xl px-3 py-2 text-left ${level === l.id ? "bg-white shadow-[0_0_0_1.5px_#0A0A0A]" : "bg-[#F7F7F6] hover:bg-[#F2F2F0]"}`}>
+                <button key={l.id} onClick={() => setLevel(l.id)} className={`flex-1 rounded-xl px-3 py-2 text-left ${level === l.id ? "bg-white shadow-[0_0_0_1.5px_#16132B]" : "bg-[#F7F7F6] hover:bg-[#F2F2F0]"}`}>
                   <span className="block text-[13px] font-medium leading-[18px]">{l.name}</span>
                   <span className="block text-[11.5px] leading-[15px] text-[#6B6B6B]">{l.hint}</span>
                 </button>

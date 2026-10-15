@@ -49,7 +49,7 @@ export async function GET() {
 }
 
 /**
- * Only from this Mac: { action: "open", numberId } gives a line with no owner a fresh 15 minutes for
+ * Only from this PC: { action: "open", numberId } gives a line with no owner a fresh 15 minutes for
  * the first caller to claim it; { action: "unlink", numberId } unlinks its owner (and opens a fresh 15).
  */
 export async function POST(request: Request) {

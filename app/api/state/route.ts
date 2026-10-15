@@ -41,7 +41,7 @@ export async function GET(request: Request) {
  * totals on the server (/api/account). It also says whether the other screens stream through Horafirm.
  */
 function forApp(state: AppState): AppState {
-  // Full access is kept on this Mac, not in the state (full-access.ts): shown as part of it.
+  // Full access is kept on this PC, not in the state (full-access.ts): shown as part of it.
   const mac = state.mac ? { ...state.mac, fullAccess: fullAccessOn() || undefined } : state.mac;
   return { ...state, mac, usage: undefined, bots: state.bots.map((b) => ({ ...b, appsKey: undefined })), screenStream: screenStreamWanted(), businessData: tregOn() };
 }

@@ -100,7 +100,7 @@ export const bubbleMetrics: Record<Platform, BubbleMetrics> = {
     //
     // ChatKit disagrees and the capture wins. `-[CKUIBehaviorMac balloonCornerRadius]`, read at
     // idiom 5, is **15.4118** - exactly the phone's 20.0107 times Catalyst's 0.77 - where the phone's
-    // own 20.0107 matched an uncalibrated trace of `conv3-light.png` to three decimals. So the Mac
+    // own 20.0107 matched an uncalibrated trace of `conv3-light.png` to three decimals. So the PC
     // does not draw its balloon at the radius that property reports, and the calibrated 14.46 above
     // is what it actually paints. Worth knowing before anyone "fixes" this to match the framework.
     radius: 14.5,
@@ -192,7 +192,7 @@ export const palettes: Record<Platform, { light: Palette; dark: Palette }> = {
        *
        * So these are the iOS screen-space endpoints. macOS keeps its own, which are measured: fitting
        * 530 rows of `conversation-pane-light.png` gives #7bc5f5 -> #3482f7 against the #77c7f5 ->
-       * #3682f7 it ships, nowhere near this. The Mac paints a different blue from the one its own
+       * #3682f7 it ships, nowhere near this. The PC paints a different blue from the one its own
        * `CKUIThemeMac` reports, exactly as it does with the balloon corner radius.
        */
       imessage: { top: "#5ac8fa", bottom: "#0088ff", screenHeight: 874 },

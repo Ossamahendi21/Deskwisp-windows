@@ -19,9 +19,9 @@ import { saveUpload } from "./uploads";
  *   Discord's developer portal) and pastes the token of. So it shows up as "Wispy", with its own name.
  *   Its token lives in the Keychain. Deskwisp talks to them directly: Telegram by long polling, Discord over
  *   its gateway. Neither needs Deskwisp to be reachable from the internet.
- * - Slack: Deskwisp' own Slack app (slack/manifest.json), connected as a Composio account (the "slackbot"
+ * - Slack: Deskwisp's own Slack app (slack/manifest.json), connected as a Composio account (the "slackbot"
  *   app, in the Vault), and the channels each bot is in. Its events come to Deskwisp Cloud, which passes
- *   this Mac the ones for its bots over the tunnel, or keeps them a day while it's away; this Mac
+ *   this PC the ones for its bots over the tunnel, or keeps them a day while it's away; this PC
  *   tells the cloud where its bots are (PUT /v1/slack/links: syncSlackLinks, below). Self-hosted, the
  *   self-hoster's own Slack app sends them to their front door (edge/, DESKWISP_SLACK_SIGNING_SECRET), or
  *   without one Composio's Slack app sends them over a live connection (triggers.subscribe).
@@ -123,7 +123,7 @@ export function startChannels() {
 }
 
 /**
- * Deskwisp' own Slack app is set up, so its events come straight to Deskwisp: signed in with Horafirm, Deskwisp
+ * Deskwisp's own Slack app is set up, so its events come straight to Deskwisp: signed in with Horafirm, Deskwisp
  * Cloud takes them for it (CloudSession.slack: at Horafirm, the "Deskwisp" app); self-hosted, the
  * self-hoster's own app (slack/setup.mjs), signed with DESKWISP_SLACK_SIGNING_SECRET.
  */
@@ -255,7 +255,7 @@ const TAPBACK_EMOJI: Record<string, string> = { love: "❤️", like: "👍", di
 
 /**
  * A bot's picture (its mascot, as drawn in Deskwisp), from the set rendered ahead of time (pictureName in
- * lib/mascot.ts), at Deskwisp' public address: Deskwisp Cloud's, or a self-hoster's front door (edge/). A
+ * lib/mascot.ts), at Deskwisp's public address: Deskwisp Cloud's, or a self-hoster's front door (edge/). A
  * color without a picture gets the Deskwisp logo.
  */
 export const mascotUrl = (b: Bot) => {
@@ -264,8 +264,8 @@ export const mascotUrl = (b: Bot) => {
 };
 
 /**
- * One of those pictures as a file ("mascot/blob-2EC4B6.jpg"), for Telegram's and Discord's profile
- * pictures: from edge/public when this checkout has it (the Mac app doesn't ship edge/), else from the
+ * One of those pictures as a file ("mascot/wisp-2EC4B6.jpg"), for Telegram's and Discord's profile
+ * pictures: from edge/public when this checkout has it (the PC app doesn't ship edge/), else from the
  * public address that serves it. Null when neither has it: the bot keeps the service's own picture.
  */
 async function pictureFile(path: string): Promise<Buffer | null> {
@@ -803,8 +803,8 @@ export function slackTeams(envelope: { team_id?: unknown; authorizations?: unkno
 }
 
 /**
- * A delivery from Deskwisp' own Slack app (its whole event_callback envelope), already proven to be
- * Slack's: by its signature here, or by Deskwisp Cloud (replayed over the tunnel, or kept for this Mac
+ * A delivery from Deskwisp's own Slack app (its whole event_callback envelope), already proven to be
+ * Slack's: by its signature here, or by Deskwisp Cloud (replayed over the tunnel, or kept for this PC
  * while it was away). Handled after the answer, as Slack wants one within 3 seconds.
  */
 export function slackDelivery(envelope: unknown) {
@@ -897,7 +897,7 @@ const SLACK_PERSON = /^[UW][A-Z0-9]{2,40}$/;
  * What Deskwisp Cloud is told (SlackLinksBody in cloud/protocol.ts), one entry per Slack account its bots
  * are in: their channels, the direct message with the person paired (only ever recorded from them, or
  * with the right code), the Slack people they're paired with, and whether a code is waiting. The cloud
- * passes this Mac only the events these name, within the account's own workspace.
+ * passes this PC only the events these name, within the account's own workspace.
  */
 export function slackLinksBody(now = Date.now()): SlackLinksBody {
   const accounts = new Map<string, ChannelLink[]>();

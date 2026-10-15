@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     site?: string;
     mac?: { app: string; windowId: number; title: string };
   };
-  // A window on the user's Mac.
+  // A window on the user's PC.
   if (mac)
     try {
       return Response.json({ watch: await startMacWatch(mac.app, mac.windowId, mac.title, lookFor) });

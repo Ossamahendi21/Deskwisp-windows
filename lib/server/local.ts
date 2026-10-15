@@ -14,19 +14,19 @@ import { deskwispHome, chromeRoot } from "./user-paths";
 import { ON_WINDOWS } from "./platform";
 
 /**
- * Local Mac host. Each bot's "screen" is its own background Chrome on the user's Mac, with its own
+ * Local PC host. Each bot's "screen" is its own background Chrome on the user's PC, with its own
  * profile and debugging port, so sessions browse from their home IP instead of a datacenter.
  * It runs headless (no windows on their screen; the app's live view shows it) and the agent
  * drives it through Playwright MCP over CDP, so it never takes their mouse.
  * Set DESKWISP_CHROME_WINDOWS=1 to see the windows instead.
  *
  * Each Horafirm user's bots have their own profiles (their cookies, their sign-ins on sites), under
- * ~/.deskwisp/chrome/<user>/, and their Mac tasks their own folders (~/.deskwisp/users/<user>/tasks): another
- * account signed in on this Mac never gets them, and a Chrome left running for one account is closed
+ * ~/.deskwisp/chrome/<user>/, and their PC tasks their own folders (~/.deskwisp/users/<user>/tasks): another
+ * account signed in on this PC never gets them, and a Chrome left running for one account is closed
  * before another's bot uses its port.
  */
 
-/** Google Chrome on this computer: the Mac's, or on Windows the first install found (DESKWISP_CHROME overrides both). */
+/** Google Chrome on this computer: the PC's, or on Windows the first install found (DESKWISP_CHROME overrides both). */
 export const CHROME = (() => {
   if (process.env.DESKWISP_CHROME) return process.env.DESKWISP_CHROME;
   if (!ON_WINDOWS) return "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
@@ -35,9 +35,9 @@ export const CHROME = (() => {
   return found ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 })();
 /**
- * Where the signed-in user's Mac tasks keep their folders: ~/.deskwisp/users/<id>/tasks, beside their
+ * Where the signed-in user's PC tasks keep their folders: ~/.deskwisp/users/<id>/tasks, beside their
  * Chrome profiles' own folder (~/.deskwisp/tasks on a self-hosted install running on its own key). Signed
- * out on the Mac app there is none, and no task runs.
+ * out on the PC app there is none, and no task runs.
  */
 export function tasksRoot() {
   const home = userHome();
@@ -45,19 +45,19 @@ export function tasksRoot() {
   return join(home, "tasks");
 }
 /**
- * Each Mac task's own folder (<tasks>/<session>): its workspace, Codex home and temp files. It's the
+ * Each PC task's own folder (<tasks>/<session>): its workspace, Codex home and temp files. It's the
  * only place the task's executor can write (executor-sandbox.ts), made fresh when the executor starts
- * and removed when it stops. It's under the user's own, so another account signed in on this Mac never
+ * and removed when it stops. It's under the user's own, so another account signed in on this PC never
  * gets what a task left (Codex keeps the task's conversation in its home).
  */
 export const taskDir = (sessionId: string) => join(tasksRoot(), sessionId);
 /**
- * Where a Mac task's browser tools keep their sockets (~/.deskwisp/s/<hash of its folder>). Playwright puts
+ * Where a PC task's browser tools keep their sockets (~/.deskwisp/s/<hash of its folder>). Playwright puts
  * them in the temp folder by default, and the task's (<tasks>/<session>/tmp) is too deep for a Unix
  * socket's path (104 bytes on macOS): the browser tools failed to start. Made and removed with the folder.
  */
 export const taskSockets = (dir: string) => join(/*turbopackIgnore: true*/ deskwispHome(), "s", createHash("sha256").update(dir).digest("hex").slice(0, 12));
-/** A Mac task's workspace: the agent session's workspace_directory, and where its browser tools run. */
+/** A PC task's workspace: the agent session's workspace_directory, and where its browser tools run. */
 export const taskWorkspace = (sessionId: string) => join(taskDir(sessionId), "workspace");
 const CHROME_VERSION = (() => {
   try {
@@ -74,8 +74,8 @@ const CHROME_VERSION = (() => {
     return "154.0.0.0";
   }
 })();
-/** Headless Chrome announces itself as "HeadlessChrome"; present as the normal Mac browser. */
-const USER_AGENT = `Mozilla/5.0 (${ON_WINDOWS ? "Windows NT 10.0; Win64; x64" : "Macintosh; Intel Mac OS X 10_15_7"}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROME_VERSION.split(".")[0]}.0.0.0 Safari/537.36`;
+/** Headless Chrome announces itself as "HeadlessChrome"; present as the normal PC browser. */
+const USER_AGENT = `Mozilla/5.0 (${ON_WINDOWS ? "Windows NT 10.0; Win64; x64" : "Macintosh; Intel PC OS X 10_15_7"}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROME_VERSION.split(".")[0]}.0.0.0 Safari/537.36`;
 const real = (p: string) => (existsSync(p) ? realpathSync(p) : p);
 /** The browser tools' package folder, at its real path: in the app, the server's node_modules links into the app bundle. */
 const nodeModules = () => real(join(process.cwd(), "node_modules"));
@@ -84,8 +84,8 @@ const nodeModules = () => real(join(process.cwd(), "node_modules"));
 export const cdpPort = (botIndex: number, display: number) => 9300 + botIndex * 10 + DISPLAYS.indexOf(display);
 
 /**
- * The port of a bot's Chrome for a task on the user's Mac (Session.macScreen 0 to 2): after its screens'
- * ports, so it never shares a Chrome with them, whether this Mac hosts the bots' screens or Horafirm does.
+ * The port of a bot's Chrome for a task on the user's PC (Session.macScreen 0 to 2): after its screens'
+ * ports, so it never shares a Chrome with them, whether this PC hosts the bots' screens or Horafirm does.
  */
 export const macTaskPort = (botIndex: number, slot: number) => 9300 + botIndex * 10 + DISPLAYS.length + slot;
 
@@ -112,7 +112,7 @@ const gq = globalThis as unknown as { deskwispChromeQuits?: number };
 const quits = () => gq.deskwispChromeQuits ?? 0;
 
 /**
- * Close every bot's Chrome on this Mac (a sign-out, or another account signing in): they hold one
+ * Close every bot's Chrome on this PC (a sign-out, or another account signing in): they hold one
  * account's cookies, and a running one would be picked up again by whichever bot uses its port next.
  */
 export async function quitBotChromes({ switching = true } = {}) {
@@ -178,14 +178,14 @@ export async function ensureChrome(botId: string, port: number) {
 }
 
 /**
- * In the Mac app the server runs as Node through the app's own binary (desktop/main.cjs), so
+ * In the PC app the server runs as Node through the app's own binary (desktop/main.cjs), so
  * anything it starts with process.execPath must carry ELECTRON_RUN_AS_NODE, or it opens Deskwisp again.
  */
 export const asNode = process.env.ELECTRON_RUN_AS_NODE === "1";
 
 /**
- * The browser tools a Mac task may call: Playwright MCP's, but for browser_run_code_unsafe, which runs
- * any JavaScript in the tools' own process (it reaches Node, so the Mac, not just the page).
+ * The browser tools a PC task may call: Playwright MCP's, but for browser_run_code_unsafe, which runs
+ * any JavaScript in the tools' own process (it reaches Node, so the PC, not just the page).
  */
 export const MAC_BROWSER_TOOLS = [
   "browser_navigate",
@@ -214,12 +214,12 @@ export const MAC_BROWSER_TOOLS = [
   "browser_close",
 ];
 
-/** The agent's browser tools for one screen, run by the executor on this Mac, in the workspace of the task's folder (`dir`). */
+/** The agent's browser tools for one screen, run by the executor on this PC, in the workspace of the task's folder (`dir`). */
 export const browserMcp = (port: number, dir: string) => {
   const args = [join(nodeModules(), "@playwright/mcp/cli.js"), "--cdp-endpoint", `http://127.0.0.1:${port}`];
   // The executor's environment doesn't reach its MCP servers (Codex passes on a few variables), so
   // ELECTRON_RUN_AS_NODE and the sockets folder are set here.
-  // Never this server's own pages (it's on the same Mac): what bots mustn't change is also kept behind the
+  // Never this server's own pages (it's on the same PC): what bots mustn't change is also kept behind the
   // Deskwisp window's token (ui-token.ts), since this list doesn't hold against redirects.
   const self = process.env.PORT ?? "3210";
   const blocked = `PLAYWRIGHT_MCP_BLOCKED_ORIGINS=http://localhost:${self};http://127.0.0.1:${self};http://[::1]:${self}`;
@@ -229,7 +229,7 @@ export const browserMcp = (port: number, dir: string) => {
 
 /**
  * Cua Driver (cua.ai): how a task with Full access sees and uses the user's own apps and browsers, the
- * windows on their Mac, in the background: it reads a window (its accessibility tree and a picture of
+ * windows on their PC, in the background: it reads a window (its accessibility tree and a picture of
  * it) and clicks and types into it without moving their pointer or bringing it to the front. Its
  * permissions (Accessibility, Screen Recording) are CuaDriver.app's own: `cua-driver mcp` hands each
  * call to its daemon. mac-windows.ts uses it for the window previews too.
@@ -261,16 +261,16 @@ export const MAC_UI_TOOLS = [
   "zoom",
   "page",
 ];
-/** The script a Mac task's tools reach Cua Driver through, which passes on only what a task may do (vm/mac-ui-mcp.mjs). */
+/** The script a PC task's tools reach Cua Driver through, which passes on only what a task may do (vm/mac-ui-mcp.mjs). */
 const macUiScript = () => real(join(process.cwd(), "vm/mac-ui-mcp.mjs"));
 /**
- * The Mac tools for a task with Full access, run by its executor: Cua Driver behind Deskwisp' own MCP server
+ * The PC tools for a task with Full access, run by its executor: Cua Driver behind Deskwisp's own MCP server
  * (vm/mac-ui-mcp.mjs), not `cua-driver mcp` itself. Cua's tools reach any window and take any arguments;
  * that script keeps a task's tool calls off Deskwisp itself (its chats, payment approvals and settings),
  * System Settings, Keychain Access, password managers, terminals, remote sessions and the like, works in
  * the background only, and refuses quitting, closing, the clipboard, a page's JavaScript and a browser's
  * debugging port. It's a second layer, not what protects Deskwisp: the same task has a shell as the user,
- * which can run cua-driver itself or reach Deskwisp' own server (the window's token is in a file the user's
+ * which can run cua-driver itself or reach Deskwisp's own server (the window's token is in a file the user's
  * processes can read). Payment approvals, "Just do it" and turning on Full access need a check outside a
  * task's reach (Touch ID or the user's password) before the proxy can be relied on for them.
  */
@@ -281,11 +281,11 @@ export const macUiMcp = (dir: string) => ({
   cwd: join(dir, "workspace"),
 });
 
-/** The script that serves a Mac task the user's apps (find_app_actions, use_app), and the socket it reaches Deskwisp by (composio.ts serveApps). */
+/** The script that serves a PC task the user's apps (find_app_actions, use_app), and the socket it reaches Deskwisp by (composio.ts serveApps). */
 const appsScript = () => real(join(process.cwd(), "vm/apps-mcp.mjs"));
 export const appsSocket = (dir: string) => join(taskSockets(dir), "apps.sock");
 
-/** The agent's app tools for a Mac task, run by the executor on this Mac like its browser tools: the user's apps, business data (treg.ts), or both. */
+/** The agent's app tools for a PC task, run by the executor on this PC like its browser tools: the user's apps, business data (treg.ts), or both. */
 export const appsMcp = (dir: string, has: { apps: boolean; data: boolean }) => ({
   type: "stdio",
   command: "/usr/bin/env",
@@ -297,15 +297,15 @@ export const appsMcp = (dir: string, has: { apps: boolean; data: boolean }) => (
 const KEPT_ENV = ["USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "LC_CTYPE"];
 
 /**
- * How to start `codex exec-server` for a Mac task: inside the macOS sandbox (executor-sandbox.ts), so
+ * How to start `codex exec-server` for a PC task: inside the macOS sandbox (executor-sandbox.ts), so
  * neither it nor anything it starts can run a shell or another program, read the user's files, write
  * outside the task's folder or script other apps. It may start Codex itself and what runs the browser
  * tools (this server's Node, through /usr/bin/env in the app). The task's folder is its home, Codex
- * home (Deskwisp' own, never the user's ~/.codex) and temp folder, and its environment is only what it
- * needs: Deskwisp' executor key, not the server's.
+ * home (Deskwisp's own, never the user's ~/.codex) and temp folder, and its environment is only what it
+ * needs: Deskwisp's executor key, not the server's.
  *
- * With `fullAccess` (Full access on this Mac, MacState.fullAccess) there's no sandbox: Codex runs as the
- * user, with their home, a shell and every program on the Mac (osascript, open, shortcuts…), so the
+ * With `fullAccess` (Full access on this PC, MacState.fullAccess) there's no sandbox: Codex runs as the
+ * user, with their home, a shell and every program on the PC (osascript, open, shortcuts…), so the
  * agent can use their files and apps. Its Codex home and temp folder are still the task's own, and its
  * environment still carries nothing of the server's.
  */
@@ -331,7 +331,7 @@ export function executorCommand(sessionId: string, codex: string, args: string[]
   return { command: SANDBOX_EXEC, args: sandboxArgs(box, [run.command, ...args]), cwd: join(dir, "workspace"), env: env as NodeJS.ProcessEnv };
 }
 
-/** A fresh folder for a Mac task (whatever an earlier run of it left is gone). */
+/** A fresh folder for a PC task (whatever an earlier run of it left is gone). */
 export function prepareTaskDir(sessionId: string, dir = taskDir(sessionId)) {
   rmSync(dir, { recursive: true, force: true });
   rmSync(taskSockets(dir), { recursive: true, force: true });
@@ -340,14 +340,14 @@ export function prepareTaskDir(sessionId: string, dir = taskDir(sessionId)) {
 }
 
 /**
- * Start `codex exec-server` for one Mac task; it dials out to OpenAI and runs the agent's tools here,
- * in the sandbox (executorCommand), or without it with `fullAccess`. It runs on Deskwisp' executor key alone (CODEX_API_KEY, from Deskwisp Cloud),
+ * Start `codex exec-server` for one PC task; it dials out to OpenAI and runs the agent's tools here,
+ * in the sandbox (executorCommand), or without it with `fullAccess`. It runs on Deskwisp's executor key alone (CODEX_API_KEY, from Deskwisp Cloud),
  * so Codex never uses the user's ChatGPT sign-in or their Codex settings for it.
  */
 export async function startExecutor(sessionId: string, envId: string, remoteUrl: string, port: number, dir = taskDir(sessionId), fullAccess = false): Promise<ChildProcess> {
-  if (!fullAccess && !existsSync(SANDBOX_EXEC)) throw new Error("this Mac has no sandbox for bots (/usr/bin/sandbox-exec)");
+  if (!fullAccess && !existsSync(SANDBOX_EXEC)) throw new Error("this PC has no sandbox for bots (/usr/bin/sandbox-exec)");
   const codex = findCodex();
-  if (!codex) throw new Error("the Codex CLI isn't on this Mac yet");
+  if (!codex) throw new Error("the Codex CLI isn't on this PC yet");
   prepareTaskDir(sessionId, dir);
   const run = executorCommand(sessionId, codex, ["exec-server", "--remote", remoteUrl, "--environment-id", envId], {
     key: await executorKey(),
@@ -380,7 +380,7 @@ export async function startExecutor(sessionId: string, envId: string, remoteUrl:
 }
 
 /**
- * Stop a Mac task's executor, if it's running (killed outright if it's still there 5 seconds on), and
+ * Stop a PC task's executor, if it's running (killed outright if it's still there 5 seconds on), and
  * remove the task's folder. At once, not when it has exited: by then the thread may be running again
  * in a fresh folder at the same place.
  */
@@ -401,7 +401,7 @@ export function stopExecutor(sessionId: string, child?: ChildProcess, dir?: stri
   rmSync(taskSockets(folder), { recursive: true, force: true });
 }
 
-/** A screen's Chrome: a port on this Mac, or "host:port" anywhere reachable (an Horafirm computer on the tailnet). */
+/** A screen's Chrome: a port on this PC, or "host:port" anywhere reachable (an Horafirm computer on the tailnet). */
 export type Endpoint = number | string;
 const hostPort = (ep: Endpoint) => (typeof ep === "number" ? `127.0.0.1:${ep}` : ep);
 

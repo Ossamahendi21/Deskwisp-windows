@@ -11,7 +11,7 @@ import { useTelemetryHere } from "./usage-data";
  * that way in, shown as Deskwisp (a new account if they haven't got one), and Sign in with Horafirm is there
  * for people who already have an Horafirm login. Every way ends the same: the code shown here is approved
  * in the system browser, the server picks up the key (app/api/auth), and the app opens. Same flow
- * and pacing as Horafirm for Mac's sign-in window.
+ * and pacing as Horafirm for PC's sign-in window.
  */
 
 /**
@@ -62,7 +62,7 @@ export function useAuthStatus(key: unknown) {
 const UNSENT = "Some changes haven't reached Deskwisp Cloud yet. Sign out anyway?";
 
 /**
- * Sign out of Horafirm on this Mac (for the account page and the menu). The app goes back to the sign-in
+ * Sign out of Horafirm on this PC (for the account page and the menu). The app goes back to the sign-in
  * screen. When some changes couldn't reach Deskwisp Cloud the user is asked first.
  */
 export async function signOutOfHorafirm() {
@@ -87,7 +87,7 @@ export function CloudUnreachable({ onRetry }: { onRetry: () => void }) {
       <div className="h-11 shrink-0 [-webkit-app-region:drag]" />
       <div className="flex flex-1 flex-col items-center justify-center px-6 pb-16">
         <div className="flex w-[400px] animate-[call-in_220ms_ease-out] flex-col items-center rounded-[22px] bg-white px-8 pb-7 pt-9 shadow-[0_0_0_1px_#0000000F,0_30px_70px_-28px_#00000038]">
-          <Mascot botId="wispy" color="#0A0A0A" size={56} />
+          <Mascot botId="wispy" color="#16132B" size={56} />
           <Heading title="Can't reach Deskwisp Cloud" line="Deskwisp can't reach Deskwisp Cloud to load your chats. Check your internet connection." />
           <button
             disabled={busy}
@@ -226,7 +226,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
       <div className="flex flex-1 flex-col items-center justify-center px-6 pb-16">
         <div className="flex w-[400px] animate-[call-in_220ms_ease-out] flex-col items-center rounded-[22px] bg-white px-8 pb-7 pt-9 shadow-[0_0_0_1px_#0000000F,0_30px_70px_-28px_#00000038]">
           <span className={step.kind === "waiting" || step.kind === "starting" || step.kind === "saving" ? "animate-[bob_2.4s_ease-in-out_infinite]" : ""}>
-            <Mascot botId="wispy" color="#0A0A0A" size={56} />
+            <Mascot botId="wispy" color="#16132B" size={56} />
           </span>
           {step.kind === "waiting" ? (
             <Waiting step={step} way={way} onReopen={() => openInBrowser(step.code.verificationUrl)} onCancel={cancel} />
@@ -301,7 +301,7 @@ function Welcome({ starting, onStart }: { starting: Way | null; onStart: (way: W
 const PROBLEMS: Record<Problem, { title: string; line: string; action: string }> = {
   offline: { title: "Couldn't connect", line: "Check your internet connection, then try again.", action: "Try again" },
   horafirm: { title: "Something went wrong", line: "Signing in isn't working right now. Try again in a moment.", action: "Try again" },
-  keychain: { title: "Couldn't save your sign-in", line: "Your Mac didn't let Deskwisp keep it in the keychain. Unlock your Mac, then try again.", action: "Try again" },
+  keychain: { title: "Couldn't save your sign-in", line: "Your PC didn't let Deskwisp keep it in the keychain. Unlock your PC, then try again.", action: "Try again" },
   cloud: { title: "Couldn't load your Deskwisp", line: "Couldn't load your Deskwisp from Deskwisp Cloud. Try again.", action: "Try again" },
 };
 
@@ -321,7 +321,7 @@ function Retry({
     step.kind === "expired"
       ? { title: "That code expired", line: "Codes last a few minutes. Get a new one and finish in your browser.", action: "Get a new code" }
       : step.kind === "denied"
-        ? { title: "Sign-in was declined", line: "This Mac wasn't approved. If that was a mistake, start again.", action: "Try again" }
+        ? { title: "Sign-in was declined", line: "This PC wasn't approved. If that was a mistake, start again.", action: "Try again" }
         : PROBLEMS[step.problem];
   return (
     <>

@@ -1,19 +1,24 @@
 /**
- * The bots' mascots, as SVG markup in a 0 0 40 40 box: plush blobs in the bot's color, each wearing
- * headphones (the Deskwisp look). Idle, a bot vibes with its eyes closed; at work, it opens them, each
- * bot with its own expression. One source for the app, the bots' desktops, and their pictures in
- * Slack, Telegram and Discord (scripts/render-mascots.mjs). Plain TypeScript: no React, no imports.
+ * The bots' mascots, as SVG markup in a 0 0 40 40 box: little wisps in the bot's color, a soft flame
+ * shape with a curl at its tip and a spark floating beside it (the Deskwisp look). Idle, a wisp rests
+ * with its eyes closed; at work, it opens them, each bot with its own expression. One source for the
+ * app, the bots' desktops, and their pictures in Slack, Telegram and Discord
+ * (scripts/render-mascots.mjs). Plain TypeScript: no React, no imports.
  */
 
 export type Mood = "idle" | "awake";
 
-const BLOB =
-  "M20 4c7.5 0 13.5 4.5 15.5 11 2.8 2.4 3.8 6 2.8 9.6C36.6 32.5 29.6 37 20 37S3.4 32.5 1.7 24.6C.7 21 1.7 17.4 4.5 15 6.5 8.5 12.5 4 20 4z";
-const INK = "#1C1C1B";
-const HIGHLIGHTER = "#E9FF3B";
+/** The wisp: a rounded body that narrows into a curled tip, leaning a little to the right. */
+const WISP =
+  "M21.5 2.5c-.6 3.4 1.4 5.6 4.6 7.6C31.2 13.4 35 18.2 35 24.6 35 32 28.6 37.5 20 37.5S5 32 5 24.6c0-4.9 2.6-8.8 6-11.4.1 2.4 1.2 4.1 3.1 4.9-.4-6.2 2.3-11.5 7.4-15.6z";
+const INK = "#16132B";
+/** Deskwisp's accent. */
+export const ACCENT = "#7C5CFF";
+/** The main bot's body. */
+export const MAIN_COLOR = "#16132B";
 
-/** A workspace's main bot (Wispy, or Sam on older installs): drawn in black, with highlighter headphones. */
-export const isMainBotId = (botId: string) => /^(wispy|sam)(-\d+)?$/.test(botId);
+/** A workspace's main bot (its id from older installs is kept as it was): drawn in ink, with an accent spark. */
+export const isMainBotId = (botId: string) => /^(wispy|sam|wispy)(-\d+)?$/.test(botId);
 
 /** Each bot's own face when it's working, fixed by its id: open eyes, a smile, or a wink. */
 const FACES = ["open", "happy", "wink"] as const;
@@ -24,61 +29,47 @@ export function faceOf(botId: string): (typeof FACES)[number] {
   return FACES[h % FACES.length];
 }
 
-const eyes = (face: "vibe" | (typeof FACES)[number], c: string) => {
-  const arc = (d: string) => `<path d="${d}" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round"/>`;
-  if (face === "vibe") return arc("M13.6 22.2q1.9 1.8 3.8 0M22.6 22.2q1.9 1.8 3.8 0");
-  if (face === "happy") return arc("M13.6 23.3q1.9-2.1 3.8 0M22.6 23.3q1.9-2.1 3.8 0");
-  const dot = (cx: number) => `<ellipse cx="${cx}" cy="22.3" rx="1.9" ry="2.6" fill="${c}"/>`;
-  if (face === "wink") return dot(15.5) + arc("M22.6 22.5q1.9 1.7 3.8 0");
-  return dot(15.5) + dot(24.5);
+const eyes = (face: "rest" | (typeof FACES)[number], c: string) => {
+  const arc = (d: string) => `<path d="${d}" fill="none" stroke="${c}" stroke-width="1.7" stroke-linecap="round"/>`;
+  if (face === "rest") return arc("M13.4 25q1.9 1.8 3.8 0M22.8 25q1.9 1.8 3.8 0");
+  if (face === "happy") return arc("M13.4 26.1q1.9-2.1 3.8 0M22.8 26.1q1.9-2.1 3.8 0");
+  const dot = (cx: number) => `<ellipse cx="${cx}" cy="25.1" rx="1.9" ry="2.6" fill="${c}"/>`;
+  if (face === "wink") return dot(15.3) + arc("M22.8 25.3q1.9 1.7 3.8 0");
+  return dot(15.3) + dot(24.7);
 };
 
-/** The headphones: a band arching just clear of the head, and a cup on each side. */
-const headphones = (band: string, pad: string) =>
-  `<path d="M6.3 21.5C6.3 8.9 12.4 3.6 20 3.6s13.7 5.3 13.7 17.9" fill="none" stroke="${band}" stroke-width="2.1" stroke-linecap="round"/>` +
-  `<rect x="2.4" y="17" width="6.4" height="11" rx="3" fill="${band}"/><rect x="31.2" y="17" width="6.4" height="11" rx="3" fill="${band}"/>` +
-  `<rect x="7.4" y="18.6" width="1.6" height="7.8" rx=".8" fill="${pad}"/><rect x="31" y="18.6" width="1.6" height="7.8" rx=".8" fill="${pad}"/>`;
-
-/** The body, smaller than the box so the ear cups fit and the band clears the head (flush, it reads as a helmet). */
-const body = (inner: string) => `<g transform="translate(20 23) scale(.8) translate(-20 -21)">${inner}</g>`;
+/** A four-point spark floating up and to the right of the tip. */
+const spark = (c: string) => `<path d="M33 3.2c.4 2.6 1.4 3.6 4 4-2.6.4-3.6 1.4-4 4-.4-2.6-1.4-3.6-4-4 2.6-.4 3.6-1.4 4-4z" fill="${c}"/>`;
 
 /**
- * A bot's mascot. `accent` false draws the main bot's headphones in ink instead of the highlighter
- * (for spots where the highlighter would clash). Older seed bots keep their own shapes.
+ * A bot's mascot. `accent` false draws the main bot's spark in a quiet grey instead of the accent
+ * (for spots where the accent would clash).
  */
 export function mascotMarkup(botId: string, color: string, opts: { mood?: Mood; accent?: boolean } = {}) {
   const mood = opts.mood ?? "idle";
-  const face = mood === "idle" ? "vibe" : faceOf(botId);
+  const face = mood === "idle" ? "rest" : faceOf(botId);
+  const glow = `<path d="M25.2 15.2c2.6 1.2 4.6 3.1 5.7 5.6" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".35"/>`;
   if (isMainBotId(botId)) {
-    const lime = opts.accent !== false;
-    return body(`<path d="${BLOB}" fill="#0A0A0A"/>${eyes(face, "#fff")}`) + headphones(lime ? HIGHLIGHTER : "#3A3A38", lime ? "#0A0A0A" : "#1C1C1B");
+    const lit = opts.accent !== false;
+    return `<path d="${WISP}" fill="${MAIN_COLOR}"/>${glow}${eyes(face, "#fff")}${spark(lit ? ACCENT : "#8B88A3")}`;
   }
-  const shine = `<ellipse cx="14" cy="11.5" rx="4" ry="2.2" fill="#fff" opacity=".28" transform="rotate(-18 14 11.5)"/>`;
-  const blush = `<ellipse cx="11.6" cy="26" rx="2" ry="1.1" fill="#fff" opacity=".45"/><ellipse cx="28.4" cy="26" rx="2" ry="1.1" fill="#fff" opacity=".45"/>`;
-  let inner: string;
-  if (botId === "penny")
-    inner = `<path d="M20 35C11 29 3 23 3 14.5 3 9 7 5 12 5c3.5 0 6.4 2 8 5 1.6-3 4.5-5 8-5 5 0 9 4 9 9.5C37 23 29 29 20 35z" fill="${color}"/>${eyes(face, INK)}`;
-  else if (botId === "otto")
-    inner = `<path d="${BLOB}" fill="${color}" stroke="#C9DD1F"/><circle cx="15.5" cy="22" r="4.4" fill="none" stroke="${INK}" stroke-width="1.6"/><circle cx="24.5" cy="22" r="4.4" fill="none" stroke="${INK}" stroke-width="1.6"/><path d="M19.9 22h.2" stroke="${INK}" stroke-width="1.6"/>${eyes(face, INK)}`;
-  else inner = `<path d="${BLOB}" fill="${color}"/>${shine}${eyes(face, INK)}${blush}`;
-  return body(inner) + headphones(INK, "#3A3A38");
+  const cheeks = `<ellipse cx="11.4" cy="29" rx="2" ry="1.1" fill="#fff" opacity=".45"/><ellipse cx="28.6" cy="29" rx="2" ry="1.1" fill="#fff" opacity=".45"/>`;
+  return `<path d="${WISP}" fill="${color}"/>${glow}${eyes(face, INK)}${cheeks}${spark(INK)}`;
 }
 
 /**
  * The bots' pictures, rendered ahead of time (scripts/render-mascots.mjs) into edge/public/mascot,
- * which Deskwisp Cloud and the self-hosted front door (edge/) serve at /mascot/<name>.png and .jpg for
- * Slack, Telegram and Discord: the main bot, a blob in each of these colors (new bots' colors and the
- * seed bots'), and the seed bots with shapes of their own.
+ * served at /mascot/<name>.png and .jpg for Slack, Telegram and Discord: the main bot, and a wisp in
+ * each of these colors (new bots' colors).
  */
-export const PICTURE_COLORS = ["#FF9F43", "#2EC4B6", "#A78BFA", "#F87171", "#60A5FA", "#34D399", "#E9FF3B", "#FF6FB5", "#47C46B", "#5B8CFF"];
-export const PICTURE_SHAPES: Record<string, string> = { penny: "#FF6FB5", otto: "#E9FF3B", rook: "#47C46B" };
+export const PICTURE_COLORS = ["#FF9F43", "#2EC4B6", "#A78BFA", "#F87171", "#60A5FA", "#34D399", "#FFC83D", "#FF6FB5", "#47C46B", "#5B8CFF"];
+export const PICTURE_SHAPES: Record<string, string> = {};
 
-/** A bot's rendered picture ("blob-2EC4B6"), or null when its color has none (it shows the Deskwisp logo instead). */
+/** A bot's rendered picture ("wisp-2EC4B6"), or null when its color has none (it shows the logo instead). */
 export function pictureName(b: { id: string; color: string; isMain: boolean }): string | null {
-  if (b.isMain) return "main-0A0A0A";
+  if (b.isMain) return `main-${MAIN_COLOR.slice(1)}`;
   const hex = b.color.replace("#", "").toUpperCase();
-  if (PICTURE_SHAPES[b.id]?.slice(1).toUpperCase() === hex) return `${b.id}-${hex}`;
-  return PICTURE_COLORS.some((c) => c.slice(1).toUpperCase() === hex) ? `blob-${hex}` : null;
+  return PICTURE_COLORS.some((c) => c.slice(1).toUpperCase() === hex) ? `wisp-${hex}` : null;
 }
 
 /** A whole SVG document for a bot's mascot, for pages outside the app. */

@@ -6,14 +6,14 @@ import { notReady } from "@/lib/server/ready";
 
 export const dynamic = "force-dynamic";
 
-/** Answering a request to use an app on the Mac: gone with Codex's app server (lib/server/mac.ts), so nothing asks anymore. */
+/** Answering a request to use an app on the PC: gone with Codex's app server (lib/server/mac.ts), so nothing asks anymore. */
 export async function POST() {
-  return Response.json({ error: "Nothing on your Mac is waiting for an answer." }, { status: 410 });
+  return Response.json({ error: "Nothing on your PC is waiting for an answer." }, { status: 410 });
 }
 
 /**
- * The user's Mac settings: the words that mean a task belongs there, Full access for bots (kept on this
- * Mac only, full-access.ts), or a fresh check. Full access turns on only from the Deskwisp window itself
+ * The user's PC settings: the words that mean a task belongs there, Full access for bots (kept on this
+ * PC only, full-access.ts), or a fresh check. Full access turns on only from the Deskwisp window itself
  * (ui-token.ts): a page a bot's Chrome reached this server with mustn't be able to give bots a shell.
  */
 export async function PATCH(request: Request) {

@@ -23,7 +23,7 @@ import { recordUsage } from "./usage";
  * Until deskwisp.bot is verified (DNS), inboxes are on agentmail.to (sam.acme@agentmail.to); once it
  * is, each bot gets its deskwisp.bot address, and mail to the old one still arrives.
  *
- * Mail comes in over AgentMail's WebSocket (no public URL needed: Deskwisp runs on a Mac), and anything
+ * Mail comes in over AgentMail's WebSocket (no public URL needed: Deskwisp runs on a PC), and anything
  * that came while Deskwisp was closed is picked up when it reconnects. It lands in the bot's chat as an
  * email card, and the bot says in a line what it is. Sending and replying always wait for the user's OK.
  *
@@ -527,7 +527,7 @@ export function ownerEmailSources() {
   const codes = (s.ownerEmails ?? []).filter((e) => e.verifiedAt && ofThisUser(e));
   add(s.account?.user.email, "sign-in");
   for (const a of s.accounts ?? []) if (a.app === "gmail" || a.app === "outlook") add(a.name, a.app);
-  // A setting of this Mac's (.env.local), whoever signs in: only a self-hosted install's, where it's the one person's.
+  // A setting of this PC's (.env.local), whoever signs in: only a self-hosted install's, where it's the one person's.
   if (!cloudOn()) for (const x of (process.env.DESKWISP_OWNER_EMAILS ?? "").split(",")) add(x, "env");
   for (const e of codes) add(e.address, "code");
   return [...found].map(([address, sources]) => ({
@@ -675,7 +675,7 @@ export function startMail() {
     live.socket.close();
     live.socket = undefined;
   }
-  // (Signed out on the Mac app there's no state for mail to land in.)
+  // (Signed out on the PC app there's no state for mail to land in.)
   if (!key || live.socket || live.starting || !stateReady()) return;
   live.starting = true;
   void (async () => {
@@ -877,7 +877,7 @@ function asEmail(text: string, b: Bot) {
   const body = text
     .replace(/\n*Open: \[[^\]]*\]\(\/api\/pages\/[^)]*\)/g, "\n\n(There's a page for this in Deskwisp.)")
     .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, "$1 ($2)")
-    // A file on the bot's computer or the Mac: no address an email could open, so it's named, and opens in Deskwisp.
+    // A file on the bot's computer or the PC: no address an email could open, so it's named, and opens in Deskwisp.
     .replace(/\[([^\]]+)\]\((?:\/|~\/|file:)[^)]*\)/g, "$1 (in Deskwisp)")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .trim();

@@ -11,7 +11,7 @@ import { formatNumber, niceTicks, type Group } from "@/lib/crm-csv";
 
 /** Every color the chart uses. One series is ink; a pick keeps its mark ink and greys the rest. Light only, like the app. */
 export const CHART = {
-  ink: "#0A0A0A",
+  ink: "#16132B",
   hover: "#3A3A38",
   muted: "#C9C9C6",
   mutedHover: "#9A9A98",
@@ -352,7 +352,7 @@ export function CrmChart({
           if (active === null) goTo(picked >= 0 ? picked : 0);
         }}
         onBlur={() => setKeyboard(false)}
-        className="rounded-[10px] outline-none focus-visible:[outline:1.5px_solid_#0A0A0A] focus-visible:[outline-offset:4px]"
+        className="rounded-[10px] outline-none focus-visible:[outline:1.5px_solid_#16132B] focus-visible:[outline-offset:4px]"
       >
         {width > 0 && n > 0 && (kind === "bar" ? <Bars {...shared} wide={wide} /> : <Line {...shared} />)}
       </div>

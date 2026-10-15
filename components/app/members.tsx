@@ -87,9 +87,9 @@ export function MembersButton({ state, onClick }: { state: AppState; onClick: ()
       className="relative flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-ink shadow-[0_0_0_1px_#E6E6E3] hover:bg-[#FCFCFB]"
     >
       <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-        <circle cx="6" cy="5.6" r="2.4" fill="none" stroke="#0A0A0A" strokeWidth="1.4" />
-        <path d="M1.8 13.2c.6-2.3 2.2-3.5 4.2-3.5s3.6 1.2 4.2 3.5" fill="none" stroke="#0A0A0A" strokeWidth="1.4" strokeLinecap="round" />
-        <path d="M10.4 3.5a2.4 2.4 0 010 4.4M12 9.9c1.2.4 2 1.5 2.3 3.3" fill="none" stroke="#0A0A0A" strokeWidth="1.4" strokeLinecap="round" />
+        <circle cx="6" cy="5.6" r="2.4" fill="none" stroke="#16132B" strokeWidth="1.4" />
+        <path d="M1.8 13.2c.6-2.3 2.2-3.5 4.2-3.5s3.6 1.2 4.2 3.5" fill="none" stroke="#16132B" strokeWidth="1.4" strokeLinecap="round" />
+        <path d="M10.4 3.5a2.4 2.4 0 010 4.4M12 9.9c1.2.4 2 1.5 2.3 3.3" fill="none" stroke="#16132B" strokeWidth="1.4" strokeLinecap="round" />
       </svg>
       {count ? (
         <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#EEEEEC] px-1 text-[11px] font-semibold leading-none tabular-nums text-[#3A3A38] shadow-[0_0_0_2px_#F9F9F8]">
@@ -212,7 +212,7 @@ export function Members({ state, onClose, onUpgrade }: { state: AppState; onClos
             <span id="members-title" className="text-[18px] font-semibold leading-[22px]">
               People
             </span>
-            <span className="text-[13px] leading-[17px] text-[#6B6B6B]">Who can see your bots&apos; computers, in every workspace. Never this Mac.</span>
+            <span className="text-[13px] leading-[17px] text-[#6B6B6B]">Who can see your bots&apos; computers, in every workspace. Never this PC.</span>
           </div>
           <CloseButton onClick={onClose} />
         </div>
@@ -270,7 +270,7 @@ export function Members({ state, onClose, onUpgrade }: { state: AppState; onClos
 
         {read?.state === "ready" ? (
           <div className="px-[22px] pb-5 pt-5 text-[12px] leading-4 text-[#9A9A98]">
-            People you add sign in on deskwisp.com with the email you invite. They see whatever is on your bots&apos; screens, like an open inbox, but never this Mac, your chats or
+            People you add sign in on deskwisp.com with the email you invite. They see whatever is on your bots&apos; screens, like an open inbox, but never this PC, your chats or
             your vault.{" "}
             <a href={read.horafirmUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ink">
               Open on deskwisp.com
@@ -287,7 +287,7 @@ export function Members({ state, onClose, onUpgrade }: { state: AppState; onClos
 /** Who has access, and adding people: the sheet once Horafirm has said. */
 function ReadyView({ info, state, act, onRetry, onUpgrade }: { info: Ready; state: AppState; act: Act; onRetry: () => void; onUpgrade: () => void }) {
   const someoneFull = info.people.some((p) => p.role === "admin");
-  // Deskwisp' own keys on the computers: said whenever someone with Full access can read them, whether or not
+  // Deskwisp's own keys on the computers: said whenever someone with Full access can read them, whether or not
   // the app offers it (people added on deskwisp.com have it too), and when they're why the app doesn't.
   const keys = info.fullAccess === "off" || (info.keysOnComputers && someoneFull);
   return (
@@ -295,7 +295,7 @@ function ReadyView({ info, state, act, onRetry, onUpgrade }: { info: Ready; stat
       {(keys || info.host === "mac") && (
         <div className="flex flex-col gap-2 px-[22px] pt-[18px]">
           {keys && <Notice>{info.fullAccess === "off" ? `${WORDS.keysOff}${someoneFull ? ` ${WORDS.keysOffFull}` : ""}` : WORDS.keysHeld}</Notice>}
-          {info.host === "mac" && <Notice>Right now your bots work on this Mac, which people you add never see. They&apos;d only see your bots&apos; cloud computers.</Notice>}
+          {info.host === "mac" && <Notice>Right now your bots work on this PC, which people you add never see. They&apos;d only see your bots&apos; cloud computers.</Notice>}
         </div>
       )}
       <AddSomeone info={info} state={state} act={act} onRetry={onRetry} onUpgrade={onUpgrade} />
@@ -468,7 +468,7 @@ function InviteForm({ info, act, sent, onSent, onSaid }: { info: Ready; act: Act
           placeholder="name@example.com"
           aria-label="Their email"
           autoComplete="off"
-          className="h-10 min-w-0 flex-1 rounded-full bg-white px-4 text-[14px] shadow-[0_0_0_1px_#E6E6E3] outline-none placeholder:text-[#9A9A98] focus:shadow-[0_0_0_1.5px_#0A0A0A]"
+          className="h-10 min-w-0 flex-1 rounded-full bg-white px-4 text-[14px] shadow-[0_0_0_1px_#E6E6E3] outline-none placeholder:text-[#9A9A98] focus:shadow-[0_0_0_1.5px_#16132B]"
         />
         {offer !== "not_yet" && <AccessPicker value={role} onChange={setRole} fullAccess={offer} disabled={busy} />}
         <button type="submit" disabled={!email.trim() || busy} className="h-10 shrink-0 rounded-full bg-ink px-4 text-[13px] font-medium text-white disabled:opacity-50">

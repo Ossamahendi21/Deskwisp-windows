@@ -7,17 +7,18 @@ import { pgStore } from "./persist-pg";
 import { userDeskwispHome, userChromeDir, userDataDir } from "./user-paths";
 
 /**
- * The app's state: one in-process object, the signed-in Horafirm user's. The Mac app keeps it in Deskwisp
+ * The app's state: one in-process object, the signed-in Horafirm user's. The PC app keeps it in Deskwisp
  * Cloud (persist-cloud.ts), a self-hosted install in a file per user, a hosted server in Postgres per
  * user (DESKWISP_DATABASE_URL); lib/server/persist.ts.
  */
 
 const seedBots: Bot[] = [
-  { id: "wispy", name: "Wispy", role: "Chief of Staff", color: "#0A0A0A", isMain: true, computerStatus: "none" },
-  { id: "otto", name: "Otto", role: "Outbound", color: "#E9FF3B", isMain: false, computerStatus: "none" },
-  { id: "rook", name: "Rook", role: "Recruiting", color: "#47C46B", isMain: false, computerStatus: "none" },
-  { id: "iris", name: "Iris", role: "Inbox", color: "#5B8CFF", isMain: false, computerStatus: "none" },
-  { id: "penny", name: "Penny", role: "Finance", color: "#FF6FB5", isMain: false, computerStatus: "none" },
+  // Ids stay as older installs saved them; the names and colors are Deskwisp's.
+  { id: "wispy", name: "Wispy", role: "Chief of Staff", color: "#16132B", isMain: true, computerStatus: "none" },
+  { id: "otto", name: "Yassin", role: "Outbound", color: "#FFC83D", isMain: false, computerStatus: "none" },
+  { id: "rook", name: "Rim", role: "Recruiting", color: "#47C46B", isMain: false, computerStatus: "none" },
+  { id: "iris", name: "Ines", role: "Inbox", color: "#5B8CFF", isMain: false, computerStatus: "none" },
+  { id: "penny", name: "Fadwa", role: "Finance", color: "#FF6FB5", isMain: false, computerStatus: "none" },
 ];
 
 /** The main bot as on day one: no computer yet (one launches from the Deskwisp template on its first task), nothing connected. */
@@ -75,12 +76,12 @@ function migrate(raw: Record<string, unknown>): AppState {
   state.owner ??= { name: "" };
   state.takeover = undefined;
   delete state.samThinking;
-  // Whose backup this state was, from when the Mac kept its own copy: the state is always the signed-in user's now.
+  // Whose backup this state was, from when the PC kept its own copy: the state is always the signed-in user's now.
   delete (state as { cloudUser?: string }).cloudUser;
   // App approvals wait on a bot that's gone after a restart; a connection mid-sign-in can't finish.
   state.appApprovals = [];
   state.connecting = [];
-  // Routing through this Mac is on by default now: a Mac that was paired and then turned off before stays off.
+  // Routing through this PC is on by default now: a PC that was paired and then turned off before stays off.
   if (state.relay?.deviceId && !state.relay.on) state.relay.turnedOff ??= true;
   // Accounts and each bot's access, from the one-account-per-app shape (any saved state, a backup too).
   appAccounts(state);
@@ -174,40 +175,40 @@ export const hydrateState = () => store.hydrate();
 export const bindSignIn = (userId: string, key?: string) => store.signIn(userId, key);
 /** Called by signOut(): saves the user's state (what's unsent keeps going in the background) and clears it from memory. */
 export const releaseSignOut = () => store.signOut();
-/** Whether there's a state to work on: on the Mac app, once a signed-in user's has loaded. Background work waits until then. */
+/** Whether there's a state to work on: on the PC app, once a signed-in user's has loaded. Background work waits until then. */
 export const stateReady = () => store.ready();
 /** Whose state is in memory (null: nobody's). */
 export const stateUser = () => store.user();
-/** Whether the store is the Mac app's, in Deskwisp Cloud: no state without a signed-in user. */
+/** Whether the store is the PC app's, in Deskwisp Cloud: no state without a signed-in user. */
 export const stateInCloud = () => !onPostgres() && !selfHosted();
 /** Save what's changed now, and wait up to `ms`: true when it's all saved (a sign-out asks before going on without). */
 export const flushState = (ms = 10_000) => store.flush(ms);
 /** Changes not saved yet. */
 export const unsentState = () => store.unsent();
-/** Read what another Mac of the user's changed, now (Deskwisp Cloud said so). */
+/** Read what another PC of the user's changed, now (Deskwisp Cloud said so). */
 export const pullState = () => store.pull();
 
 /**
  * Whose files these are: the user whose state is in memory, "" for none (a self-hosted install on its
  * own key, or a hosted server pinned to one user, keeps them where they always were), null when
- * there's nobody to keep them for (the Mac app signed out).
+ * there's nobody to keep them for (the PC app signed out).
  */
 function filesOf(): string | null {
   const user = store.user();
   if (onPostgres() && process.env.DESKWISP_HORAFIRM_USER_ID) return "";
   return user || (stateInCloud() ? null : "");
 }
-/** Where the signed-in user's own files on this Mac go (uploads, pages, phone secrets…; user-paths.ts), or null signed out on the Mac app. */
+/** Where the signed-in user's own files on this PC go (uploads, pages, phone secrets…; user-paths.ts), or null signed out on the PC app. */
 export function userDir(): string | null {
   const user = filesOf();
   return user === null ? null : userDataDir(user || null);
 }
-/** The user's ~/.deskwisp (the bots' workspace on this Mac), or null signed out on the Mac app. */
+/** The user's ~/.deskwisp (the bots' workspace on this PC), or null signed out on the PC app. */
 export function userHome(): string | null {
   const user = filesOf();
   return user === null ? null : userDeskwispHome(user || null);
 }
-/** Where the user's bots keep their Chrome profiles on this Mac, or null signed out on the Mac app. */
+/** Where the user's bots keep their Chrome profiles on this PC, or null signed out on the PC app. */
 export function userChrome(): string | null {
   const user = filesOf();
   return user === null ? null : userChromeDir(user || null);
@@ -222,7 +223,7 @@ export const getState = () => box.state;
 export const stateEpoch = () => box.swaps ?? 0;
 /**
  * For work that waits on something (a bot's turn on the model, an email's attachments): whether the
- * state in memory is still the one it started on. On the Mac app a sign-out lets the user's state go
+ * state in memory is still the one it started on. On the PC app a sign-out lets the user's state go
  * and the next sign-in brings in another account's; what the work had in hand then is dropped, never
  * written into that account's chats.
  */
@@ -232,7 +233,7 @@ export function sameState() {
 }
 /** This install of Deskwisp: made once, kept in state. Shared services carry it (AgentMail's pod and inboxes, Composio's user). */
 export function installId() {
-  // Signed out on the Mac app the state is nobody's: nothing outside (an inbox, a pod) is made for nobody.
+  // Signed out on the PC app the state is nobody's: nothing outside (an inbox, a pod) is made for nobody.
   if (!store.ready()) throw new Error("Sign in to Deskwisp first.");
   if (!box.state.installId) update((s) => void (s.installId ??= randomBytes(4).toString("hex")));
   return box.state.installId!;
@@ -343,7 +344,7 @@ export async function resetState() {
   await store.backup();
   // Starting over isn't signing out: who's signed in stays (their key stays in the Keychain), and
   // the bots call them by their Horafirm name again, as on a first sign-in. What Deskwisp has cost so far
-  // stays too, and so do this Mac's routing switch and the user's other Macs' own settings.
+  // stays too, and so do this PC's routing switch and the user's other PCs' own settings.
   // The user's usage data switch stays as they set it.
   const { host, account, usage, relay, macs, analyticsOff } = box.state;
   const name = account?.user.name?.slice(0, 80);

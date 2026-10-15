@@ -9,19 +9,19 @@ import { getState, update } from "./store";
 
 /**
  * Deskwisp Cloud (cloud/README.md): the server Horafirm runs so that Horafirm's provider keys never sit on a
- * user's Mac. Signed in with Horafirm, the app calls OpenAI, AgentPhone, Honcho, Composio, Typesafe and
+ * user's PC. Signed in with Horafirm, the app calls OpenAI, AgentPhone, Honcho, Composio, Typesafe and
  * texted codes through the cloud on the user's Horafirm key (cloudProxy), and AgentMail directly with a
  * key that reaches only the user's own pod (the session). While it runs, it keeps a tunnel open for
  * webhooks (cloud-tunnel.ts). The app's state itself lives there too (persist-cloud.ts).
  *
  * Self-hosting (DESKWISP_SELF_HOSTED=1, keys in .env.local) and a hosted server (DESKWISP_DATABASE_URL,
  * which holds its own keys) call every service directly, as before. DESKWISP_CLOUD_URL points the app
- * at another cloud (staging, or one running on this Mac).
+ * at another cloud (staging, or one running on this PC).
  */
 
 export { cloudUrl };
 
-/** Whether services go through Deskwisp Cloud: signed in with Horafirm, in the app on a Mac, and not self-hosting. */
+/** Whether services go through Deskwisp Cloud: signed in with Horafirm, in the app on a PC, and not self-hosting. */
 export const cloudOn = () => !!horafirmKey() && process.env.DESKWISP_SELF_HOSTED !== "1" && !onPostgres();
 
 /**
@@ -137,7 +137,7 @@ export function cloudProxy(provider: "openai" | "agentphone" | "honcho" | "compo
 }
 
 /**
- * The OpenAI key copied onto bot computers (and given to Codex on this Mac) for `codex exec-server`:
+ * The OpenAI key copied onto bot computers (and given to Codex on this PC) for `codex exec-server`:
  * Deskwisp Cloud's restricted, spend-capped one, or OPENAI_EXECUTOR_API_KEY.
  */
 export async function executorKey(): Promise<string> {

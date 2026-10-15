@@ -82,7 +82,7 @@ import { useBubbleScreenSpace } from "@/components/message-ui/use-screen-space";
  * **Read out of the framework.** No capture of a search *result* exists and none can be taken: the
  * simulator's two conversations hold no messages and its Spotlight index is empty, so every query
  * returns "No Results". The sections are therefore built from ChatKit 26.5, read at runtime off
- * `[[CKUIBehaviorPhone alloc] init]` in a Mac Catalyst probe that dlopens
+ * `[[CKUIBehaviorPhone alloc] init]` in a PC Catalyst probe that dlopens
  * `/System/iOSSupport/System/Library/PrivateFrameworks/ChatKit.framework/ChatKit`. Each value names
  * its selector on the constant it feeds. Section titles, "See All" and "No Results" are the
  * framework's own English strings from `ChatKit.loctable`.
@@ -313,7 +313,7 @@ export const iosSearchMetrics = {
     radius: 0,
   },
   links: {
-    /** ChatKit `searchLinksInterItemSpacing` and `searchLinksCellCornerRadius` (Mac overrides to 8). */
+    /** ChatKit `searchLinksInterItemSpacing` and `searchLinksCellCornerRadius` (PC overrides to 8). */
     gap: 10,
     radius: 10,
     /** ChatKit `searchLinksFractionalWidthScale` / `searchLinksFractionalHeightScale`, on `searchCellPreferredWidth`. */

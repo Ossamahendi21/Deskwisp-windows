@@ -1,14 +1,14 @@
-/** What the Deskwisp page may ask the Mac app for: its screens and windows, to show them live, its permissions, and whether a newer version is out. */
+/** What the Deskwisp page may ask the PC app for: its screens and windows, to show them live, its permissions, and whether a newer version is out. */
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("deskwispMac", {
   screens: () => ipcRenderer.invoke("mac-screens"),
   openScreenSettings: () => ipcRenderer.invoke("mac-screen-settings"),
-  // The Mac previews in a small window of their own that floats over every app.
+  // The PC previews in a small window of their own that floats over every app.
   popOut: () => ipcRenderer.invoke("mac-pip-open"),
   closePip: () => ipcRenderer.invoke("mac-pip-close"),
   showMain: () => ipcRenderer.invoke("mac-show-main"),
-  // What Deskwisp may use on this Mac (screen, microphone, notifications), asked for in one place.
+  // What Deskwisp may use on this PC (screen, microphone, notifications), asked for in one place.
   permissions: {
     status: () => ipcRenderer.invoke("perm-status"),
     request: (id) => ipcRenderer.invoke("perm-request", id),

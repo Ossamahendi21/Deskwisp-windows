@@ -1,12 +1,12 @@
 /**
- * Deskwisp for Windows (a personal port; desktop/main.cjs is the Mac app). A window around the Deskwisp app:
+ * Deskwisp for Windows (desktop/main.cjs is the original Mac app). A window around the Deskwisp app:
  * it starts the app's local server with Electron's own Node, waits for it, then opens the app. Its
  * files live in %APPDATA%\Deskwisp: data\ (the server's state and the sealed vault), .env.local (your own
  * settings and keys, when self-hosting), window-token, and logs\.
  *
- * It answers the same bridge the Mac app does (desktop/preload.cjs), with what Windows has: the
- * screens through desktopCapturer, notifications, a restart. Mac-only parts (Full access, Automation,
- * the relay through this Mac) answer as not there.
+ * It answers the same bridge the PC app does (desktop/preload.cjs), with what Windows has: the
+ * screens through desktopCapturer, notifications, a restart. PC-only parts (Full access, Automation,
+ * the relay through this PC) answer as not there.
  */
 const { app, BrowserWindow, desktopCapturer, ipcMain, Menu, Notification, screen, session, shell } = require("electron");
 const { execFile, spawn } = require("node:child_process");
@@ -254,7 +254,7 @@ app.on("web-contents-created", (_, contents) => {
 ipcMain.handle("startup-retry", () => mainWin && !mainWin.isDestroyed() && openApp(mainWin));
 ipcMain.handle("startup-logs", () => shell.openPath(app.getPath("logs")));
 
-/** Your PC's screens, to show live (the "Your Mac" tab). Windows asks nothing for this. */
+/** Your PC's screens, to show live (the "Your PC" tab). Windows asks nothing for this. */
 ipcMain.handle("mac-screens", async () => {
   const displays = screen.getAllDisplays().map((d, i) => ({
     id: String(d.id),
@@ -322,7 +322,7 @@ ipcMain.handle("mac-pip-open", () => {
 ipcMain.handle("mac-pip-close", () => pipWin?.close());
 ipcMain.handle("mac-show-main", () => showMain());
 
-// No updates from deskwisp.bot: those are the Mac app's. This build updates when you build it again.
+// No updates from deskwisp.bot: those are the PC app's. This build updates when you build it again.
 ipcMain.handle("update-info", () => null);
 ipcMain.handle("update-dismiss", () => undefined);
 ipcMain.handle("update-download", () => undefined);
@@ -330,7 +330,7 @@ ipcMain.handle("update-download", () => undefined);
 // ---------------------------------------------------------------- Start and quit
 
 app.setName("Deskwisp");
-app.setAppUserModelId("deskwisp.personal.windows");
+app.setAppUserModelId("app.deskwisp.windows");
 const first = app.requestSingleInstanceLock();
 if (!first) app.quit();
 app.on("second-instance", () => app.isReady() && showMain());

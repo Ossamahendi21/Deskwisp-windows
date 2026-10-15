@@ -50,11 +50,11 @@ import { checkVerification, forgetVerification, pendingConsentAt, pendingVerific
  * - **Who the user is:** the numbers they verified with a texted code in Settings, and, on Deskwisp
  *   Cloud, whoever the cloud says owns the line (deskwisp.phone_lines: the first phone to call or text a
  *   new number in its 15 minutes; phone-lines.ts). On Deskwisp Cloud the cloud decides it for every call
- *   and text and this Mac follows (CallerVerdict).
+ *   and text and this PC follows (CallerVerdict).
  * - **On Deskwisp Cloud** (signed in with Horafirm; lib/server/cloud.ts) AgentPhone is reached through the
  *   cloud, always in the user's own sub-account. Both webhooks arrive at the cloud, which checks them
- *   and passes them to this Mac over its tunnel (lib/server/cloud-tunnel.ts), and the cloud answers
- *   calls while the Mac is away (cloudCall, below).
+ *   and passes them to this PC over its tunnel (lib/server/cloud-tunnel.ts), and the cloud answers
+ *   calls while the PC is away (cloudCall, below).
  */
 
 const AP = "https://api.agentphone.ai/v1";
@@ -743,11 +743,11 @@ export async function phoneCatchUp() {
 }
 
 const gp = globalThis as unknown as { deskwispPhoneCatchUp?: ReturnType<typeof setInterval>; deskwispPhoneTick?: () => Promise<unknown>; deskwispPhoneUpkeepFor?: string };
-// The missed texts, and on Deskwisp Cloud each bot's voice, which the cloud answers its calls in while the Mac is away.
+// The missed texts, and on Deskwisp Cloud each bot's voice, which the cloud answers its calls in while the PC is away.
 gp.deskwispPhoneTick = () => (stateReady() ? Promise.all([phoneCatchUp(), cloudOn() ? rememberVoices() : null]) : Promise.resolve());
 /**
  * Started by the state route (like mail): one timer, and for each user whose state comes in (a start,
- * or another account signing in on this Mac) a look right away and their numbers' upkeep (lineUpkeep).
+ * or another account signing in on this PC) a look right away and their numbers' upkeep (lineUpkeep).
  */
 export function startPhone() {
   if (!phoneOn() || !stateReady()) return;
@@ -834,7 +834,7 @@ function calledBot(e: LiveTransportIncomingWebhookEvent): Bot | undefined {
 /** An OpenAI webhook event arrived (any type), for the call log. */
 export const logWebhook = (type: string, id?: string) => callLog({ event: "webhook", type, id });
 
-/** Each incoming call (its SIP headers or turns) and what Deskwisp did, kept on this Mac in the user's folder (.data/users/<id>/phone-calls.jsonl) to debug calls. */
+/** Each incoming call (its SIP headers or turns) and what Deskwisp did, kept on this PC in the user's folder (.data/users/<id>/phone-calls.jsonl) to debug calls. */
 export function callLog(entry: Record<string, unknown>) {
   const dir = userDir();
   if (!dir) return;
@@ -844,7 +844,7 @@ export function callLog(entry: Record<string, unknown>) {
   } catch {}
 }
 
-/** The call, from Deskwisp' side: the greeting, the transcript, what the user asks for done, and the note after. */
+/** The call, from Deskwisp's side: the greeting, the transcript, what the user asks for done, and the note after. */
 function runCall(b: Bot, sessionId: string, from: string) {
   // The account whose call this is: after a sign-out or another account's sign-in, nothing of it lands in the new one.
   const ours = sameState();
@@ -926,9 +926,9 @@ function runCall(b: Bot, sessionId: string, from: string) {
 }
 
 /**
- * A call Deskwisp Cloud answered while this Mac was away (asleep, off or offline), handed over by the
+ * A call Deskwisp Cloud answered while this PC was away (asleep, off or offline), handed over by the
  * tunnel once it's back, as a message in the bot's chat with the call as text. The owner's (the cloud
- * decided who that is): their note, and the call into memory, as a call this Mac answers goes
+ * decided who that is): their note, and the call into memory, as a call this PC answers goes
  * (phone-voice.ts finish). Anyone else's (the bot only took a message, cloud/voice.ts): the message
  * they left, with a chime. A first call that claimed the line makes that number the user's here too.
  * The cloud hands an event over again if its acknowledgment was lost: it's added once.
@@ -947,7 +947,7 @@ export function cloudCall(p: CloudCallPayload, eventId: string) {
     addMessage({
       chatId: botChatId(b.id),
       role: "system",
-      text: `While your Mac was away, ${left}${p.transcript?.trim() ? `\n\n${p.transcript.trim().slice(0, 6000)}` : ""}`,
+      text: `While your PC was away, ${left}${p.transcript?.trim() ? `\n\n${p.transcript.trim().slice(0, 6000)}` : ""}`,
       sms: { dir: "in", from: p.from ?? "", to: lineOf(b)?.phone ?? b.phone ?? "", id: key },
       call: { seconds, phone: p.from },
       ...(m ? { ping: true } : {}),
@@ -959,7 +959,7 @@ export function cloudCall(p: CloudCallPayload, eventId: string) {
   addMessage({
     chatId: botChatId(b.id),
     role: "system",
-    text: `While your Mac was away, you${said}${p.transcript?.trim() ? `\n\n${p.transcript.trim().slice(0, 6000)}` : ""}`,
+    text: `While your PC was away, you${said}${p.transcript?.trim() ? `\n\n${p.transcript.trim().slice(0, 6000)}` : ""}`,
     sms: { dir: "in", from: p.from ?? "", to: lineOf(b)?.phone ?? b.phone ?? "", id: key },
     call: { seconds, phone: p.from },
   });

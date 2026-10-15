@@ -53,7 +53,7 @@ export function WhereToFind({ state, bot: b }: { state: AppState; bot: Bot }) {
             <button
               key={ch.id}
               onClick={() => setOpen(open === ch.id ? null : (ch.id as Kind))}
-              className={`flex items-center gap-2.5 rounded-[14px] px-2.5 py-2 text-left ${open === ch.id ? "bg-white shadow-[0_0_0_1.5px_#0A0A0A]" : "bg-white/70 shadow-[inset_0_0_0_1px_#E6E6E3] hover:bg-white"}`}
+              className={`flex items-center gap-2.5 rounded-[14px] px-2.5 py-2 text-left ${open === ch.id ? "bg-white shadow-[0_0_0_1.5px_#16132B]" : "bg-white/70 shadow-[inset_0_0_0_1px_#E6E6E3] hover:bg-white"}`}
             >
               {body}
             </button>
@@ -75,7 +75,7 @@ const pretty = (e164: string) => (/^\+1\d{10}$/.test(e164) ? `+1 (${e164.slice(2
 const where = (l: ChannelLink) => (l.kind === "slack" ? (l.slack?.channels.length ? l.slack.channels.map((c) => `#${c.name}`).join(", ") : `DMs in ${l.handle}`) : l.handle);
 
 const card = "flex flex-col gap-3 rounded-[16px] bg-white p-3.5 shadow-[0_0_0_1px_#ECECEA]";
-const field = "min-w-0 flex-1 rounded-xl bg-[#F7F7F6] px-3 py-2 font-mono text-[12.5px] leading-[18px] outline-none placeholder:font-sans placeholder:text-[#9A9A98] focus:bg-white focus:shadow-[0_0_0_1.5px_#0A0A0A]";
+const field = "min-w-0 flex-1 rounded-xl bg-[#F7F7F6] px-3 py-2 font-mono text-[12.5px] leading-[18px] outline-none placeholder:font-sans placeholder:text-[#9A9A98] focus:bg-white focus:shadow-[0_0_0_1.5px_#16132B]";
 const primary = "shrink-0 whitespace-nowrap rounded-full bg-ink px-3.5 py-2 text-[12.5px] font-semibold leading-4 text-white hover:bg-[#2A2A28] disabled:opacity-40";
 const quiet = "shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-medium leading-4 text-[#3A3A38] shadow-[inset_0_0_0_1px_#E2E2DF] hover:bg-[#F7F7F6]";
 
@@ -151,7 +151,7 @@ function TokenSetup({ bot: b, kind }: { bot: Bot; kind: "telegram" | "discord" }
         </button>
       </div>
       {error && <span className="text-[12px] leading-4 text-[#B42318]">{error}</span>}
-      <span className="text-[11.5px] leading-4 text-[#9A9A98]">The token stays in your Mac&apos;s Keychain. {b.name} takes requests only from you there.</span>
+      <span className="text-[11.5px] leading-4 text-[#9A9A98]">The token stays in your PC&apos;s Keychain. {b.name} takes requests only from you there.</span>
     </div>
   );
 }

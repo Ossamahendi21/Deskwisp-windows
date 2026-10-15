@@ -18,9 +18,9 @@ export async function POST(request: Request, ctx: RouteContext<"/api/sessions/[s
   const picked = s.options?.includes(text.trim());
   const watch = picked ? null : await watchInstead(sessionId, text.trim()).catch(() => null);
   if (!watch) replyToSession(sessionId, text.trim());
-  // Words about their Mac in a cloud thread ("do it on my Mac", "do it locally") offer the move ("Move to your Mac?"),
-  // and the user taps it: words alone also match "anywhere but on my Mac" or "a sleeve for my MacBook Air".
-  // The Mac thread starts with what they told this one (sessions.ts cloudRecord).
+  // Words about their PC in a cloud thread ("do it on my PC", "do it locally") offer the move ("Move to your PC?"),
+  // and the user taps it: words alone also match "anywhere but on my PC" or "a sleeve for my MacBook Air".
+  // The PC thread starts with what they told this one (sessions.ts cloudRecord).
   if (!watch && mentionsMac(text) && s.runsOn !== "mac" && getState().mac?.ready) offerMove(sessionId);
   return Response.json({ ok: true, watch });
 }

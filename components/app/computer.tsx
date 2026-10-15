@@ -162,7 +162,7 @@ export function ComputerView({
   const read = readOn(display);
 
   // Following the action. The computer streams when an agent last acted on each screen; threads'
-  // recorded steps fill in where it can't (on this Mac). The panel shows the screen being worked on.
+  // recorded steps fill in where it can't (on this PC). The panel shows the screen being worked on.
   const acted = useScreenActivity(c);
   /** The latest recorded step on a screen: the thread's own on its screen, a helper's on the screen it passed. */
   const stepOn = (d: number) => {
@@ -326,9 +326,9 @@ export function ComputerView({
 
   const sendInput = (action: ScreenInput) => void post("/api/input", { botId: b.id, display, ...action });
   // How a screen is shown. Horafirm computers show their real desktop live where it streams; the mirror
-  // (just the bot's page, as live DOM) is the Mac's view and an option on Horafirm; video is the fallback.
+  // (just the bot's page, as live DOM) is the PC's view and an option on Horafirm; video is the fallback.
   // How a screen is shown is decided for you: the real desktop live on Horafirm, the bot's page on this
-  // Mac (no desktop there), screenshots only if a live view can't connect. Reader is the one choice,
+  // PC (no desktop there), screenshots only if a live view can't connect. Reader is the one choice,
   // offered while the bot is reading something long.
   const [fallback, setFallback] = useState<Record<string, View>>({});
   // Nothing connects to a computer that's asleep, so a view that gave up then (before the app knew it was
@@ -341,7 +341,7 @@ export function ComputerView({
   const [readerFor, setReaderFor] = useState<string | null>(null);
   const [tabs, setTabs] = useState<{ key: string; tabs: MirrorTab[] }>({ key: "", tabs: [] });
   const viewKey = `${b.id}-${display}`;
-  // Its screens' Chrome is reachable (the mirror, page reads, the address bar): on this Mac, or over the tailnet.
+  // Its screens' Chrome is reachable (the mirror, page reads, the address bar): on this PC, or over the tailnet.
   const reachable = mac || !!c.tailnet;
   /**
    * A screen whose real desktop streams live: Horafirm's own screen always (WebRTC, else VNC), every screen
@@ -433,7 +433,7 @@ export function ComputerView({
                   className="pointer-events-none absolute inset-0 z-20 transition-shadow duration-300"
                   style={{ boxShadow: acting(d) ? `inset 0 0 0 3px ${botBezel(b)}` : undefined }}
                 />
-                <div className="pointer-events-none absolute inset-0 z-20 opacity-0 transition-opacity duration-200 group-hover/tile:opacity-100" style={{ boxShadow: "inset 0 0 0 2px #0A0A0A" }} />
+                <div className="pointer-events-none absolute inset-0 z-20 opacity-0 transition-opacity duration-200 group-hover/tile:opacity-100" style={{ boxShadow: "inset 0 0 0 2px #16132B" }} />
                 <span className="absolute bottom-1.5 left-1.5 z-20 flex max-w-[85%] items-center gap-1 rounded-full bg-white/95 py-[2px] pl-1 pr-2 text-[11px] leading-[14px] shadow-[0_0_0_1px_#0000000F]">
                   {s ? (
                     <>
@@ -488,7 +488,7 @@ export function ComputerView({
         <div className="flex items-center gap-2.5">
           <button onClick={onBack} className="flex items-center gap-1.5 rounded-full py-1.5 pl-2 pr-3 shadow-[0_0_0_1px_#E6E6E3] hover:bg-[#F7F7F6]">
             <svg width="12" height="12" viewBox="0 0 14 14">
-              <path d="M9 2.5L4.5 7 9 11.5" fill="none" stroke="#0A0A0A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M9 2.5L4.5 7 9 11.5" fill="none" stroke="#16132B" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <Mascot botId={b.id} color={b.color} size={18} />
             <span className="text-[13px] font-medium leading-4">Back to {b.name}</span>
@@ -599,7 +599,7 @@ export function ComputerView({
                 {handoff.to === "you" ? (
                   <span className="flex size-6 items-center justify-center rounded-full" style={{ background: botBezel(b) }}>
                     <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden>
-                      <path d="M4 2.5l8.5 5-3.6.9-1.8 3.6z" fill="#0A0A0A" stroke="#0A0A0A" strokeWidth="1.2" strokeLinejoin="round" />
+                      <path d="M4 2.5l8.5 5-3.6.9-1.8 3.6z" fill="#16132B" stroke="#16132B" strokeWidth="1.2" strokeLinejoin="round" />
                     </svg>
                   </span>
                 ) : (
@@ -816,12 +816,12 @@ export function ComputerView({
                 // a watched screen with something waiting for the user gets the "needs you" yellow.
                 style={
                   alert
-                    ? { boxShadow: "0 0 0 2px #0A0A0A, 0 0 0 4px #E8FF3A" }
+                    ? { boxShadow: "0 0 0 2px #16132B, 0 0 0 4px #C9BDFF" }
                     : !inView && acting(d)
                       ? { boxShadow: `0 0 0 2px ${botBezel(b)}, 0 0 14px -2px ${botBezel(b)}` }
                       : undefined
                 }
-                className={`group/thumb relative flex min-w-0 flex-1 basis-0 flex-col gap-1.5 rounded-xl p-1.5 text-left transition-shadow duration-300 ${inView ? "bg-white shadow-[0_0_0_2px_#0A0A0A]" : tasks.includes(d) || w ? "bg-[#F7F7F6]" : "shadow-[inset_0_0_0_1.5px_#E2E2DF]"}`}
+                className={`group/thumb relative flex min-w-0 flex-1 basis-0 flex-col gap-1.5 rounded-xl p-1.5 text-left transition-shadow duration-300 ${inView ? "bg-white shadow-[0_0_0_2px_#16132B]" : tasks.includes(d) || w ? "bg-[#F7F7F6]" : "shadow-[inset_0_0_0_1.5px_#E2E2DF]"}`}
               >
                 {(canWatch || w) && (
                   <span
@@ -863,7 +863,7 @@ export function ComputerView({
                       <Mascot botId={b.id} color={b.color} size={18} />
                     </div>
                   )}
-                  {s && live(s) && <span className={`absolute right-1 top-1 size-[9px] rounded-full bg-highlighter shadow-[0_0_0_1.5px_#0A0A0A] ${acting(d) ? "animate-pulse" : ""}`} />}
+                  {s && live(s) && <span className={`absolute right-1 top-1 size-[9px] rounded-full bg-highlighter shadow-[0_0_0_1.5px_#16132B] ${acting(d) ? "animate-pulse" : ""}`} />}
                 </div>
                 <div className="flex min-w-0 items-center gap-[5px] text-[11px] leading-[14px]">
                   {tasks.includes(d) ? (
@@ -891,7 +891,7 @@ export function ComputerView({
       {/* Under the screen, only when something's going on: a bot at work, something waiting on you, news. Its controls are on the screen. */}
       {!takeover && (grid || onScreen || read?.blocker || watchedHere?.alert) && (
         <div className={`flex max-w-full items-center gap-3 self-center rounded-full bg-white py-1.5 pl-3.5 ${watchedHere?.alert && !grid ? "pr-1.5" : "pr-3.5"} shadow-[0_0_0_1px_#ECECEA,0_6px_18px_-10px_#00000040]`}>
-          <span className={`size-2 shrink-0 rounded-full ${grid ? "bg-[#2BB673]" : onScreen?.blocker || read?.blocker || watchedHere?.alert ? "bg-highlighter shadow-[0_0_0_1.5px_#0A0A0A]" : "bg-[#2BB673]"}`} />
+          <span className={`size-2 shrink-0 rounded-full ${grid ? "bg-[#2BB673]" : onScreen?.blocker || read?.blocker || watchedHere?.alert ? "bg-highlighter shadow-[0_0_0_1.5px_#16132B]" : "bg-[#2BB673]"}`} />
           <span className="min-w-0 truncate text-[13px] leading-4">
             {grid
               ? `${b.name} is working on ${working.length} things · pick one to watch it up close`
@@ -1032,8 +1032,8 @@ function ExpandIcon() {
 export function EyeIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 16 16" className="shrink-0">
-      <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" fill="none" stroke="#0A0A0A" strokeWidth="1.3" strokeLinejoin="round" />
-      <circle cx="8" cy="8" r="2" fill="#0A0A0A" />
+      <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" fill="none" stroke="#16132B" strokeWidth="1.3" strokeLinejoin="round" />
+      <circle cx="8" cy="8" r="2" fill="#16132B" />
     </svg>
   );
 }
@@ -1109,7 +1109,7 @@ function HomeScreen({ state, bot: b }: { state: AppState; bot: Bot }) {
   const time = now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M/, "");
   const ampm = now.getHours() < 12 ? "AM" : "PM";
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 bg-[#FDFFF6] px-6">
+    <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 bg-[#FBFAFF] px-6">
       <div className="max-w-[210px] rounded-xl bg-white px-3 py-2 text-[11.5px] leading-[15px] text-[#3A3A38] shadow-[0_0_0_1px_#0000000F,0_6px_16px_-8px_#00000014]">
         This is my computer. Watch me work, or take over when you need to.
       </div>
@@ -1166,7 +1166,7 @@ function NoComputer({ state, bot: b, host }: { state: AppState; bot: Bot; /** Th
           className="max-w-[320px]"
           text={
             noRoom.short === "none"
-              ? `${noRoom.text} Until then, your bots can work on this Mac (Settings, Where your bots work).`
+              ? `${noRoom.text} Until then, your bots can work on this PC (Settings, Where your bots work).`
               : host.isMain
                 ? noRoom.text
                 : `${b.name} will work on the main bot's computer instead. ${noRoom.text}`
@@ -1194,12 +1194,12 @@ export function ComputerSummary({ state, bot: b, className = "", onOpen }: { sta
       aria-label={`Open ${b.name}'s computer`}
       className={`group/pc flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-[filter] enabled:hover:brightness-[0.98] ${className}`}
     >
-      <MonitorIcon size={16} color="#0A0A0A" />
+      <MonitorIcon size={16} color="#16132B" />
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="text-[13px] font-semibold leading-4">Computer</span>
         <span className="truncate text-[12px] leading-4 text-[#6B6B6B]">
           {mac
-            ? "Browsers on this Mac"
+            ? "Browsers on this PC"
             : b.isMain
               ? `${b.name}'s cloud computer`
               : c.id !== b.id
@@ -1231,17 +1231,17 @@ export function ComputerPeek({ state, bot: b, onOpen }: { state: AppState; bot: 
       title={label}
       className="relative flex size-11 items-center justify-center rounded-full bg-white shadow-[0_0_0_1px_#E6E6E3,0_8px_20px_-10px_#00000040] hover:shadow-[0_0_0_1px_#C9C9C6,0_8px_20px_-10px_#00000040]"
     >
-      <MonitorIcon size={18} color="#0A0A0A" />
+      <MonitorIcon size={18} color="#16132B" />
       {(needsYou || running.length > 0) && (
         <span
-          className={`absolute right-[7px] top-[7px] size-[9px] rounded-full shadow-[0_0_0_2px_#FFFFFF] ${needsYou ? "bg-highlighter shadow-[0_0_0_1.5px_#0A0A0A]" : "animate-pulse bg-[#2BB673]"}`}
+          className={`absolute right-[7px] top-[7px] size-[9px] rounded-full shadow-[0_0_0_2px_#FFFFFF] ${needsYou ? "bg-highlighter shadow-[0_0_0_1.5px_#16132B]" : "animate-pulse bg-[#2BB673]"}`}
         />
       )}
     </button>
   );
 }
 
-/** Headless Mac screens have no address bar of their own, so taking over adds one. */
+/** Headless PC screens have no address bar of their own, so taking over adds one. */
 function AddressBar({ botId, display }: { botId: string; display: number }) {
   const [url, setUrl] = useState("");
   return (

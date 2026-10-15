@@ -13,11 +13,11 @@ import { fontStack } from "@/components/message-ui/tokens";
  * ## Where these numbers come from
  *
  * **No capture in `references/` holds this screen on either platform**, so every geometric number
- * below was read out of ChatKit — the framework both Messages apps run on — by a Mac Catalyst probe
+ * below was read out of ChatKit — the framework both Messages apps run on — by a PC Catalyst probe
  * whose full source is committed in `references/audio-recorder.md` and whose readings are tabulated
  * in `references/SPEC.md` ("Audio recorder"). The probe dlopens
  * `/System/iOSSupport/System/Library/PrivateFrameworks/ChatKit.framework/ChatKit`, swizzles
- * `-[UIDevice userInterfaceIdiom]` so `+[CKUIBehavior sharedBehaviors]` vends the Phone or the Mac
+ * `-[UIDevice userInterfaceIdiom]` so `+[CKUIBehavior sharedBehaviors]` vends the Phone or the PC
  * behaviour, stubs `+[IMService iMessageService]` (which the view's initialiser force-unwraps), then
  * **builds the real view**: `-[CKAudioMessageRecordingView initWithFrame:service:]`, feeds it known
  * intensities through `-addToWaveformWithIntensity:`, walks `-setState:` 0 to 3 and reads every
@@ -29,10 +29,10 @@ import { fontStack } from "@/components/message-ui/tokens";
  *
  * ### The row
  *
- * `-[CKAudioMessageRecordingView sizeThatFits:]` returns **52** tall on Phone and **49** on Mac.
+ * `-[CKAudioMessageRecordingView sizeThatFits:]` returns **52** tall on Phone and **49** on PC.
  * Every child is centred in it, and — this reproduces all twelve measured child frames exactly —
  * **each child's leading or trailing inset equals its own vertical inset**, `(rowHeight - size) / 2`:
- * the 34/31 circles sit 9 in, the 30 x 22 send pill 15 in on Phone and 13.5 on Mac. Every gap
+ * the 34/31 circles sit 9 in, the 30 x 22 send pill 15 in on Phone and 13.5 on PC. Every gap
  * between neighbours is `audioRecordingViewDurationSpacing` **12**, except the waveform's leading
  * inset while recording, which is `audioRecordingViewButtonSpacing` **16** (there is no play button
  * to sit beside). Those two rules close on 294 and on 530 in all three states:

@@ -41,7 +41,7 @@ export async function POST() {
   // Starting over forgets the user's verified mobiles, so on a hosted server their claim on them goes too.
   const user = getState().account?.user.id;
   if (onPostgres() && user) await ownerPhoneTable()?.releaseAll(user).catch((e: Error) => console.warn(`[reset] owner_phones: ${e.message}`));
-  // Pages bots made go too, and the files of theirs the user opened; the user's Mac is checked again right away, so it's ready for the first task.
+  // Pages bots made go too, and the files of theirs the user opened; the user's PC is checked again right away, so it's ready for the first task.
   for (const dir of [pagesDir(), filesDir()]) if (dir) rmSync(dir, { recursive: true, force: true });
   await checkMac().catch(() => {});
   return Response.json({ deleted, failed, kept, bots: getState().bots.map((b) => b.name) });

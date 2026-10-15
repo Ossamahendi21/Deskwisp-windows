@@ -12,7 +12,7 @@ export async function readNotices(): Promise<CloudNotice[]> {
   return Array.isArray(r.notices) ? r.notices : [];
 }
 
-/** The user put a notice away: it doesn't come back, on any of their Macs. */
+/** The user put a notice away: it doesn't come back, on any of their PCs. */
 export async function dismissNotice(id: string): Promise<void> {
   if (!cloudOn()) return;
   await cloudJson("/v1/notices/dismiss", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });

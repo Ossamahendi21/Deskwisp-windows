@@ -90,7 +90,7 @@ export function BotMemory({ state, bot: b, onOpenThread }: { state: AppState; bo
           e.preventDefault();
           void ask();
         }}
-        className="flex items-center gap-2 rounded-full bg-[#F7F7F6] py-1 pl-3.5 pr-1 focus-within:bg-white focus-within:shadow-[inset_0_0_0_1.5px_#0A0A0A]"
+        className="flex items-center gap-2 rounded-full bg-[#F7F7F6] py-1 pl-3.5 pr-1 focus-within:bg-white focus-within:shadow-[inset_0_0_0_1.5px_#16132B]"
       >
         <svg width="14" height="14" viewBox="0 0 16 16" className="shrink-0 text-[#9A9A98]" aria-hidden>
           <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
@@ -117,7 +117,7 @@ export function BotMemory({ state, bot: b, onOpenThread }: { state: AppState; bo
           className="h-8 min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-[#9A9A98]"
         />
         {searching && (
-          <button disabled={asking} className="h-7 shrink-0 rounded-full bg-[#0A0A0A] px-3 text-[12.5px] font-medium text-white disabled:opacity-50">
+          <button disabled={asking} className="h-7 shrink-0 rounded-full bg-[#16132B] px-3 text-[12.5px] font-medium text-white disabled:opacity-50">
             {asking ? "Thinking…" : "Ask"}
           </button>
         )}
@@ -429,7 +429,7 @@ function Editable({ ws, item, onChange, pinnable, children }: { ws: string; item
           onChange={(e) => setEditing(e.target.value)}
           onKeyDown={(e) => e.key === "Escape" && (e.preventDefault(), setEditing(null))}
           onBlur={() => setEditing(null)}
-          className="h-7 min-w-0 flex-1 rounded-[8px] px-2 text-[13.5px] shadow-[inset_0_0_0_1.5px_#0A0A0A] outline-none"
+          className="h-7 min-w-0 flex-1 rounded-[8px] px-2 text-[13.5px] shadow-[inset_0_0_0_1.5px_#16132B] outline-none"
         />
       </form>
     );

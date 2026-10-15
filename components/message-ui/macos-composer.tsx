@@ -104,7 +104,7 @@ import { cn } from "@/lib/utils";
  * - so neither the hover fill this file already carried nor the pressed one below is measured, and
  * ChatKit has nothing either: its whole selector table holds exactly two touch-state numbers
  * (`replyButtonTouchAlpha` 0.4, `replyButtonTouchScale` 0.85, identical at idiom 0 and idiom 5) and
- * no hover or pressed *fill* for a Mac control at all.
+ * no hover or pressed *fill* for a PC control at all.
  *
  * What is not invented is the shape of it: the pressed fill continues the rest -> hover step by the
  * same amount again, in the same direction, rather than picking a third colour out of the air.

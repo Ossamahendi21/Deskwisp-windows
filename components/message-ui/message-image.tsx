@@ -19,8 +19,8 @@ import { bodyClipPath, tailBox, tailPath, tailSeamOverlap } from "@/components/m
  * | part                    | native evidence                                              | here |
  * |-------------------------|--------------------------------------------------------------|------|
  * | single photo's box      | `thumbnailFillSizeForWidth:imageSize:`, swept                 | yes, MEASURED, within 0.38 pt (ChatKit rounds to the device grid; see `photoBox`) |
- * | multi-photo box         | `-[CKUIBehavior previewBalloonSizeThatFits:]`, read at both idioms | yes, MEASURED: see `photoStackBox`. 375 x 353 on Mac, 350.625 x 332.625 on iPhone |
- * | balloon max width       | `balloonMaxWidthForTranscriptWidth:…`, `balloonMaxWidthPercent` 0.85 iPhone / 0.65 Mac | rule recorded in `balloonMaxWidth`; the group uses the measured constant and now cannot exceed its container |
+ * | multi-photo box         | `-[CKUIBehavior previewBalloonSizeThatFits:]`, read at both idioms | yes, MEASURED: see `photoStackBox`. 375 x 353 on PC, 350.625 x 332.625 on iPhone |
+ * | balloon max width       | `balloonMaxWidthForTranscriptWidth:…`, `balloonMaxWidthPercent` 0.85 iPhone / 0.65 PC | rule recorded in `balloonMaxWidth`; the group uses the measured constant and now cannot exceed its container |
  * | loading                 | `DOWNLOADING` = "Downloading…"                                 | partial: tiles hold on the placeholder and the group is `aria-busy`, but there is NO progress indicator and no "Downloading…" copy. `photoSheetProgressIndicatorSize` {20, 20} is the picker sheet, not the balloon, so the balloon's spinner is UNMEASURED |
  * | failed / not downloaded | `TAP_TO_DOWNLOAD`, `CLICK_TO_DOWNLOAD`, `downloadButtonFont` 17 | yes: copy and type size MEASURED; `pending` offers it without a failed fetch. A *send* failure is a different thing and belongs to the shell (`FailedSendBadge`, ChatKit's `_clearFailureBadge`), not to this component |
  * | video duration badge    | none on a transcript balloon                                   | NO — and correctly so. `CKMovieBalloonView` is `CKImageBalloonView` plus an `AVPlayerLayer` and has no duration label at all (`playsInlineVideo` = 1). The only `_durationLabel` in ChatKit is on `CKPhotoSearchResultCell`, the search-results cell. Adding one to a bubble would be inventing a control native does not draw |
@@ -136,7 +136,7 @@ const countCardInset = 12;
  *
  * `-[CKUIBehaviorMac thumbnailFillSizeForWidth:imageSize:]` overrides it and applies no shape clamp at
  * all: it returns the true aspect fit (w 382.5, a 4:1 photo → 382.5 x 96, where the phone stops at
- * 215.5). Re-swept 2026-09-09; the Mac override only answers for real once it is asked in its own
+ * 215.5). Re-swept 2026-09-09; the PC override only answers for real once it is asked in its own
  * process, because `+sharedBehaviors` caches the first singleton it builds and a second call in the
  * same process hands back the phone's.
  *
@@ -182,7 +182,7 @@ export const photoBox: Record<Platform, { minRatio: number; maxRatio: number; ma
  * inset that lands on it is 52.375, which is not a number anything else in ChatKit uses. So this is a
  * measured constant for a 402 pt screen, exactly as `bubbleMetrics.ios.maxWidth` is, and a wider
  * transcript may well scale it. `macos` is `null` because no macOS capture holds a photo balloon; the
- * Mac keeps the bubble's own width until one does, rather than inheriting a number measured on a phone.
+ * PC keeps the bubble's own width until one does, rather than inheriting a number measured on a phone.
  *
  * **Re-measured on a second capture**, three 3:4 photos sent as a run, reading the lowest balloon
  * (the only one no chrome overlaps): 252.667 pt wide, right edge 386.000, and 343.667 pt tall — of
@@ -238,23 +238,23 @@ export function photoBalloonSize(aspect: number, platform: Platform, available: 
  * | idiom  | previewMaxWidth | stackBalloonVerticalInset | smallTranscriptSpace | at its `maxWidth` |
  * |--------|-----------------|---------------------------|----------------------|-------------------|
  * | iPhone | 761             | 15                        | 6                    | 280.5 → 350.625 x 332.625 |
- * | Mac    | **300**         | 15                        | 4                    | 382.5 → **375 x 353**     |
+ * | PC    | **300**         | 15                        | 4                    | 382.5 → **375 x 353**     |
  *
- * `previewMaxWidth` is the whole story on the Mac: at 300 it saturates for any balloon max width at or
+ * `previewMaxWidth` is the whole story on the PC: at 300 it saturates for any balloon max width at or
  * above 300, so a macOS photo group is **375 x 353 whatever the window does**, and 382.5 x 382.5 — the
  * text balloon's width squared by a 2x2 grid — was never a number ChatKit produces. It is also not
- * square: the height is 22 pt (Mac) / 18 pt (iPhone) short of the width.
+ * square: the height is 22 pt (PC) / 18 pt (iPhone) short of the width.
  *
  * Nothing else bounds it, and several things that look like they might do not:
- *   - `calculatesWidthForAttachmentBalloons` is **0 on both idioms**, so it is not a Mac difference.
+ *   - `calculatesWidthForAttachmentBalloons` is **0 on both idioms**, so it is not a PC difference.
  *   - `attachmentBalloonSize` is `{187, 124.5}` on **both** idioms; it belongs to the fixed rich-icon
  *     file balloon (`attachmentBalloonRichIconInsets`), not to a photo.
  *   - `-[CKUIBehaviorMac thumbnailFillSizeForWidth:imageSize:]`, re-swept today at idiom 5 in its own
  *     process, still fills the width it is given with only the portrait 500 ceiling (see `photoBox`) —
  *     it never narrows anything, and it is the *single*-photo path, not this one.
- *   - `balloonMaxWidthPercent` 0.65 makes the Mac balloon proportionally narrower than the iPhone's, but
+ *   - `balloonMaxWidthPercent` 0.65 makes the PC balloon proportionally narrower than the iPhone's, but
  *     it is the same balloon width a text bubble gets; there is no photo-specific percent.
- *   - `macTotalMarginWidth` = 40 is Mac-only and matches the measured `edgeInset` 20 per side, but
+ *   - `macTotalMarginWidth` = 40 is PC-only and matches the measured `edgeInset` 20 per side, but
  *     `(630 - 40) x 0.65` = 383.5 against the capture's 382.5, so it still does not close that 1.0 pt.
  *   - There is no photo-grid or collage constant on either idiom.
  */
@@ -310,7 +310,7 @@ export const photoStackBox: Record<Platform, { previewMaxWidth: number; widthSca
  *     frame = (bounds.x, bounds.y - d, bounds.w, bounds.h + 2d),  d = stackBalloonVerticalInset - smallTranscriptSpace
  *
  * pixel-snapped afterwards (the y floored, then all four rounded). `d` is **9** on iPhone and **11**
- * on Mac, which is exactly half of `photoStackBox.heightInset`. Swept: a 400×200 balloon gives
+ * on PC, which is exactly half of `photoStackBox.heightInset`. Swept: a 400×200 balloon gives
  * (0, −9, 400, 218) and a 200×400 balloon gives (0, −9, 200, 418) — the box simply follows the
  * balloon's own width and outsets its height.
  *
@@ -340,7 +340,7 @@ export const photoStackBox: Record<Platform, { previewMaxWidth: number; widthSca
  * The measured balloon-space frames, painted (i.e. after the scale), which is what the table below
  * has to reproduce:
  *
- * | k | iPhone, in 350.625 × 332.625 | Mac, in 375 × 353 |
+ * | k | iPhone, in 350.625 × 332.625 | PC, in 375 × 353 |
  * | --- | --- | --- |
  * | 0 | (55.0625, 6, 240.375, 320.5) 0° | (58.125, 4, 258.75, 345) 0° |
  * | 1 | (90.4479, 22.025, 216.3375, 288.45) +2° | (96.0625, 21.25, 232.875, 310.5) +2° |
@@ -402,7 +402,7 @@ export function photoStackCard(index: number, balloonWidth: number, balloonHeigh
   // precisely what `photoStackBox.heightInset` already is, twice over, so the two cannot drift apart.
   const outset = photoStackBox[platform].heightInset / 2;
   // Snapped to the nearest half point, the way `layoutSubviews` snaps its frame, and that snap is the
-  // whole of the difference between this model and the framework. On Mac it changes nothing (375 and
+  // whole of the difference between this model and the framework. On PC it changes nothing (375 and
   // -11 are already there); on iPhone the balloon is 350.625 across and the box is 350.5, and *with*
   // the snap all five iPhone frames come out exact too, where without it they sit 0.03-0.09 pt off.
   // Half a point is not visible, but a model that reproduces the framework to four decimals is
@@ -450,9 +450,9 @@ export function photoStackSize(balloonWidth: number, platform: Platform): { widt
  * shouldShowCharacterCount:shouldCoverSendButton:]`, which is exactly
  * `(transcriptWidth - insets.left - insets.right) * balloonMaxWidthPercent`. Verified against the
  * framework at ten widths on each idiom: 630 with 16 pt margins answers 508.3 on iPhone and 388.7 on
- * Mac, which is (630 - 32) x 0.85 and (630 - 32) x 0.65 to the last digit.
+ * PC, which is (630 - 32) x 0.85 and (630 - 32) x 0.65 to the last digit.
  *
- * **`balloonMaxWidthPercent` is 0.65 on Mac against 0.85 on iPhone**, so the Mac balloon is
+ * **`balloonMaxWidthPercent` is 0.65 on PC against 0.85 on iPhone**, so the PC balloon is
  * proportionally the *narrower* of the two — the opposite of what this component used to imply by
  * handing macOS a 382.5 pt box and iOS a 280.5 pt one with nothing tying either to its pane.
  *
@@ -460,7 +460,7 @@ export function photoStackSize(balloonWidth: number, platform: Platform): { widt
  *
  * - iPhone, transcript 402: an inset of **36.0** gives (402 - 72) x 0.85 = **280.5000**, which is
  *   `bubbleMetrics.ios.maxWidth` exactly. The framework and the capture agree to the last digit.
- * - Mac, transcript 630: the inset that lands on 382.5 is 20.77, which is not a round number. The
+ * - PC, transcript 630: the inset that lands on 382.5 is 20.77, which is not a round number. The
  *   obvious 20 (`bubbleMetrics.macos.edgeInset`) gives 383.5 — a whole point wider than the capture.
  *
  * That 1.0 pt is unresolved and is the reason the measured constant, not this formula, is still the
@@ -484,7 +484,7 @@ export function balloonMaxWidth(transcriptWidth: number, platform: Platform, mar
  * **The photo-grid scalars do not apply to anything this file draws, and cannot.** Re-read out of the
  * live framework on 2026-09-10 (Catalyst probe, `references/tapback-details.md`), and they are exactly
  * what this comment already claimed: `-[CKUIBehavior messageAcknowledgmentPhotoGridXOffsetScalar]` = 0
- * and `…PhotoGridYOffsetScalar` = 0.2 on iPhone, 0.35 / 0.35 on Mac (`…PhotoCarouselXOffsetScalar` is
+ * and `…PhotoGridYOffsetScalar` = 0.2 on iPhone, 0.35 / 0.35 on PC (`…PhotoCarouselXOffsetScalar` is
  * 0.2 on both). They are fractions of a *photo grid* view's frame — ChatKit's `CKPhotoGrid*` family,
  * with its own `photoGridTapbackPileDelegate` and `photoGridTapbackSnapshotRect` — and **the device
  * never draws one**: sending N photos makes N messages, each a single-photo balloon (see the note at
@@ -508,7 +508,7 @@ export const reactionSlot: Record<Platform, { marginTop: number; top: number; si
  * again.
  *
  * The type size is MEASURED: `-[CKUIBehavior downloadButtonFont]` is `.SFNS-Regular` at **17 pt on
- * both idioms** — the Mac does not shrink it. This used to render 15 on iOS and 13 on macOS, which
+ * both idioms** — the PC does not shrink it. This used to render 15 on iOS and 13 on macOS, which
  * was a guess and was wrong on both.
  */
 const downloadLabel: Record<Platform, string> = { ios: "Tap to Download", macos: "Click to Download" };
@@ -528,10 +528,10 @@ const downloadFontSize = 17;
  * | idiom  | image box     | ink box       | centre disc | solid ring   | dashed ring   |
  * |--------|---------------|---------------|-------------|--------------|---------------|
  * | iPhone | 21.5 x 20.5   | 18.5 x 18.5   | r 3.375     | r 6.0-6.875  | r 8.5-9.25    |
- * | Mac    | 28 x 28 (lg)  | 24 x 24       | r 4.375     | r 7.875-8.75 | r 11.0-12.0   |
+ * | PC    | 28 x 28 (lg)  | 24 x 24       | r 4.375     | r 7.875-8.75 | r 11.0-12.0   |
  *
  * The dashed ring's duty cycle is the measured inked fraction of its circumference (0.33 on iPhone,
- * 0.21 on Mac); the phase of the dashes, and where the badge sits inside the tile, are NOT MEASURED —
+ * 0.21 on PC); the phase of the dashes, and where the badge sits inside the tile, are NOT MEASURED —
  * no capture of a Live Photo message exists. The inset below is judgement.
  */
 const livePhotoBadge: Record<Platform, { box: number; ink: number; disc: number; ring: [number, number]; dashed: [number, number]; duty: number; inset: number }> = {
@@ -878,7 +878,7 @@ function PhotoBalloon({
       // it is drawn in, so a pane narrower than that (a resized window, an open inspector, a two-pane
       // layout) had the group hang out of its row: at a 140 pt container the macOS group measured
       // 382.5 wide and spilled 242.5 px, which is the defect this line closes. It matters more now
-      // that a group is 375 pt on Mac and 350.6 on iOS by `photoStackBox` rather than the balloon's
+      // that a group is 375 pt on PC and 350.6 on iOS by `photoStackBox` rather than the balloon's
       // own width. Native's own rule is `balloonMaxWidth` above, and a shell that resizes its
       // transcript should pass that as `maxWidth`; this is the floor under it either way.
       // Keep WebKit's resampling quality stable when a cached photo changes size during opening.

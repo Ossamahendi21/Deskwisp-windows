@@ -236,7 +236,7 @@ export function OwnerPhone({
           aria-label="Your mobile number"
           inputMode="tel"
           autoComplete="tel"
-          className="h-8 w-[190px] rounded-full bg-[#F7F7F6] px-3 text-[13px] outline-none shadow-[0_0_0_1px_#E6E6E3] focus:shadow-[0_0_0_1.5px_#0A0A0A] disabled:opacity-50"
+          className="h-8 w-[190px] rounded-full bg-[#F7F7F6] px-3 text-[13px] outline-none shadow-[0_0_0_1px_#E6E6E3] focus:shadow-[0_0_0_1.5px_#16132B] disabled:opacity-50"
         />
         <button
           disabled={busy || !!formRetry || !number.trim() || !agree}
@@ -257,7 +257,7 @@ export function OwnerPhone({
         )}
       </div>
       <label className="flex max-w-[560px] cursor-pointer items-start gap-2 text-[12px] leading-[17px] text-[#6B6B6B]">
-        <input type="checkbox" checked={agree} disabled={busy} onChange={(e) => phone.setAgree(e.target.checked)} className="mt-[2px] accent-[#0A0A0A]" />
+        <input type="checkbox" checked={agree} disabled={busy} onChange={(e) => phone.setAgree(e.target.checked)} className="mt-[2px] accent-[#16132B]" />
         <span>
           Yes, text me from my Deskwisp bots (Deskwisp by Horafirm): replies to my texts, finished tasks and heads-ups. How often depends on what I ask for. Message and data rates may apply. Reply STOP to opt out, HELP for help. Texts and calls from this number count as me.{" "}
           <a href={PRIVACY} target="_blank" rel="noreferrer" className="underline">Privacy</a> ·{" "}

@@ -10,8 +10,8 @@ const AT_MOST_MS = 60_000;
 
 /**
  * Notices from Horafirm (lib/server/notices.ts, cloud/notices.ts), one at a time as a pop-up, newest first.
- * OK (or Esc) puts it away for good, on all the user's Macs. Its link, when it has one, opens in the
- * browser (the Mac app sends a new window there: desktop/main.cjs).
+ * OK (or Esc) puts it away for good, on all the user's PCs. Its link, when it has one, opens in the
+ * browser (the PC app sends a new window there: desktop/main.cjs).
  */
 export function NoticePopup() {
   const [notices, setNotices] = useState<CloudNotice[]>([]);

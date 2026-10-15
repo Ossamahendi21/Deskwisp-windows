@@ -10,7 +10,7 @@ import { Mascot } from "./mascot";
 import { botBezel, post } from "./ui";
 
 /**
- * Your Mac, shown like a bot's computer (computer.tsx): one big live screen in a frame, a row of
+ * Your PC, shown like a bot's computer (computer.tsx): one big live screen in a frame, a row of
  * everything there is to see under it, and a status pill. The "screens" are the windows bots are
  * working in (live as video, by window) and each display. It follows the work the same way: it cuts
  * to the window a bot is acting in, holds each cut a few seconds, and never cuts away while you're
@@ -18,20 +18,20 @@ import { botBezel, post } from "./ui";
  * front. Pick a tile to stay on it; Follow goes back.
  */
 
-/** An action this recent makes a window "where the action is". Mac steps arrive slower than screen events. */
+/** An action this recent makes a window "where the action is". PC steps arrive slower than screen events. */
 const FRESH_MS = 8000;
 /** The window on show has to have been quiet this long before cutting away from it. */
 const QUIET_MS = 4000;
 /** Every cut stays up at least this long. */
 const DWELL_MS = 5000;
 
-/** The wash behind your Mac's screen: neutral, so the bots' colors stay theirs. */
+/** The wash behind your PC's screen: neutral, so the bots' colors stay theirs. */
 const MAC_WASH = "linear-gradient(160deg, #F4F4F2 0%, #ECECE9 55%, #E2E2DE 100%)";
 
 type Item = {
   key: string;
   sourceId: string;
-  /** A window or a display, live from macOS; or the Chrome a bot's task has of its own on this Mac (`macScreen`). */
+  /** A window or a display, live from macOS; or the Chrome a bot's task has of its own on this PC (`macScreen`). */
   kind: "window" | "display" | "browser";
   /** "Notes", or "Display 1". */
   label: string;
@@ -70,7 +70,7 @@ export function MacComputer({
 }) {
   const inApp = useMacApp();
   const screens = useMacScreens();
-  // A tile you picked, and when: it stays until a new task starts on the Mac (then the view follows that).
+  // A tile you picked, and when: it stays until a new task starts on the PC (then the view follows that).
   const [pin, setPin] = useState<{ key: string; at: number } | null>(null);
   const [settings, setSettings] = useState(false);
   const [hovering, setHovering] = useState(false);
@@ -80,7 +80,7 @@ export function MacComputer({
   const [aspects, setAspects] = useState<Record<string, number>>({});
   const frame = useRef<HTMLDivElement>(null);
 
-  // The windows bots use: each Mac thread's latest app, while it works and for two minutes after.
+  // The windows bots use: each PC thread's latest app, while it works and for two minutes after.
   const threads = state.sessions.filter((s) => s.runsOn === "mac" && (s.macApps?.length || s.macWindow) && (live(s) || (s.endedAt && now - s.endedAt < 120_000)));
   const macWatches = (state.watches ?? []).filter((w) => w.mac);
   const apps = [...new Set([...threads.map((s) => s.macApps!.at(-1)!), ...macWatches.map((w) => w.mac!.app)])];
@@ -89,7 +89,7 @@ export function MacComputer({
 
   const sources = new Set(screens?.sources.map((s) => s.id) ?? []);
   const items: Item[] = [];
-  // Tasks on the Mac browse in a Chrome of their own there, which isn't a window on the screen: Deskwisp
+  // Tasks on the PC browse in a Chrome of their own there, which isn't a window on the screen: Deskwisp
   // shows a picture of it, while it works, for two minutes after, and while it waits on you (a sign-in:
   // you take control of it here). One tile per Chrome, for its newest task; and the one you're driving.
   const browsing = state.sessions.filter((s) => s.runsOn === "mac" && s.macScreen !== undefined && !s.macApps?.length && (live(s) || s.waitingOnYou || (s.endedAt && now - s.endedAt < 120_000)));
@@ -156,7 +156,7 @@ export function MacComputer({
   const working = items.filter((i) => i.session && live(i.session));
   const acting = (i: Item) => !!i.session && live(i.session) && now - lastAct(i.session) < FRESH_MS;
 
-  // The newest Mac task ever started (finishing one doesn't bring an old pin back).
+  // The newest PC task ever started (finishing one doesn't bring an old pin back).
   const newestTask = Math.max(0, ...state.sessions.filter((s) => s.runsOn === "mac").map((s) => s.createdAt));
   // The open thread's tile, when it has one: its own, else its Chrome's (a newer task of its bot may show there).
   const [shownThread, setShownThread] = useState<string | undefined>();
@@ -245,11 +245,11 @@ export function MacComputer({
       <div className="flex items-center gap-2.5">
         <button onClick={onBack} className="flex items-center gap-1.5 rounded-full py-1.5 pl-2 pr-3 shadow-[0_0_0_1px_#E6E6E3] hover:bg-[#F7F7F6]">
           <svg width="12" height="12" viewBox="0 0 14 14">
-            <path d="M9 2.5L4.5 7 9 11.5" fill="none" stroke="#0A0A0A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M9 2.5L4.5 7 9 11.5" fill="none" stroke="#16132B" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span className="text-[13px] font-medium leading-4">Back</span>
         </button>
-        <span className="text-[15px] font-semibold leading-5">Your Mac</span>
+        <span className="text-[15px] font-semibold leading-5">Your PC</span>
         <span className="flex-1" />
         <div className="flex gap-1">
           {items.map((i) => {
@@ -324,7 +324,7 @@ export function MacComputer({
                 {current.watch && <WatchOverlay watch={current.watch} anchor={markerOf(current)} />}
                 {/* Hovering: a soft ring and a pill, like a bot's computer. */}
                 <div className="pointer-events-none absolute inset-0 z-30 opacity-0 transition-opacity duration-200 group-hover/screen:opacity-100">
-                  <div className="absolute inset-0 rounded-[22px] shadow-[inset_0_0_0_2.5px_#0A0A0A]" />
+                  <div className="absolute inset-0 rounded-[22px] shadow-[inset_0_0_0_2.5px_#16132B]" />
                 </div>
                 {/* Pointing at the screen brings up its controls, like a bot's computer: watch it, see it bigger, settings. */}
                 <div
@@ -409,17 +409,17 @@ export function MacComputer({
                 title={i.session ? `${i.bot?.name} · ${i.session.title}` : i.sub}
                 style={
                   waitingOn(i)
-                    ? { boxShadow: "0 0 0 2px #0A0A0A, 0 0 0 4px #E8FF3A" }
+                    ? { boxShadow: "0 0 0 2px #16132B, 0 0 0 4px #C9BDFF" }
                     : !inView && acting(i) && i.bot
                       ? { boxShadow: `0 0 0 2px ${botBezel(i.bot)}, 0 0 14px -2px ${botBezel(i.bot)}` }
                       : undefined
                 }
-                className={`relative flex min-w-0 flex-col gap-1.5 rounded-xl p-1.5 text-left transition-shadow duration-300 ${items.length >= 4 ? "flex-1 basis-0" : "w-[calc((100%-30px)/4)] flex-none"} ${inView ? "bg-white shadow-[0_0_0_2px_#0A0A0A]" : i.session ? "bg-[#F7F7F6]" : "shadow-[inset_0_0_0_1.5px_#E2E2DF]"}`}
+                className={`relative flex min-w-0 flex-col gap-1.5 rounded-xl p-1.5 text-left transition-shadow duration-300 ${items.length >= 4 ? "flex-1 basis-0" : "w-[calc((100%-30px)/4)] flex-none"} ${inView ? "bg-white shadow-[0_0_0_2px_#16132B]" : i.session ? "bg-[#F7F7F6]" : "shadow-[inset_0_0_0_1.5px_#E2E2DF]"}`}
               >
                 <div className="relative h-[52px] shrink-0 overflow-hidden rounded-[7px] bg-[#111111]">
                   <Live key={`${i.sourceId}-t`} item={i} fps={2} maxWidth={400} fit="cover" className="h-full w-full" />
                   {i.watch && <WatchBadge watch={i.watch} />}
-                  {i.session && live(i.session) && <span className={`absolute right-1 top-1 size-[9px] rounded-full bg-highlighter shadow-[0_0_0_1.5px_#0A0A0A] ${acting(i) ? "animate-pulse" : ""}`} />}
+                  {i.session && live(i.session) && <span className={`absolute right-1 top-1 size-[9px] rounded-full bg-highlighter shadow-[0_0_0_1.5px_#16132B] ${acting(i) ? "animate-pulse" : ""}`} />}
                 </div>
                 <div className="flex min-w-0 items-center gap-[5px] text-[11px] leading-[14px]">
                   {i.bot ? (
@@ -443,12 +443,12 @@ export function MacComputer({
       {/* Under the screen, only when something's going on: a task, or news. Its controls are on the screen. */}
       {!blocked && showBar && (
         <div className={`flex max-w-full items-center gap-3 self-center rounded-full bg-white py-1.5 pl-3.5 pr-1.5 shadow-[0_0_0_1px_#ECECEA,0_6px_18px_-10px_#00000040]`}>
-          <span className={`size-2 shrink-0 rounded-full ${yours || items.some(waitingOn) ? "bg-highlighter shadow-[0_0_0_1.5px_#0A0A0A]" : working.length ? "bg-[#2BB673]" : "bg-[#C9C9C6]"}`} />
+          <span className={`size-2 shrink-0 rounded-full ${yours || items.some(waitingOn) ? "bg-highlighter shadow-[0_0_0_1.5px_#16132B]" : working.length ? "bg-[#2BB673]" : "bg-[#C9C9C6]"}`} />
           <span className="min-w-0 truncate text-[13px] leading-4">
             {yours
               ? `You have control of ${current?.bot?.name ?? "the bot"}'s Chrome · click and type on it, then hand it back`
               : grid.length
-              ? `${grid.length} bots are working on your Mac · pick one to watch it up close`
+              ? `${grid.length} bots are working on your PC · pick one to watch it up close`
               : current?.watch?.alert
                   ? `New in ${current.label}: ${current.watch.alert.text}`
                   : current?.watch && !(current.session && live(current.session))
@@ -460,7 +460,7 @@ export function MacComputer({
                   : current?.kind === "browser" && current.session?.waitingOnYou
                     ? `${current.bot?.name ?? "A bot"} is waiting on you · take control of its Chrome to sign in for it`
                   : working.length
-                    ? `${working.length} working on your Mac`
+                    ? `${working.length} working on your PC`
                     : `Nothing running · ${current?.label ?? "your screen"}${current?.kind === "display" ? ` (${current.sub})` : ""}`}
           </span>
           {current?.kind === "browser" && current.bot && !yours && !grid.length && !(current.session && live(current.session)) && (
@@ -484,7 +484,7 @@ export function MacComputer({
           {current?.session && live(current.session) && !grid.length && (
             <button
               onClick={() => void post("/api/sessions", { sessionId: current.session!.id }, "DELETE")}
-              title="Stop this task on your Mac"
+              title="Stop this task on your PC"
               className="shrink-0 rounded-full bg-ink px-3.5 py-1.5 text-[13px] font-semibold leading-4 text-white"
             >
               Stop
@@ -519,7 +519,7 @@ function windowFor(s: Session, open: { windowId: number; title: string }[]) {
 
 /**
  * What a tile or the screen shows: a window or a display live from macOS, or a bot's own Chrome on this
- * Mac as a picture Deskwisp takes of it (/api/screen?mac=), about once a second at a tile's 2 fps and up.
+ * PC as a picture Deskwisp takes of it (/api/screen?mac=), about once a second at a tile's 2 fps and up.
  */
 function Live({ item, fps = 30, maxWidth = 4096, fit = "contain", className = "", onSize }: { item: Item; fps?: number; maxWidth?: number; fit?: "contain" | "cover"; className?: string; onSize?: (w: number, h: number) => void }) {
   if (item.kind !== "browser") return <MacStream sourceId={item.sourceId} fps={fps} maxWidth={maxWidth} fit={fit} className={className} onSize={onSize} />;
@@ -536,7 +536,7 @@ function BrowserPicture({ botId, macScreen, small, fit, className, onSize }: { b
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={`/api/screen?bot=${encodeURIComponent(botId)}&mac=${macScreen}&scale=${small ? 0.4 : 0.75}&t=${tick}`}
-      alt="Chrome on your Mac"
+      alt="Chrome on your PC"
       onLoad={(e) => onSize?.(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)}
       className={`${className} bg-white ${fit === "cover" ? "object-cover object-top" : "object-contain"}`}
     />
@@ -566,7 +566,7 @@ function Blocked({ why }: { why: "app" | "loading" | "permission" | "nothing" })
   if (why === "loading") return <div className="h-full w-full animate-pulse" />;
   const [title, body] =
     why === "app"
-      ? ["Open the Deskwisp app to watch your Mac", "A browser tab can't see your screen. In the Deskwisp app, your displays and the windows bots use show here live."]
+      ? ["Open the Deskwisp app to watch your PC", "A browser tab can't see your screen. In the Deskwisp app, your displays and the windows bots use show here live."]
       : why === "permission"
         ? ["Let Deskwisp see your screen", "macOS asks once: turn on Deskwisp under Screen Recording, then quit and reopen Deskwisp."]
         : ["Nothing to show yet", "Deskwisp can't find a display to show."];
@@ -590,8 +590,8 @@ function SettingsButton({ onClick, label }: { onClick: () => void; label?: boole
   return (
     <button
       onClick={onClick}
-      title="Your Mac settings: the words that mean your Mac"
-      aria-label="Your Mac settings"
+      title="Your PC settings: the words that mean your PC"
+      aria-label="Your PC settings"
       className={`flex shrink-0 items-center justify-center gap-1.5 rounded-full text-[12.5px] font-medium text-[#3A3A38] hover:bg-[#F2F2F0] ${label ? "px-3 py-1.5 shadow-[0_0_0_1px_#E2E2DF]" : "size-8"}`}
     >
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
@@ -599,7 +599,7 @@ function SettingsButton({ onClick, label }: { onClick: () => void; label?: boole
         <circle cx="10" cy="4.5" r="1.5" />
         <circle cx="6" cy="11.5" r="1.5" />
       </svg>
-      {label && "Your Mac settings"}
+      {label && "Your PC settings"}
     </button>
   );
 }
@@ -629,7 +629,7 @@ function watchPicks(app: string, title: string) {
 }
 
 /**
- * Watch a window on your Mac: pick the window (when it isn't the one on screen), say what's worth
+ * Watch a window on your PC: pick the window (when it isn't the one on screen), say what's worth
  * a heads-up, done. Jev reads the window's text when it changes; the main bot tells you in its chat.
  */
 function MacWatchSheet({ target, onClose }: { target: { app?: string; title?: string; windowId?: number; watch?: Watch } | null; onClose: () => void }) {
@@ -673,7 +673,7 @@ function MacWatchSheet({ target, onClose }: { target: { app?: string; title?: st
       <div onClick={(e) => e.stopPropagation()} className="flex max-h-full w-full max-w-[440px] flex-col gap-3 overflow-y-auto rounded-[20px] bg-white p-5 shadow-[0_0_0_1px_#0000000F,0_24px_60px_-20px_#00000066]">
         <div className="flex items-center gap-2">
           <WatchEye size={13} />
-          <span className="text-[15px] font-semibold leading-5">{picked ? `Watch ${picked.title}` : "Watch a window on your Mac"}</span>
+          <span className="text-[15px] font-semibold leading-5">{picked ? `Watch ${picked.title}` : "Watch a window on your PC"}</span>
         </div>
         {!picked ? (
           <>
@@ -719,7 +719,7 @@ function MacWatchSheet({ target, onClose }: { target: { app?: string; title?: st
                 value={lookFor}
                 onChange={(e) => setLookFor(e.target.value)}
                 placeholder="Or say it your way"
-                className="h-9 min-w-0 flex-1 rounded-xl bg-[#F7F7F6] px-3 text-[13.5px] outline-none placeholder:text-[#9A9A98] focus:bg-white focus:shadow-[0_0_0_1.5px_#0A0A0A]"
+                className="h-9 min-w-0 flex-1 rounded-xl bg-[#F7F7F6] px-3 text-[13.5px] outline-none placeholder:text-[#9A9A98] focus:bg-white focus:shadow-[0_0_0_1.5px_#16132B]"
               />
               <button type="submit" disabled={busy || !lookFor.trim()} className="h-9 shrink-0 rounded-xl bg-ink px-3.5 text-[13px] font-medium text-white disabled:opacity-30">
                 {picked.watch ? "Save" : "Watch"}

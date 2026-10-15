@@ -23,7 +23,7 @@ function tint(color: string, t: number) {
   const ch = (i: number) => Math.round(parseInt(h.slice(i, i + 2), 16) * t + 255 * (1 - t));
   return `#${[0, 2, 4].map((i) => ch(i).toString(16).padStart(2, "0")).join("")}`;
 }
-const accent = (b: Bot) => (b.isMain ? "#E9FF3B" : b.color);
+const accent = (b: Bot) => (b.isMain ? "#C9BDFF" : b.color);
 
 /**
  * Each bot's computer has its own look: its color, and a motif of faint line doodles scattered over

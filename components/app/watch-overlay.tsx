@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { Watch } from "@/lib/types";
 
 /**
- * How a watched screen looks, the same on a bot's computer and on your Mac: a thin periwinkle ring
+ * How a watched screen looks, the same on a bot's computer and on your PC: a thin periwinkle ring
  * around it (yellow when something came in), a small pill in its corner with a blinking eye, what
  * Jev is looking for and when it last looked, and a soft band of light down the screen each time
  * Jev reads it. The pill is just the eye until you point at the screen (news and Paused stay open),
@@ -48,7 +48,7 @@ export function WatchOverlay({ watch: w, small = false, rounded = "rounded-[22px
   const ago = useAgo(w.readAt);
   // Away: the screen shows something else right now, so the watch waits (grey) until it's back.
   const away = !!w.away && !w.alert;
-  const ring = w.alert ? "#E8FF3A" : away ? "#C9C9C6" : WATCH;
+  const ring = w.alert ? "#C9BDFF" : away ? "#C9C9C6" : WATCH;
   return (
     <div className={`pointer-events-none absolute inset-0 z-20 overflow-hidden ${rounded}`}>
       <div className={`absolute inset-0 ${rounded}`} style={{ boxShadow: `inset 0 0 0 ${small ? 2 : 3}px ${ring}${w.alert ? "" : "B3"}` }} />
@@ -67,8 +67,8 @@ export function WatchOverlay({ watch: w, small = false, rounded = "rounded-[22px
             w.alert || away ? "max-w-[75%] pr-2.5" : "max-w-[30px] pr-1 group-hover/screen:max-w-[75%] group-hover/screen:pr-2.5"
           }`}
         >
-          <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full text-white" style={{ background: w.alert ? "#0A0A0A" : away ? "#9A9A98" : WATCH }}>
-            <WatchEye size={13} blink={!w.alert && !away} color={w.alert ? "#E8FF3A" : "#FFFFFF"} />
+          <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full text-white" style={{ background: w.alert ? "#16132B" : away ? "#9A9A98" : WATCH }}>
+            <WatchEye size={13} blink={!w.alert && !away} color={w.alert ? "#C9BDFF" : "#FFFFFF"} />
           </span>
           <span className="min-w-0 truncate text-[12px] leading-4 text-ink">
             <PillText watch={w} away={away} ago={ago} />
@@ -80,7 +80,7 @@ export function WatchOverlay({ watch: w, small = false, rounded = "rounded-[22px
 }
 
 /**
- * On a Mac window: the eye sits exactly on the purple capsule macOS draws over a shared window's
+ * On a PC window: the eye sits exactly on the purple capsule macOS draws over a shared window's
  * traffic lights (same size and place). What's watched for slides out beside it while you point at
  * the screen (news and Paused stay out), so nothing covers the window otherwise.
  */
@@ -106,10 +106,10 @@ function AnchoredPill({ watch: w, anchor: a, away, ago }: { watch: Watch; anchor
         top: `calc(${pct(a.top)} - 1px)`,
         width: `calc(${pct(a.width)} + 2px)`,
         height: `calc(${pct(a.height)} + 2px)`,
-        background: w.alert ? "#E8FF3A" : away ? "#9A9A98" : WATCH,
+        background: w.alert ? "#C9BDFF" : away ? "#9A9A98" : WATCH,
       }}
     >
-      <WatchEye size={12} blink={!w.alert && !away} color={w.alert ? "#0A0A0A" : "#FFFFFF"} />
+      <WatchEye size={12} blink={!w.alert && !away} color={w.alert ? "#16132B" : "#FFFFFF"} />
     </span>
     </>
   );
@@ -140,10 +140,10 @@ export function WatchBadge({ watch: w }: { watch: Watch }) {
   return (
     <span
       className="absolute left-1 top-1 z-10 flex size-[18px] items-center justify-center rounded-full shadow-[0_0_0_1.5px_#FFFFFF]"
-      style={{ background: w.alert ? "#E8FF3A" : w.away ? "#9A9A98" : WATCH }}
+      style={{ background: w.alert ? "#C9BDFF" : w.away ? "#9A9A98" : WATCH }}
       title={w.alert ? `New: ${w.alert.text}` : w.away ? `Paused: ${watchName(w)} isn't showing right now` : `Watching for ${w.lookFor}`}
     >
-      <WatchEye size={11} blink={!w.alert && !w.away} color={w.alert ? "#0A0A0A" : "#FFFFFF"} />
+      <WatchEye size={11} blink={!w.alert && !w.away} color={w.alert ? "#16132B" : "#FFFFFF"} />
     </span>
   );
 }

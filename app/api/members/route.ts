@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 /*
  * The People sheet: who can see the user's bots' computers on Horafirm (lib/server/members.ts). Not under
- * /api/workspaces, which is Deskwisp' own workspaces (teams of bots). Every answer is JSON: what was asked,
+ * /api/workspaces, which is Deskwisp's own workspaces (teams of bots). Every answer is JSON: what was asked,
  * or {code, error} saying why not (plan refusals are 402 with `upgrade`, the plan that has room).
  */
 

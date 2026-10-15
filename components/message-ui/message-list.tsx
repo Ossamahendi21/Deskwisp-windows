@@ -494,7 +494,7 @@ export function MessageList({
   const maxWidth = `calc((100% + ${2 * m.edgeInset}px) * ${m.maxWidthRatio})`;
   /**
    * What an incoming row in a group gives up on its leading edge to the sender's face:
-   * `transcriptContactImageDiameter + contactPhotoBalloonMargin`, 39 on the phone and 35 on the Mac.
+   * `transcriptContactImageDiameter + contactPhotoBalloonMargin`, 39 on the phone and 35 on the PC.
    * Every incoming row of the cluster spends it, not only the one that draws the face, or the
    * bubbles above the face would sit further out than the one beside it.
    */

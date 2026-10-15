@@ -2,7 +2,7 @@ import { delegate, endCall, startCall } from "@/lib/server/call";
 import { notReady } from "@/lib/server/ready";
 
 /**
- * Calls with a bot, only from the app on this Mac (it spends the OpenAI key):
+ * Calls with a bot, only from the app on this PC (it spends the OpenAI key):
  * - { action: "start", botId, sdp } → the GPT-Live session and its SDP answer
  * - { action: "delegate", botId, request } → what the bot did and said, to be spoken back
  * - { action: "end", botId, seconds } → notes the call in the chat

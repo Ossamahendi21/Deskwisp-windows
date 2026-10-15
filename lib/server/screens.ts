@@ -39,7 +39,7 @@ export const listedScreenId = (computerId: string, display: number) =>
 
 /**
  * The bot whose computer this bot works on (see workBot): itself, or its main bot when it shares.
- * On this Mac every bot has its own browsers, so nothing is shared there.
+ * On this PC every bot has its own browsers, so nothing is shared there.
  */
 export function workComputer(b: Bot): Bot {
   const state = getState();
@@ -59,7 +59,7 @@ export function sameComputer(a: string, b: string) {
 
 /**
  * Where a bot screen's Chrome can be reached for the mirror, page reads and precise input:
- * this Mac's own screens on 127.0.0.1, or an Horafirm computer's over the tailnet (its screens run
+ * this PC's own screens on 127.0.0.1, or an Horafirm computer's over the tailnet (its screens run
  * Chrome with DevTools on 9200 + display). Null when there's no direct path, e.g. an Horafirm
  * computer that hasn't joined the tailnet; then the app falls back to Horafirm's screenshots.
  */

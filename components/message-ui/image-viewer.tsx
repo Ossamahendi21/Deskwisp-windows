@@ -54,7 +54,7 @@ import { SmileyIcon, TapbackBar, tapbackBarMetrics, type TapbackSelection } from
  * capture showed only reply and share because the probe had no chat item and no delegate, not
  * because the bar is empty.
  *
- * FRAMEWORK values are read out of the binaries on this Mac (macOS 26.5.2, Messages 26.0) from a
+ * FRAMEWORK values are read out of the binaries on this PC (macOS 26.5.2, Messages 26.0) from a
  * macCatalyst process that dlopens the iOSSupport frameworks. `PUOneUpSettings` is idiom-dependent
  * and its singleton latches the idiom at first `+sharedInstance`, so every read below was taken in a
  * fresh process with `-[UIDevice userInterfaceIdiom]` swizzled to 0 (phone) BEFORE the first access.

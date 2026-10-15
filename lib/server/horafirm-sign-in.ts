@@ -16,8 +16,8 @@ import { bindSignIn, getState, stateInCloud, stateUser, update } from "./store";
 
 /**
  * Sign in with Horafirm: Horafirm's device-code flow (horafirm-web app/api/cli/auth), the one `horafirm login` and
- * Horafirm for Mac use. Start asks Horafirm for a code; the user approves it on deskwisp.com in their browser;
- * polling picks up the API key Horafirm mints for this Mac ("CLI on <this Mac's name>", account-wide).
+ * Horafirm for PC use. Start asks Horafirm for a code; the user approves it on deskwisp.com in their browser;
+ * polling picks up the API key Horafirm mints for this PC ("CLI on <this PC's name>", account-wide).
  * Continue with Google and Continue with email are the same flow, opening the page with a hint
  * (approvalPage below), so whichever way they come in it's an Horafirm account and an Horafirm key.
  *
@@ -54,7 +54,7 @@ type Pending = SignInStart & { deviceCode: string; polledAt: number; provider?: 
 const g = globalThis as unknown as { deskwispSignIn?: Pending | null; deskwispSignInPoll?: Promise<SignInPoll> | null };
 
 /**
- * Horafirm sends both numbers as bare JSON. Like Horafirm for Mac (DeviceCodeAuth.swift), bound them so a
+ * Horafirm sends both numbers as bare JSON. Like Horafirm for PC (DeviceCodeAuth.swift), bound them so a
  * bad value can't make the code live forever or the app poll in a tight loop.
  */
 const clampSeconds = (v: unknown, lo: number, hi: number) => (typeof v === "number" && !Number.isNaN(v) ? Math.min(Math.max(v, lo), hi) : lo);
@@ -74,7 +74,7 @@ async function horafirmPost<T>(path: string, body: unknown): Promise<T> {
   return json;
 }
 
-/** This Mac's name as the user knows it ("Ana's MacBook Air"), shown on Horafirm's approve page. */
+/** This PC's name as the user knows it ("Ana's MacBook Air"), shown on Horafirm's approve page. */
 const macName = () =>
   new Promise<string>((resolve) =>
     execFile("scutil", ["--get", "ComputerName"], { timeout: 2000 }, (e, out) => resolve((!e && out.trim()) || hostname().replace(/\.local$/, ""))),
@@ -102,7 +102,7 @@ export const signInProvider = (v: unknown): SignInProvider | undefined => (v ===
 /**
  * The page the browser opens: Horafirm's approve page with the code already on it, so nobody types
  * one, shown as Deskwisp (app=deskwisp) every way. With Google or email it also goes straight to that way of
- * signing in (provider=), then comes back to approve this Mac; Sign in with Horafirm names no way in.
+ * signing in (provider=), then comes back to approve this PC; Sign in with Horafirm names no way in.
  */
 export function approvalPage(verificationUrl: string, userCode: string, provider?: SignInProvider) {
   const url = new URL(verificationUrl);
@@ -199,13 +199,13 @@ async function finish(p: Pending, apiKey: string, user: HorafirmUser): Promise<S
   if (g.deskwispSignIn === p) g.deskwispSignIn = null;
   trackServerEvent("deskwisp_signed_in", { method: p.provider ?? "horafirm", switched_user: !!before && before.id !== user.id });
   seedOwnerName(user);
-  // This Mac, as this user's state has it (each user's state keeps its own look at it: state.mac).
+  // This PC, as this user's state has it (each user's state keeps its own look at it: state.mac).
   void checkMac().catch(() => {});
   // Then a main bot left with no computer takes up the free Deskwisp computer again, if it's still on Horafirm.
   void adoptComputers(user.id)
     .catch((e: Error) => console.warn(`[sign-in] checking the bots' computers: ${e.message}`))
     .then(() => reattachFreeComputer(user.id));
-  // Deskwisp Cloud starts over on this key (its session, the tunnel), and routing through this Mac turns
+  // Deskwisp Cloud starts over on this key (its session, the tunnel), and routing through this PC turns
   // on by itself where Horafirm offers it.
   void startCloud({ signedIn: true });
   relayAfterSignIn();
@@ -336,7 +336,7 @@ function loadForKey(key: string, now: boolean): Promise<void> {
 export async function authStatus({ retry = false } = {}) {
   const key = await loadHorafirmKey();
   if (key && !signedInUser()) await loadForKey(key, retry);
-  // The Mac app and a hosted server are signed in only once the user's state is loaded; until then it asks for a sign-in.
+  // The PC app and a hosted server are signed in only once the user's state is loaded; until then it asks for a sign-in.
   const needsState = onPostgres() || stateInCloud();
   const signedIn = !!key && (!needsState || !!signedInUser());
   const cloudProblem = !!key && stateInCloud() && !signedInUser() && !!loading.failed;

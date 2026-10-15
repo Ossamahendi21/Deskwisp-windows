@@ -14,8 +14,8 @@ export const dynamic = "force-dynamic";
 /**
  * The account page (components/app/account.tsx), assembled here so the Horafirm key stays on the
  * server: who's signed in, their Deskwisp plan and AI credit, their Horafirm plan with its computers in use,
- * credits and compute (read from Horafirm with their key), Deskwisp' own usage this month and last (Deskwisp
- * Cloud's count of what AI credit paid for, and this Mac's ledger, lib/server/usage.ts), and the
+ * credits and compute (read from Horafirm with their key), Deskwisp's own usage this month and last (Deskwisp
+ * Cloud's count of what AI credit paid for, and this PC's ledger, lib/server/usage.ts), and the
  * inboxes and numbers their bots have.
  */
 export async function GET() {
@@ -23,7 +23,7 @@ export async function GET() {
   const user = signedInUser();
   const key = user ? await loadHorafirmKey().then(() => horafirmKey()) : null;
   const now = new Date();
-  // Months on the user's own clock: this server runs on their Mac.
+  // Months on the user's own clock: this server runs on their PC.
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
   const events = usageSince(lastMonthStart);
@@ -84,7 +84,7 @@ type Credits = { balanceCents?: number; tier?: string };
 type Quota = { allocated?: { vms?: number }; usage_mtd?: { cpu_seconds?: number; running_seconds?: number } };
 
 /**
- * Plan, credits and compute, as Horafirm for Mac reads them, all with an account API key (validateAuth's
+ * Plan, credits and compute, as Horafirm for PC reads them, all with an account API key (validateAuth's
  * Bearer sk_ path), and the plan's computers as Horafirm counts them for a new one (lib/server/plan.ts).
  * Each can fail on its own; the page shows what came back and says what didn't.
  */
@@ -137,7 +137,7 @@ async function readHorafirm(key: string): Promise<HorafirmBilling> {
 
 /* ---------------- Deskwisp usage ---------------- */
 
-/** Deskwisp Cloud's own count of the user's use in [from, to) (the rows their AI credit paid for), days on this Mac's clock. Null when it didn't answer. */
+/** Deskwisp Cloud's own count of the user's use in [from, to) (the rows their AI credit paid for), days on this PC's clock. Null when it didn't answer. */
 async function cloudUsage(from: number, to: number): Promise<CloudUsage | null> {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   return cloudJson<CloudUsage>(`/v1/usage?${new URLSearchParams({ from: String(from), to: String(to), tz })}`).catch((e: Error) => {
@@ -164,8 +164,8 @@ function spendKind(kind: string, source?: string): SpendKind {
 }
 
 /**
- * One month, totalled. Computers, numbers and inboxes made are this Mac's ledger; model use, calls and AI credit spent are Deskwisp Cloud's count when it answered
- * (`cloud`), else this Mac's ledger. Bots that are gone keep their usage, under "Removed bot".
+ * One month, totalled. Computers, numbers and inboxes made are this PC's ledger; model use, calls and AI credit spent are Deskwisp Cloud's count when it answered
+ * (`cloud`), else this PC's ledger. Bots that are gone keep their usage, under "Removed bot".
  */
 function totals(events: UsageEvent[], monthStart: number, cloud: CloudUsage | null): UsageTotals {
   const start = new Date(monthStart);
@@ -200,7 +200,7 @@ function totals(events: UsageEvent[], monthStart: number, cloud: CloudUsage | nu
   };
   for (const e of events) {
     const qty = Number(e.qty) || 0;
-    // Codex's own tokens, which builds before Deskwisp stopped signing in to Codex kept here: never Deskwisp' to count.
+    // Codex's own tokens, which builds before Deskwisp stopped signing in to Codex kept here: never Deskwisp's to count.
     if (e.kind === "model.tokens" && (e as { plan?: string }).plan) continue;
     if (e.kind === "computer.create") {
       t.computersCreated++;

@@ -14,7 +14,7 @@ import { currentWorkspaceId } from "./workspaces";
 /*
  * The categories (lib/memory-categories.ts), filled from the workspace's memory. Honcho learns about
  * the user from every chat and finished task (memory.ts saveToMemory), and keeps what it learns as
- * plain sentences ("Tiger's sister Ana lives in Lisbon"), with no kinds. Here, on the Mac, those
+ * plain sentences ("Tiger's sister Ana lives in Lisbon"), with no kinds. Here, on the PC, those
  * sentences are sorted into People, Events, To-dos and the rest: a small model reads the new ones
  * (25 a call, one call after another, each told the known items the facts may be about, so mentions of
  * the same person or meeting get the same key and merge). Each item keeps the facts it came from, so
@@ -31,7 +31,7 @@ import { currentWorkspaceId } from "./workspaces";
  * The first look sorts the card and the newest 300 facts; older ones are counted, and sorted 300 at a
  * time when the user asks (Sort older).
  *
- * Kept per bank (workspaces can share one) in the user's folder on this Mac, never in the app state
+ * Kept per bank (workspaces can share one) in the user's folder on this PC, never in the app state
  * (which goes to the window every few seconds and to Deskwisp Cloud): <userDir>/memory-categories/<bank>.json.
  */
 
@@ -118,7 +118,7 @@ const live: Live = (g.deskwispCategories ??= { banks: new Map() });
 
 const openai = openaiClient();
 
-/** On this Mac (not a hosted server), signed in, with memory set up, for an account they're open to. */
+/** On this PC (not a hosted server), signed in, with memory set up, for an account they're open to. */
 export const categoriesOn = () => !onPostgres() && userDir() !== null && memoryOn() && categoriesOpen(getState());
 
 const bankState = (bank: string) => {
@@ -368,7 +368,7 @@ function dropMany(index: Index, facts: string[]) {
   return true;
 }
 
-/** Facts deleted from memory on this Mac (memory.ts: Delete, Undo, Fix, the review's Delete all): out of the categories at once. */
+/** Facts deleted from memory on this PC (memory.ts: Delete, Undo, Fix, the review's Delete all): out of the categories at once. */
 export function dropFacts(bank: string, ids: string[]) {
   if (!categoriesOn()) return;
   const index = load(bank);
@@ -413,7 +413,7 @@ const SCHEMA = {
   },
 };
 
-/** A day on this Mac's calendar ("today", and when a fact was learned, as the user would say them). */
+/** A day on this PC's calendar ("today", and when a fact was learned, as the user would say them). */
 const localDay = (ms: number) => {
   const d = new Date(ms);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

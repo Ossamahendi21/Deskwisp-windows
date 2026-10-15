@@ -11,12 +11,12 @@ import { onPostgres } from "./persist";
 import { getState, stateEpoch, stateReady, update } from "./store";
 
 /**
- * Route the bots' computers through this Mac. Horafirm's personal-device egress: this Mac is paired with
+ * Route the bots' computers through this PC. Horafirm's personal-device egress: this PC is paired with
  * the user's Horafirm account as a device, the relay agent (horafirm-relay) runs here and holds one outbound
  * connection to Horafirm's rendezvous, and each Deskwisp computer's browser goes out through it, so the sites
  * the bots visit see the user's own internet address.
  *
- * - Pairing: POST /api/egress-devices once per Horafirm user on this Mac. The pairing code it returns is
+ * - Pairing: POST /api/egress-devices once per Horafirm user on this PC. The pairing code it returns is
  *   a credential: it lives in the Keychain (never in state, logs or the agent's argv; the agent reads
  *   it from HORAFIRM_RELAY_CODE), and the device id in state.relay.
  * - The agent is a child of this server, restarted with backoff if it dies, stopped when routing is
@@ -30,7 +30,7 @@ import { getState, stateEpoch, stateReady, update } from "./store";
  *   routing stops (Chrome restarts then too).
  * - On by default: once Horafirm offers routing to the signed-in user (and this copy of Deskwisp has the
  *   relay), it turns on by itself after sign-in and every bot computer, new ones too, goes through
- *   this Mac, unless the user turned it off. Their "off" stays (state.relay.turnedOff), across
+ *   this PC, unless the user turned it off. Their "off" stays (state.relay.turnedOff), across
  *   restarts and sign-ins, until they turn it on again.
  *
  * Horafirm answers 403 where the feature isn't available yet (production today): then it's "not
@@ -103,14 +103,14 @@ export function relayBin(): string | null {
 
 // ── Pairing ─────────────────────────────────────────────────────────────────────────────────
 
-/** This Mac's name, as the user named it (System Settings → General → About). */
+/** This PC's name, as the user named it (System Settings → General → About). */
 function macName() {
   return new Promise<string>((resolve) =>
-    execFile("scutil", ["--get", "ComputerName"], (e, out) => resolve((!e && out.trim()) || hostname().replace(/\.local$/, "") || "Mac")),
+    execFile("scutil", ["--get", "ComputerName"], (e, out) => resolve((!e && out.trim()) || hostname().replace(/\.local$/, "") || "PC")),
   );
 }
 
-/** The Keychain item for this Horafirm user's pairing on this Mac: { deviceId, code }. */
+/** The Keychain item for this Horafirm user's pairing on this PC: { deviceId, code }. */
 const codeAccount = (userId: string) => `horafirm-relay:${userId}`;
 
 async function savedPairing(userId: string): Promise<{ deviceId: string; code: string } | null> {
@@ -123,14 +123,14 @@ async function savedPairing(userId: string): Promise<{ deviceId: string; code: s
 }
 
 /**
- * This Mac's device on the user's Horafirm account: the one paired before (its code still in the Keychain
+ * This PC's device on the user's Horafirm account: the one paired before (its code still in the Keychain
  * and the device still on Horafirm), else a new pairing. A device whose code was lost can't be run again
- * (Horafirm shows a code only once), so then this Mac pairs afresh; the old one stays on Horafirm, offline.
+ * (Horafirm shows a code only once), so then this PC pairs afresh; the old one stays on Horafirm, offline.
  */
 async function ensurePaired(): Promise<{ deviceId: string; name: string; code: string; rendezvous?: string | null }> {
   const user = signedInUser();
   if (!user) throw new Error("Sign in to Horafirm first.");
-  // Signed out, or another account in, while Horafirm answered: this Mac's device is the last user's, not theirs.
+  // Signed out, or another account in, while Horafirm answered: this PC's device is the last user's, not theirs.
   const epoch = stateEpoch();
   const stillTheirs = () => {
     if (epoch !== stateEpoch()) throw new Error("Signed out meanwhile.");
@@ -258,7 +258,7 @@ async function availability(fresh = false) {
     sup.avail = { until: Date.now() + 30_000, ok: true, online: devices.find((d) => d.id === deviceId)?.online ?? null, rendezvous };
   } catch (e) {
     sup.avail = horafirmUnavailable(e)
-      ? { until: Date.now() + 10 * 60_000, ok: false, reason: "Routing through your Mac isn't available on your Horafirm account yet." }
+      ? { until: Date.now() + 10 * 60_000, ok: false, reason: "Routing through your PC isn't available on your Horafirm account yet." }
       : { until: Date.now() + 5_000, ok: false, reason: "Couldn't reach Horafirm just now. Try again in a moment." };
   }
   return sup.avail;
@@ -272,15 +272,15 @@ const routed = () =>
 /** Where routing stands. `fresh` asks Horafirm again rather than going by its last answer (availability). */
 export async function relayStatus(fresh = false): Promise<RelayStatus> {
   const relay = getState().relay;
-  const base = { on: !!relay?.on, running: running(), routedComputers: routed(), ...(relay?.deviceId ? { device: { id: relay.deviceId, name: relay.deviceName ?? "This Mac" } } : {}) };
-  if (onPostgres()) return { ...base, available: false, reason: "Routing through your Mac works in the Deskwisp app on your Mac." };
+  const base = { on: !!relay?.on, running: running(), routedComputers: routed(), ...(relay?.deviceId ? { device: { id: relay.deviceId, name: relay.deviceName ?? "This PC" } } : {}) };
+  if (onPostgres()) return { ...base, available: false, reason: "Routing through your PC works in the Deskwisp app on your PC." };
   if (!(await loadHorafirmKey())) return { ...base, available: false, reason: "Sign in to Horafirm first." };
   if (!relayBin()) return { ...base, available: false, reason: "This copy of Deskwisp doesn't include the relay yet." };
   const a = await availability(fresh);
   if (!a.ok) return { ...base, available: false, reason: a.reason };
   const here = await agentConnected();
   const online = here ?? a.online ?? undefined;
-  const reason = relay?.on && !running() && sup.lastError ? `The relay on this Mac stopped (${sup.lastError}). Deskwisp is starting it again.` : undefined;
+  const reason = relay?.on && !running() && sup.lastError ? `The relay on this PC stopped (${sup.lastError}). Deskwisp is starting it again.` : undefined;
   return { ...base, on: !!relay?.on || !relay?.turnedOff, available: true, ...(online === undefined ? {} : { online }), ...(reason ? { reason } : {}) };
 }
 
@@ -367,8 +367,8 @@ const SCREENS_DOWN = "Its screens' browsers didn't come back. Deskwisp is starti
 
 /**
  * A route after a try that went wrong: it waits longer before each next try (20s, 40s, ... up to
- * 10 minutes). `canGiveUp`: switching a computer to this Mac is given up on when Horafirm turns it down
- * (400, 403, 404) or after MAX_TRIES; putting one back never is, since until then it needs this Mac.
+ * 10 minutes). `canGiveUp`: switching a computer to this PC is given up on when Horafirm turns it down
+ * (400, 403, 404) or after MAX_TRIES; putting one back never is, since until then it needs this PC.
  */
 function failed(route: RelayRoute, e: unknown, canGiveUp: boolean): RelayRoute {
   const failures = (route.failures ?? 0) + 1;
@@ -379,7 +379,7 @@ function failed(route: RelayRoute, e: unknown, canGiveUp: boolean): RelayRoute {
   return { ...route, error, failures, retryAt: Date.now() + Math.min(600_000, TICK_MS * 2 ** (failures - 1)) };
 }
 
-/** Put this computer on this Mac's route. */
+/** Put this computer on this PC's route. */
 async function routeOne(computerId: string, deviceId: string) {
   let route = getState().relayRoutes?.[computerId];
   if (!route) {
@@ -387,7 +387,7 @@ async function routeOne(computerId: string, deviceId: string) {
     // A proxy the user set up themselves is theirs: leave it be.
     if (now.mode === "custom") return;
     if (now.mode === "device" && now.device_id === deviceId && now.proxy_on) {
-      // Already on this Mac (state was lost): when routing stops, it goes back to going out directly.
+      // Already on this PC (state was lost): when routing stops, it goes back to going out directly.
       setRoute(computerId, { before: { proxyOn: false, mode: "residential" }, applied: true });
       return;
     }
@@ -517,7 +517,7 @@ export function reconcile(): Promise<void> {
       await unrouteOne(id);
     }
     if (!stillOff()) return;
-    // Until every computer is back, they still go out through this Mac: keep the agent up for them.
+    // Until every computer is back, they still go out through this PC: keep the agent up for them.
     if (routed().length && getState().relay?.deviceId) {
       sup.want = true;
       if (!running()) await startAgent().catch((e: Error) => (sup.lastError = e.message));
@@ -545,7 +545,7 @@ export function relayAfterSignIn() {
 
 // ── The switch ──────────────────────────────────────────────────────────────────────────────
 
-/** Pair this Mac if it isn't, turn the switch on, and start the agent (reconcile then switches the computers). */
+/** Pair this PC if it isn't, turn the switch on, and start the agent (reconcile then switches the computers). */
 async function switchOn() {
   await ensurePaired();
   update((s) => (s.relay = { ...s.relay, on: true }));
@@ -575,7 +575,7 @@ async function turnOnByDefault() {
   return true;
 }
 
-/** The user turns routing through this Mac on (pair if needed, start the agent, switch computers) or off, which stays off until they turn it on. */
+/** The user turns routing through this PC on (pair if needed, start the agent, switch computers) or off, which stays off until they turn it on. */
 export async function setRelay(on: boolean): Promise<RelayStatus> {
   if (on) {
     const status = await relayStatus(true);

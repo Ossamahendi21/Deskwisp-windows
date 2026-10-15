@@ -5,7 +5,7 @@ import { id, userDir } from "./store";
 
 /**
  * Pages bots make: a single-file HTML explanation ("explain in HTML"), kept in the signed-in user's
- * folder on this Mac (.data/users/<id>/pages) and opened in a Deskwisp tab. Written by a model, so
+ * folder on this PC (.data/users/<id>/pages) and opened in a Deskwisp tab. Written by a model, so
  * they're served locked down (see the pages route).
  */
 export const pagesDir = () => {

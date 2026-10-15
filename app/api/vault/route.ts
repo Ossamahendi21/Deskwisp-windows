@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 type Body = { id?: string; site?: string; username?: string; password?: string; totp?: string; bots?: VaultLogin["bots"]; auto?: boolean };
 
-/** Save a login. The password and 2FA key go to the Mac's Keychain; nothing secret is returned. */
+/** Save a login. The password and 2FA key go to the PC's Keychain; nothing secret is returned. */
 export async function POST(request: Request) {
   const unready = notReady();
   if (unready) return unready;

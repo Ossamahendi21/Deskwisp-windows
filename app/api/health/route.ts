@@ -5,11 +5,11 @@ export const dynamic = "force-dynamic";
 const g = globalThis as unknown as { __deskwispBuild?: string | null; __deskwispStopping?: boolean };
 
 /**
- * Whether this is Deskwisp and its server is answering. The Mac app waits on it at start (desktop/main.cjs),
+ * Whether this is Deskwisp and its server is answering. The PC app waits on it at start (desktop/main.cjs),
  * so it imports nothing of the app's: a missing key or a slow module can't keep the window on its
  * splash screen.
  *
- * The Mac app's server also says which server it is, so the app only uses its own: the build it runs
+ * The PC app's server also says which server it is, so the app only uses its own: the build it runs
  * (read when it started, instrumentation.ts), the Node it runs on, and proof it was started with the
  * window's token: an HMAC of the nonce the app sends, which says nothing about the token itself and
  * can't be replayed. On its way out it answers 503, so a Deskwisp opened again right away starts a new

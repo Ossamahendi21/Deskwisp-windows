@@ -45,7 +45,7 @@ export const macTransitions = {
    * This used to be `{ duration: 140, text: 110 }`, driving a blue tile that travelled between rows
    * while the two rows' text cross-faded. Nothing native does that.
    *
-   * The container first: the Mac conversation list is a **`UICollectionView`**, not a table.
+   * The container first: the PC conversation list is a **`UICollectionView`**, not a table.
    * `-[CKUIBehavior conversationListTableViewClass]` answers nil at every idiom, and
    * `CKConversationListCollectionViewController` is the only conversation-list view controller in the
    * framework. Its cell is `CKConversationListCollectionViewConversationCell` :
@@ -84,12 +84,12 @@ export const macTransitions = {
  * which is what these are. Both sizes are Catalyst-probe readings off `CKUIBehaviorMac` in ChatKit
  * 26.5, with the Phone reading beside them so the swap is visible:
  *
- * - `stickerPopoverSize` = **{320, 480}** on the Mac and {393, 680} on the Phone. The iPhone sheet
+ * - `stickerPopoverSize` = **{320, 480}** on the PC and {393, 680} on the Phone. The iPhone sheet
  *   `sticker-picker.tsx` measures is that 393 wide one, which is why it is not simply re-used at its
  *   own size here.
  * - There is **no** photo-specific popover selector on either behaviour class — the whole
  *   `browser|picker|popover` selector list on `CKUIBehaviorMac` was dumped and it holds none — so the
- *   Photos row takes the generic Mac popover, `popOverWidth` = **252** by `popOverMaxHeight` = **400**.
+ *   Photos row takes the generic PC popover, `popOverWidth` = **252** by `popOverMaxHeight` = **400**.
  *
  * **UNMEASURED, and this is the honest part.** No capture in `references/macos/captures` holds either
  * popover, so only their *sizes* are sourced. Where they sit is a rule, not a reading: they take the
@@ -105,7 +105,7 @@ export const macTransitions = {
  * inset rim and the dark hairline outside it that `macos-plus-menu.tsx` measured off
  * `plus-menu-{light,dark}-2x.png`, copied here rather than imported the way that file's own note
  * describes. Each sheet's own iPhone fill is switched off in `macAppStyles` so this one shows: an
- * iPhone form sheet's glass over a Mac popover's glass would blur the pane twice.
+ * iPhone form sheet's glass over a PC popover's glass would blur the pane twice.
  */
 export const macAttachmentPopovers = {
   stickers: { width: 320, height: 480 },
@@ -115,7 +115,7 @@ export const macAttachmentPopovers = {
   radius: macPlusMenuMetrics.radius,
 } as const;
 
-/** `-[CKUIBehaviorMac popoverPadding]` = 7: what a Mac popover keeps clear inside its own box. */
+/** `-[CKUIBehaviorMac popoverPadding]` = 7: what a PC popover keeps clear inside its own box. */
 const macPopoverPadding = 7;
 
 /**
@@ -129,11 +129,11 @@ export const macShortcuts = {
   /**
    * **File ▸ New Message**, "N" / 0. Read the same way as the other three, off the live macOS 26
    * Messages menu bar: the first item of the File menu, `AXMenuItemCmdChar` "N" and
-   * `AXMenuItemCmdModifiers` 0 (a bare ⌘). On the Mac it opens no sheet and no window — the window
+   * `AXMenuItemCmdModifiers` 0 (a bare ⌘). On the PC it opens no sheet and no window — the window
    * you are in becomes the compose window.
    */
   newMessage: "n",
-  /** **Edit ▸ Find ▸ Find…**, "F" / 0. On the Mac that is the sidebar's search field, not an overlay. */
+  /** **Edit ▸ Find ▸ Find…**, "F" / 0. On the PC that is the sidebar's search field, not an overlay. */
   find: "f",
   /** **Edit ▸ Select All**, "A" / 0. Selects every message in the transcript. */
   selectAll: "a",
@@ -144,8 +144,8 @@ export const macShortcuts = {
 /**
  * New Message, the macOS way.
  *
- * **The Mac does not present anything.** iOS pushes a modal sheet over the list
- * (`ios-new-message-sheet.tsx`, measured off `newmsg-light.png`); the Mac has no sheet, no screen and
+ * **The PC does not present anything.** iOS pushes a modal sheet over the list
+ * (`ios-new-message-sheet.tsx`, measured off `newmsg-light.png`); the PC has no sheet, no screen and
  * no second window. Composing replaces this window's *transcript* with a "To:" field
  * (`macos-header.tsx`, `compose`) over an empty log, and adds one row to the conversation list which
  * is the one selected. Nothing else about the window moves: the sidebar, the composer, the traffic
@@ -214,7 +214,7 @@ function initialsOf(name: string): string {
 }
 
 /**
- * Click-to-select, the way a Mac list behaves: a plain click replaces the selection, cmd toggles one
+ * Click-to-select, the way a PC list behaves: a plain click replaces the selection, cmd toggles one
  * message, and shift extends from the anchor, which is whichever message a plain or cmd click last
  * touched. `order` is the conversation in display order.
  */
@@ -263,7 +263,7 @@ export type MacMessagesAppProps = {
   onCompose?: () => void;
   /** Typing in the "To:" field. */
   onComposeRecipientChange?: (value: string) => void;
-  /** The ⊕ at the end of the "To:" field: on the Mac this is the system contact picker, which this kit cannot own. */
+  /** The ⊕ at the end of the "To:" field: on the PC this is the system contact picker, which this kit cannot own. */
   onAddRecipient?: () => void;
   /** Compose was left — by choosing a conversation in the sidebar, which is what ends it natively. */
   onComposeClose?: () => void;
@@ -281,7 +281,7 @@ export type MacMessagesAppProps = {
   onSendAnimationEnd?: () => void;
   /**
    * Messages a click has selected. Click-to-select is **always on** in the macOS pane, because that
-   * is what a Mac list does and there is no mode to enter: a click selects one message, cmd toggles,
+   * is what a PC list does and there is no mode to enter: a click selects one message, cmd toggles,
    * shift extends, ⌘A takes all of them, a click on anything else in the pane clears, and so does
    * Escape. Pass this (even empty) to own that state; leave it out and the shell holds it, the same
    * `prop ?? shell-held` contract every surface here follows, so the click that selects natively
@@ -306,7 +306,7 @@ export type MacMessagesAppProps = {
   onPlusMenuSelect?: (id: string) => void;
   onPlusMenuClose?: () => void;
   /**
-   * The search field in the sidebar. It filters the list in place with nothing wired — on the Mac
+   * The search field in the sidebar. It filters the list in place with nothing wired — on the PC
    * `-[CKUIBehaviorMac searchControllerObscuresConversationList]` is NO, so the results *are* the
    * list — and this only reports what was typed. Pass `searchQuery` to own the text instead.
    * ⌘F (Edit ▸ Find ▸ Find…) puts the caret in that field and selects whatever is already in it;
@@ -353,7 +353,7 @@ export type MacMessagesAppProps = {
    * and calls `-presentPreview`, which is AppKit's Quick Look panel — a system window this kit cannot
    * own. macOS 26 Messages confirms it from the outside: its File menu carries **Quick Look** (read off
    * the live app), and the transcript has no full-screen viewer to open. `image-viewer.tsx` ships a
-   * `chrome.macos` for the iOS viewer; that is the surface iOS presents, not the one the Mac does, so
+   * `chrome.macos` for the iOS viewer; that is the surface iOS presents, not the one the PC does, so
    * it is not used here. Wire this to whatever stands in for the system panel.
    */
   onQuickLook?: (id: string, index: number) => void;
@@ -739,7 +739,7 @@ export function MacMessagesApp({
   };
 
   /**
-   * A photo was opened. On the Mac that is a Quick Look, so the shell selects the message the way a
+   * A photo was opened. On the PC that is a Quick Look, so the shell selects the message the way a
    * click on it would and reports; it draws nothing. See `onQuickLook` for why there is no viewer.
    */
   const quickLook = (id: string, index: number) => {
@@ -822,7 +822,7 @@ export function MacMessagesApp({
                 const row = event.target as HTMLElement;
                 if (!row.matches?.('[data-slot="message-row"][data-message-id]')) return;
                 const id = row.getAttribute("data-message-id");
-                // Space is Quick Look on the Mac — File ▸ Quick Look, which macOS 26 Messages draws
+                // Space is Quick Look on the PC — File ▸ Quick Look, which macOS 26 Messages draws
                 // with no ⌘ equivalent — and only on a message that has something to preview, which
                 // is why that menu item reads disabled with nothing selected. Anything else falls
                 // through to the menu, so Enter and the context-menu key still open it.
@@ -887,7 +887,7 @@ export function MacMessagesApp({
                   composer?.onAttach?.();
                 }} />
               {/* The two popovers a "+" row opens. Both are the iPhone surfaces re-flowed into the
-                  Mac's own popover box — see `macAttachmentPopovers` for what is measured and what is
+                  PC's own popover box — see `macAttachmentPopovers` for what is measured and what is
                   not. The sticker sheet is laid out in pane coordinates inside a full-pane layer, so
                   a dragged sticker can travel over the transcript and `onPlace` reports where it
                   landed in the pane; the photos panel is a plain box. */}
@@ -988,13 +988,13 @@ export function MacMessagesApp({
             return;
           }
           // File ▸ New Message, ⌘N. Idempotent: pressing it again in a draft keeps the draft, which is
-          // what the Mac does — there is only ever one New Message row in the list.
+          // what the PC does — there is only ever one New Message row in the list.
           if (key === macShortcuts.newMessage) {
             event.preventDefault();
             openCompose();
             return;
           }
-          // Edit ▸ Find ▸ Find…, ⌘F. On the Mac the search field *is* the results
+          // Edit ▸ Find ▸ Find…, ⌘F. On the PC the search field *is* the results
           // (`searchControllerObscuresConversationList` NO), so this focuses the sidebar's field and
           // takes its text, the way ⌘F into a filled search field does — it does not open a screen.
           if (key === macShortcuts.find) {
@@ -1017,7 +1017,7 @@ export function MacMessagesApp({
           sidebar={
             // While composing, the draft's row is the selected one and the conversation the pane was
             // showing gives up its highlight. Choosing any row leaves compose, which is what ends it
-            // natively — there is no other way out of a Mac draft than going somewhere else.
+            // natively — there is no other way out of a PC draft than going somewhere else.
             <>
             <MacSidebar conversations={filteredRows} selectedId={composing ? macCompose.rowId : selectedId}
               onSelect={id => { if (id === macCompose.rowId) return; closeCompose(); onSelectConversation?.(id); }} active={active} footer={footer}

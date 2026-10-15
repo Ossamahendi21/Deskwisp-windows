@@ -8,7 +8,7 @@ import { cloudProxy } from "./cloud";
  * with Horafirm, calls go through Deskwisp Cloud (lib/server/cloud.ts) on the user's Horafirm key. The base URL
  * is read per call too, so a sign-in or sign-out applies at once, and the live call sideband
  * (phone.ts), which builds its WebSocket address from the client's, goes through the cloud as well.
- * Self-hosting, it's OPENAI_API_KEY: the Mac app ships with no keys, and a client made with
+ * Self-hosting, it's OPENAI_API_KEY: the PC app ships with no keys, and a client made with
  * `new OpenAI()` throws on import without one, which takes down every route that imports it.
  */
 export function openaiClient(opts: Omit<ClientOptions, "apiKey" | "defaultHeaders"> = {}) {

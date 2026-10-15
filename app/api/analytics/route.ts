@@ -11,7 +11,7 @@ export async function GET() {
 
 /**
  * Settings → You → Share usage data: { share: false } turns usage events off for the whole account
- * (state.analyticsOff, which every Mac and Deskwisp Cloud read), { share: true } back on.
+ * (state.analyticsOff, which every PC and Deskwisp Cloud read), { share: true } back on.
  */
 export async function POST(request: Request) {
   const unready = notReady();

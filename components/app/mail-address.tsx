@@ -17,7 +17,7 @@ import { currentWorkspace, post } from "./ui";
  * press the one button. It's checked as you type, so "taken" never arrives after you've committed, and
  * the rules are in plain words. "Choose later" takes the suggestion for you, so nothing ever waits on
  * this step; Settings, Email changes it later (old addresses keep getting mail). When a plan set the
- * address up while the Mac was closed, the same step comes after, offering to change it.
+ * address up while the PC was closed, the same step comes after, offering to change it.
  */
 
 type Check = MailHandleCheck & { address: string; bot: string };
@@ -160,7 +160,7 @@ export function AddressSheet({ workspaceId, workspaceName, mode, onClose }: { wo
 
         <div className="flex flex-col gap-2">
           {/* The handle, inline in its address: [ tiger ].deskwisp.bot */}
-          <label className="flex h-11 cursor-text items-center rounded-full bg-[#F7F7F6] pl-4 pr-4 font-mono text-[14px] shadow-[0_0_0_1px_#E6E6E3] focus-within:bg-white focus-within:shadow-[0_0_0_1.5px_#0A0A0A]">
+          <label className="flex h-11 cursor-text items-center rounded-full bg-[#F7F7F6] pl-4 pr-4 font-mono text-[14px] shadow-[0_0_0_1px_#E6E6E3] focus-within:bg-white focus-within:shadow-[0_0_0_1.5px_#16132B]">
             <input
               ref={input}
               value={value}

@@ -89,7 +89,7 @@ const stubChatKit: Record<Platform, { fontSize: number | null; insetY: number; r
   // `_replyBalloonTextFont` .SFNS-Regular 11, `replyBalloonTextContainerInset` {6.5,0,6.5,0},
   // `textReplyBalloonCornerRadius` 17.5, `replyBalloonMinHeight` 26, `replyPreviewBalloonMinWidth` 48.
   ios: { fontSize: 11, insetY: 6.5, radius: 17.5, minHeight: 26, minWidth: 48 },
-  // The Mac class overrides the first four; `fontSize` null means it was not read there, so the
+  // The PC class overrides the first four; `fontSize` null means it was not read there, so the
   // stub's type still comes from the bubble.
   macos: { fontSize: null, insetY: 2, radius: 15, minHeight: 20, minWidth: 48 },
 };

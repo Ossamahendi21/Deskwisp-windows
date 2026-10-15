@@ -3,7 +3,7 @@ import { appWindows, listWindows, mainWindow, sharingMarker } from "@/lib/server
 export const dynamic = "force-dynamic";
 
 /**
- * Which window each app has on the user's Mac (?apps=Notes,Calculator), so the Your Mac tab can stream
+ * Which window each app has on the user's PC (?apps=Notes,Calculator), so the Your PC tab can stream
  * the windows bots use. Its window id is the one macOS (and Electron's screen capture) knows.
  */
 export async function GET(request: Request) {

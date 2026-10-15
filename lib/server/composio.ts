@@ -38,7 +38,7 @@ function userId() {
 export const composioOn = () => (cloudOn() ? !!cloudSessionNow()?.composio : !!process.env.COMPOSIO_API_KEY);
 
 /**
- * Deskwisp' public address: the "connected" page after an app's sign-in, OAuth callbacks, and the bots'
+ * Deskwisp's public address: the "connected" page after an app's sign-in, OAuth callbacks, and the bots'
  * pictures (Slack's icon_url, Telegram's and Discord's profile pictures). Signed in with Horafirm, Deskwisp
  * Cloud's (CloudSession.publicUrl: it serves /connected, /oauth/callback, /mascot/* and /brand/*);
  * self-hosted, DESKWISP_PUBLIC_URL (the self-hoster's front door, edge/), else api.deskwisp.bot.
@@ -67,7 +67,7 @@ const live: Live = (g.deskwispComposio2 ??= { sessions: new Map(), tools: new Ma
 /**
  * Composio on the key in use. Through Deskwisp Cloud the user's Horafirm key goes as a Bearer token (how the
  * cloud knows who it is) and as the SDK's key, which the cloud swaps for its own; the SDK's own
- * usage reports stay off, since this Mac reaches Composio only through the cloud.
+ * usage reports stay off, since this PC reaches Composio only through the cloud.
  */
 function cx() {
   const via = cloudProxy("composio");
@@ -144,7 +144,7 @@ async function everyToolkit() {
 }
 
 /**
- * The apps with a sign-in setup this Mac may use through Deskwisp Cloud: its GET auth_configs lists only
+ * The apps with a sign-in setup this PC may use through Deskwisp Cloud: its GET auth_configs lists only
  * those (Composio's own, Horafirm's pinned ones such as its Slack app's, and ones made through the cloud).
  */
 async function cloudSetups() {
@@ -208,13 +208,13 @@ const appNameOf = async (app: string) => (await catalog().catch(() => [])).find(
 
 /**
  * The project's sign-in setup for an app: Composio's own (most apps), else one that asks the user for
- * their key. Through Deskwisp Cloud the cloud lists only the setups a Mac may use and makes only these two
+ * their key. Through Deskwisp Cloud the cloud lists only the setups a PC may use and makes only these two
  * kinds (cloud/proxy.ts signInSetupWithoutSecrets): an app that signs in with OAuth but has no sign-in
  * of Composio's connects once Horafirm has set one up in its project.
  */
 async function authConfigFor(app: string) {
   const { items } = await cx().authConfigs.list({ toolkit: app });
-  // Our own app (Deskwisp' OAuth app for Slack, Google…: the consent screen says Deskwisp) wins over Composio's.
+  // Our own app (Deskwisp's OAuth app for Slack, Google…: the consent screen says Deskwisp) wins over Composio's.
   const ready = items.filter((a) => a.status === "ENABLED").sort((a, b) => Number(!!a.isComposioManaged) - Number(!!b.isComposioManaged))[0];
   if (ready) return ready.id;
   const tk = await cx().toolkits.get(app);
@@ -245,7 +245,7 @@ export async function connectApp(app: string, label?: string, replaces?: string,
     if (isNew) trackServerEvent("deskwisp_app_connected", { toolkit: app, reconnect: false });
     return { accountId };
   }
-  // Afterwards the browser lands on Deskwisp' own "connected" page, not Composio's (Deskwisp Cloud's, signed in with Horafirm).
+  // Afterwards the browser lands on Deskwisp's own "connected" page, not Composio's (Deskwisp Cloud's, signed in with Horafirm).
   if (cloudOn()) await cloudSession();
   const callbackUrl = `${publicUrl()}/connected?app=${encodeURIComponent(appName)}`;
   const req = await cx().connectedAccounts.link(userId(), await authConfigFor(app), { allowMultiple: true, callbackUrl });
@@ -255,7 +255,7 @@ export async function connectApp(app: string, label?: string, replaces?: string,
     s.connecting.push({ id: waitId, app, appName, label: label?.trim() || undefined, status: "waiting", at: Date.now(), replaces, grant });
   });
   if (req.redirectUrl) {
-    // The system browser: `open` on a Mac, the URL handler on Windows (no shell, so the URL is never parsed as a command).
+    // The system browser: `open` on a PC, the URL handler on Windows (no shell, so the URL is never parsed as a command).
     if (ON_WINDOWS) execFile("rundll32.exe", ["url.dll,FileProtocolHandler", req.redirectUrl]);
     else execFile(ON_MAC ? "open" : "xdg-open", [req.redirectUrl], () => {});
   }
@@ -427,7 +427,7 @@ function appsOf(b: Bot) {
 }
 
 /**
- * Connections that put bots somewhere rather than apps they use: Deskwisp' Slack app ("slackbot"), how
+ * Connections that put bots somewhere rather than apps they use: Deskwisp's Slack app ("slackbot"), how
  * bots get into Slack (channels.ts). Bots aren't told about them as apps.
  */
 export const CHANNEL_APPS = new Set(["slackbot"]);
@@ -732,13 +732,13 @@ export function appsKeyFor(botId: string) {
 }
 
 /**
- * Whether bot computers can reach this server at all. The Mac app's bundled server listens on
+ * Whether bot computers can reach this server at all. The PC app's bundled server listens on
  * 127.0.0.1 only (desktop/main.cjs) unless its settings say DESKWISP_LISTEN_ALL=1, and then a tailnet
  * address leads nowhere: Horafirm threads get no app tools rather than ones that can't connect.
  */
 export const reachableFromComputers = () => !["127.0.0.1", "localhost", "::1"].includes(process.env.HOSTNAME ?? "");
 
-/** Where a bot computer reaches Deskwisp: this Mac on the tailnet. */
+/** Where a bot computer reaches Deskwisp: this PC on the tailnet. */
 export function deskwispAddress() {
   if (!reachableFromComputers()) return null;
   const cli = ["/Applications/Tailscale.app/Contents/MacOS/Tailscale", "tailscale"];
@@ -776,9 +776,9 @@ async function threadApps(botId: string, sessionId: string, tool: string, args: 
 }
 
 /**
- * A Mac thread's apps: a socket at `path`, in the task's own sockets folder (local.ts taskSockets),
+ * A PC thread's apps: a socket at `path`, in the task's own sockets folder (local.ts taskSockets),
  * that vm/apps-mcp.mjs calls from inside the executor's sandbox, which reaches nothing else on this
- * Mac. It answers only this thread, while it runs, so no secret goes into the task. Returns how to close it.
+ * PC. It answers only this thread, while it runs, so no secret goes into the task. Returns how to close it.
  */
 export function serveApps(sessionId: string, path: string) {
   rmSync(path, { force: true });

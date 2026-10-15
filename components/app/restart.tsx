@@ -6,30 +6,30 @@ import { Spinner } from "./mascot";
 
 /*
  * Restart Deskwisp, for when something's off: in the account menu, on the setup screen (the badge on your
- * initials opens it) and on the Screen Recording card. It asks first, then the Mac app restarts
+ * initials opens it) and on the Screen Recording card. It asks first, then the PC app restarts
  * cleanly through its bridge (window.deskwispMac.relaunch, desktop/main.cjs): the state is saved, the
  * cached sessions go, the server starts again, and the window opens again. You stay signed
- * in and nothing is lost. Only in the Mac app: a browser can't restart it.
+ * in and nothing is lost. Only in the PC app: a browser can't restart it.
  */
 
 type Bridge = { relaunch?: () => Promise<void> };
 const bridge = () => (window as unknown as { deskwispMac?: Bridge }).deskwispMac;
 
 const noop = () => () => {};
-/** Whether this page can restart Deskwisp: it's in the Mac app (false while rendering on the server, so the page hydrates cleanly). */
+/** Whether this page can restart Deskwisp: it's in the PC app (false while rendering on the server, so the page hydrates cleanly). */
 export const useCanRestart = () => useSyncExternalStore(noop, () => !!bridge()?.relaunch, () => false);
 
 /** The circular arrow on Restart Deskwisp. */
 export function RestartIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 16 16" className="shrink-0" aria-hidden>
-      <path d="M13 8a5 5 0 11-1.6-3.7" fill="none" stroke="#0A0A0A" strokeWidth="1.4" strokeLinecap="round" />
-      <path d="M11.9 1.9v2.8H9.1" fill="none" stroke="#0A0A0A" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M13 8a5 5 0 11-1.6-3.7" fill="none" stroke="#16132B" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M11.9 1.9v2.8H9.1" fill="none" stroke="#16132B" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
-/** "Restart Deskwisp?", over everything (a sheet too). Restart hands over to the Mac app, which closes the window. */
+/** "Restart Deskwisp?", over everything (a sheet too). Restart hands over to the PC app, which closes the window. */
 export function RestartConfirm({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);

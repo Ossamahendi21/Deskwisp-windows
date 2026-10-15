@@ -8,19 +8,19 @@ import { RestartConfirm, useCanRestart } from "./restart";
 import { post } from "./ui";
 
 /*
- * Everything Deskwisp needs on this Mac, in one place (Setup). It never stands in the way: signing in goes
+ * Everything Deskwisp needs on this PC, in one place (Setup). It never stands in the way: signing in goes
  * straight to the app, and the account menu (sidebar.tsx) shows a badge while something here still
- * needs the user and they haven't skipped it, and opens this as a sheet. Settings → This Mac has the
+ * needs the user and they haven't skipped it, and opens this as a sheet. Settings → This PC has the
  * same cards.
  *
  * - Screen recording, the microphone and notifications are this app's own macOS permissions, asked
- *   through the Mac app (desktop/main.cjs, window.deskwispMac.permissions). In a browser they can't be.
- * - Routing through this Mac: bots' computers reach the internet through this Mac (app/api/relay).
+ *   through the PC app (desktop/main.cjs, window.deskwispMac.permissions). In a browser they can't be.
+ * - Routing through this PC: bots' computers reach the internet through this PC (app/api/relay).
  *   It's on by default wherever Horafirm offers it, so the card shows it on; turning it off sticks.
  *
  * When something's off, the setup screen also offers Restart Deskwisp (restart.tsx), under its buttons.
  *
- * - Full access (Settings → This Mac only, never Setup): bots' tasks on this Mac run outside Deskwisp'
+ * - Full access (Settings → This PC only, never Setup): bots' tasks on this PC run outside Deskwisp's
  *   sandbox, with a shell, the user's files and apps (MacState.fullAccess). Off until the user turns it on.
  *
  * The user's mobile isn't asked for here: it becomes theirs when they call or text their bot's number
@@ -35,7 +35,7 @@ type Permissions = {
   status(): Promise<Record<PermId, PermStatus>>;
   request(id: PermId): Promise<PermStatus>;
   openSettings(id: PermId): Promise<void>;
-  /** Full access's apps, each with its Automation answer (null until Deskwisp can read them). Older Mac apps don't have it. */
+  /** Full access's apps, each with its Automation answer (null until Deskwisp can read them). Older PC apps don't have it. */
   automationApps?(): Promise<ScriptedApp[] | null>;
 };
 type Bridge = { permissions?: Permissions; screenNeedsRestart?: () => Promise<boolean> };
@@ -71,7 +71,7 @@ function useWhileOpen(fn: () => void, every = 3000) {
   }, [every]);
 }
 
-/** This Mac's permissions for Deskwisp, read live, and whether Screen Recording waits on a restart. */
+/** This PC's permissions for Deskwisp, read live, and whether Screen Recording waits on a restart. */
 function usePermissions(every: number) {
   const inApp = useMacApp();
   const [status, setStatus] = useState<Partial<Record<PermId, PermStatus>> | null>(null);
@@ -90,7 +90,7 @@ function usePermissions(every: number) {
   return { inApp: inApp && !!bridge()?.permissions, status, restart, refresh };
 }
 
-/** Routing through this Mac (GET/POST /api/relay). A server without the route reads as not available. */
+/** Routing through this PC (GET/POST /api/relay). A server without the route reads as not available. */
 function useRelay(every: number) {
   const [info, setInfo] = useState<RelayInfo | null>(null);
   const [busy, setBusy] = useState(false);
@@ -98,7 +98,7 @@ function useRelay(every: number) {
   const read = async (res: Response) => {
     const j = (await res.json().catch(() => ({}))) as Partial<RelayInfo> & { error?: string };
     if (res.status === 404) return { available: false, on: false, running: false, routedComputers: [] } satisfies RelayInfo;
-    if (!res.ok && j.available === undefined) throw new Error(j.error || j.reason || "Couldn't reach routing on this Mac.");
+    if (!res.ok && j.available === undefined) throw new Error(j.error || j.reason || "Couldn't reach routing on this PC.");
     return { available: !!j.available, on: !!j.on, reason: j.reason, device: j.device, running: !!j.running, online: j.online, routedComputers: j.routedComputers ?? [] } satisfies RelayInfo;
   };
   const load = useCallback(async () => {
@@ -151,7 +151,7 @@ function useSetupItems(state: AppState, slow = false) {
     await bridge()?.permissions?.openSettings(id);
   };
   const done = (item: Item) => (item === "relay" ? !!relay.info?.on || !!state.relay?.on : perms.status?.[item] === "granted");
-  // What the user can do something about here: a permission in the Mac app (once read), routing where Horafirm offers it.
+  // What the user can do something about here: a permission in the PC app (once read), routing where Horafirm offers it.
   const offered = (item: Item) => (item === "relay" ? !!relay.info?.available : perms.inApp && !!perms.status?.[item]);
   /** What still needs the user: what the setup screen's Continue records as skipped, and what the badge counts. */
   const waiting = ITEMS.filter((i) => !done(i) && offered(i));
@@ -244,7 +244,7 @@ const ICONS = {
 };
 
 const COPY: Record<"screen" | "microphone" | "notifications", { title: string; line: string }> = {
-  screen: { title: "Screen recording", line: "See your Mac live in Deskwisp, and watch bots work on it." },
+  screen: { title: "Screen recording", line: "See your PC live in Deskwisp, and watch bots work on it." },
   microphone: { title: "Microphone", line: "Talk to your bots on a call." },
   notifications: { title: "Notifications", line: "Hear from bots when something needs you." },
 };
@@ -255,7 +255,7 @@ function PermissionCard({ id, items }: { id: "screen" | "microphone" | "notifica
   const s = perms.status?.[id];
   const copy = COPY[id];
   if (!perms.inApp)
-    return <Card icon={ICONS[id]} title={copy.title} line={copy.line} tone="none" status="Needs the Deskwisp app for Mac" />;
+    return <Card icon={ICONS[id]} title={copy.title} line={copy.line} tone="none" status="Needs the Deskwisp app for PC" />;
   if (!s) return <Card icon={ICONS[id]} title={copy.title} line={copy.line} tone="none" status="Checking" />;
   // Screen Recording turned on while Deskwisp was open: macOS applies it on the next launch.
   const restart = id === "screen" && (perms.restart || (s !== "granted" && sentToSettings.has("screen")));
@@ -266,8 +266,8 @@ function PermissionCard({ id, items }: { id: "screen" | "microphone" | "notifica
         : "Allowed"
       : s === "restricted"
         ? id === "notifications"
-          ? "Not available on this Mac"
-          : "Blocked by your Mac's settings or admin"
+          ? "Not available on this PC"
+          : "Blocked by your PC's settings or admin"
         : s === "denied"
           ? restart
             ? "Turn on Deskwisp in System Settings, then restart Deskwisp"
@@ -299,9 +299,9 @@ function PermissionCard({ id, items }: { id: "screen" | "microphone" | "notifica
 
 function RelayCard({ items }: { items: Items }) {
   const { info, busy, error, turn } = items.relay;
-  const line = "Your bots' computers go online through this Mac, so websites see your home internet.";
-  if (!info) return <Card icon={ICONS.relay} title="Route through this Mac" line={line} tone="none" status="Checking" />;
-  if (!info.available) return <Card icon={ICONS.relay} title="Route through this Mac" line={line} tone="none" status={info.reason ? `Not available yet. ${info.reason}` : "Not available yet"} />;
+  const line = "Your bots' computers go online through this PC, so websites see your home internet.";
+  if (!info) return <Card icon={ICONS.relay} title="Route through this PC" line={line} tone="none" status="Checking" />;
+  if (!info.available) return <Card icon={ICONS.relay} title="Route through this PC" line={line} tone="none" status={info.reason ? `Not available yet. ${info.reason}` : "Not available yet"} />;
   const n = info.routedComputers.length;
   // On by default: the relay may still be starting (or reconnecting) while it's on.
   const connecting = !info.running || info.online === false;
@@ -311,9 +311,9 @@ function RelayCard({ items }: { items: Items }) {
       ? `On${info.device ? ` as ${info.device.name}` : ""}${connecting ? ", connecting" : ""}. ${n ? `${n} computer${n === 1 ? "" : "s"} routed` : "No computers routed yet"}`
       : "Off. Bots' computers use Horafirm's connection";
   return (
-    <Card icon={ICONS.relay} title="Route through this Mac" line={line} tone={error ? "todo" : info.on ? (connecting ? "todo" : "ok") : "off"} status={status}>
+    <Card icon={ICONS.relay} title="Route through this PC" line={line} tone={error ? "todo" : info.on ? (connecting ? "todo" : "ok") : "off"} status={status}>
       <button disabled={busy} onClick={() => void turn(!info.on)} className={info.on ? light : dark}>
-        {busy ? <Spinner size={11} color={info.on ? "#0A0A0A" : "#FFFFFF"} /> : info.on ? "Turn off" : "Turn on"}
+        {busy ? <Spinner size={11} color={info.on ? "#16132B" : "#FFFFFF"} /> : info.on ? "Turn off" : "Turn on"}
       </button>
     </Card>
   );
@@ -365,16 +365,16 @@ export function Setup({ state, onClose }: { state: AppState; onClose: () => void
         className="flex max-h-[90vh] w-[560px] animate-[call-in_220ms_ease-out] flex-col overflow-y-auto rounded-[22px] bg-white px-7 pb-6 pt-8 shadow-[0_0_0_1px_#0000000F,0_30px_70px_-28px_#00000038]"
       >
         <div className="flex flex-col items-center gap-1.5 pb-5 text-center">
-          <Mascot botId="wispy" color="#0A0A0A" size={48} />
-          <span className="pt-3 text-[20px] font-semibold leading-6 tracking-[-0.01em]">Set up Deskwisp on this Mac</span>
+          <Mascot botId="wispy" color="#16132B" size={48} />
+          <span className="pt-3 text-[20px] font-semibold leading-6 tracking-[-0.01em]">Set up Deskwisp on this PC</span>
           <span className="max-w-[380px] text-[13.5px] leading-[19px] text-pencil">
             {items.perms.inApp
               ? "A few things your bots need. Allow what you want now; you can change any of it later in Settings."
-              : "Screen, microphone and notifications need the Deskwisp app for Mac. You can set up the rest here."}
+              : "Screen, microphone and notifications need the Deskwisp app for PC. You can set up the rest here."}
           </span>
         </div>
         <div className="flex flex-col gap-2">
-          <span className="text-[12px] leading-4 text-pencil">This Mac</span>
+          <span className="text-[12px] leading-4 text-pencil">This PC</span>
           <Cards items={items} />
         </div>
         <div className="flex flex-col gap-2 pt-5">
@@ -388,7 +388,7 @@ export function Setup({ state, onClose }: { state: AppState; onClose: () => void
               className="flex h-10 w-full items-center justify-center gap-2 rounded-full bg-ink text-[13.5px] font-medium text-white disabled:opacity-50"
             >
               {allowing && <Spinner size={13} color="#FFFFFF" />}
-              {allowing ? "Asking your Mac" : "Allow all"}
+              {allowing ? "Asking your PC" : "Allow all"}
             </button>
           )}
           <button
@@ -430,13 +430,13 @@ export function useSetupNeedsYou(state: AppState) {
 
 /* ---------------- In Settings ---------------- */
 
-/** Settings → This Mac: the same cards, to come back to any time. */
+/** Settings → This PC: the same cards, to come back to any time. */
 export function ThisMacSettings({ state }: { state: AppState }) {
   const items = useSetupItems(state);
   return (
     <div className="flex flex-col gap-2 px-[22px] pt-4">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[13px] font-semibold">This Mac</span>
+        <span className="text-[13px] font-semibold">This PC</span>
         {items.perms.inApp && ASKED.some((id) => items.perms.status?.[id] === "not-determined") && (
           <button onClick={() => void allowAll(items)} className={light}>
             Allow all
@@ -510,7 +510,7 @@ function FullAccessSetup({ items }: { items: Items }) {
   );
 }
 
-/** Full access for bots on this Mac (MacState.fullAccess): off by default, and only here, with what it means. */
+/** Full access for bots on this PC (MacState.fullAccess): off by default, and only here, with what it means. */
 function FullAccessCard({ items }: { items: Items }) {
   const on = !!items.state.mac?.fullAccess;
   const set = items.perms.status?.fullDisk === "granted" && items.perms.status?.automation === "granted";
@@ -520,9 +520,9 @@ function FullAccessCard({ items }: { items: Items }) {
       icon={ICONS.fullAccess}
       title="Full access for bots"
       chip={on ? "On" : undefined}
-      line="Bots' tasks on this Mac get a shell, your files and your apps, outside Deskwisp' sandbox. Anything you could do here, they can."
+      line="Bots' tasks on this PC get a shell, your files and your apps, outside Deskwisp's sandbox. Anything you could do here, they can."
       tone={on ? (set || !items.perms.inApp ? "ok" : "todo") : "off"}
-      status={on ? (set || !items.perms.inApp ? "Bots can use your files and apps" : "Two steps left, so macOS never stops a bot mid-task") : "Off: bots on this Mac only browse, in a Chrome of their own"}
+      status={on ? (set || !items.perms.inApp ? "Bots can use your files and apps" : "Two steps left, so macOS never stops a bot mid-task") : "Off: bots on this PC only browse, in a Chrome of their own"}
       below={on && items.perms.inApp ? <FullAccessSetup items={items} /> : undefined}
     >
       <button onClick={() => void post("/api/mac", { fullAccess: !on }, "PATCH")} className={on ? light : dark}>

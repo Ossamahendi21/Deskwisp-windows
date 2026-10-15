@@ -95,7 +95,7 @@ export function MemorySheet({ state, onClose }: { state: AppState; onClose: () =
 }
 
 const SECTION = "text-[12px] font-medium uppercase tracking-[0.04em] text-[#9A9A98]";
-const BUTTON = "h-8 shrink-0 rounded-full bg-[#0A0A0A] px-3.5 text-[13px] font-medium text-white hover:bg-[#2A2A2A] disabled:opacity-40";
+const BUTTON = "h-8 shrink-0 rounded-full bg-[#16132B] px-3.5 text-[13px] font-medium text-white hover:bg-[#2A2A2A] disabled:opacity-40";
 const QUIET = "h-8 shrink-0 rounded-full bg-white px-3.5 text-[13px] font-medium shadow-[0_0_0_1px_#E2E2DF] hover:bg-[#F7F7F6] disabled:opacity-40";
 
 /** Its own memory, or another workspace's (both read and add to the same one). */
@@ -125,7 +125,7 @@ function Source({ ws, info, others, onChange }: { ws: string; info: Info; others
 function Choice({ on, disabled, onClick, title, detail }: { on: boolean; disabled?: boolean; onClick: () => void; title: string; detail: string }) {
   return (
     <button disabled={disabled} onClick={onClick} className={`flex items-center gap-2.5 rounded-[11px] px-3 py-2 text-left ${on ? "bg-white shadow-[0_0_0_1px_#E6E6E3]" : "hover:bg-black/[0.03]"}`}>
-      <span className={`flex size-4 shrink-0 items-center justify-center rounded-full ${on ? "bg-[#0A0A0A]" : "shadow-[inset_0_0_0_1.5px_#C9C9C6]"}`}>{on && <span className="size-1.5 rounded-full bg-white" />}</span>
+      <span className={`flex size-4 shrink-0 items-center justify-center rounded-full ${on ? "bg-[#16132B]" : "shadow-[inset_0_0_0_1.5px_#C9C9C6]"}`}>{on && <span className="size-1.5 rounded-full bg-white" />}</span>
       <span className="min-w-0">
         <span className="block text-[14px] font-medium leading-5">{title}</span>
         <span className="block text-[12px] leading-4 text-[#9A9A98]">{detail}</span>
@@ -171,7 +171,7 @@ function Copy({ ws, info, others }: { ws: string; info: Info; others: { id: stri
       <div className={SECTION}>Start with what another workspace knows</div>
       <div className="flex flex-wrap gap-1.5">
         {from.map((o) => (
-          <button key={o.id} disabled={!!busy} onClick={() => void look(o.id)} className={`${QUIET} ${pick === o.id ? "shadow-[0_0_0_1.5px_#0A0A0A]" : ""}`}>
+          <button key={o.id} disabled={!!busy} onClick={() => void look(o.id)} className={`${QUIET} ${pick === o.id ? "shadow-[0_0_0_1.5px_#16132B]" : ""}`}>
             From {o.name}
           </button>
         ))}
@@ -183,7 +183,7 @@ function Copy({ ws, info, others }: { ws: string; info: Info; others: { id: stri
         <div className="flex flex-col gap-2 rounded-[14px] bg-[#F7F7F6] p-3">
           {(["personal", "work"] as const).map((k) => (
             <label key={k} className="flex cursor-pointer items-start gap-2.5">
-              <input type="checkbox" checked={kinds[k]} onChange={(e) => setKinds((x) => ({ ...x, [k]: e.target.checked }))} className="mt-0.5 size-4 accent-[#0A0A0A]" />
+              <input type="checkbox" checked={kinds[k]} onChange={(e) => setKinds((x) => ({ ...x, [k]: e.target.checked }))} className="mt-0.5 size-4 accent-[#16132B]" />
               <span className="min-w-0">
                 <span className="block text-[14px] font-medium leading-5">
                   {k === "personal" ? "Personal" : "Work"} · {preview[k]}

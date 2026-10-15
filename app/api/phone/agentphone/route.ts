@@ -8,7 +8,7 @@ import { notReady } from "@/lib/server/ready";
 export const dynamic = "force-dynamic";
 
 /**
- * AgentPhone's webhooks (texts to Deskwisp' numbers, each turn of a call to one, and call summaries),
+ * AgentPhone's webhooks (texts to Deskwisp's numbers, each turn of a call to one, and call summaries),
  * public at api.deskwisp.bot/hooks/agentphone (the Fly relay in edge/ forwards them here over the
  * tailnet). Signed: HMAC-SHA256 of "{timestamp}.{raw body}" in X-Webhook-Signature as "sha256=<hex>",
  * at most 5 minutes old. Each webhook Deskwisp made has its own secret (the sub-account's, and one per
@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
  * Signed in with Horafirm, AgentPhone delivers to Deskwisp Cloud instead, which checks the signature (it
  * keeps the secrets) and replays the delivery here over its tunnel, with the token only this server
  * knows (lib/server/cloud-tunnel.ts): that request counts as checked, and so does who sent it, which
- * the cloud decided (CLOUD_CALLER_HEADER, from deskwisp.phone_lines). This Mac follows it.
+ * the cloud decided (CLOUD_CALLER_HEADER, from deskwisp.phone_lines). This PC follows it.
  *
  * A call's turn is answered with what the bot says (lib/server/phone-voice.ts): as JSON through the
  * cloud, which speaks a filler itself while a slow answer is on its way; straight from AgentPhone, as

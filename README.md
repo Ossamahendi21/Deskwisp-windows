@@ -35,38 +35,18 @@
 Deskwisp is a Windows app that gives you a team of AI bots for your business ops: inbox, pipeline, invoices, reports. They work on cloud computers you can watch live and take over at any time. Reach them in the app and in Slack, Telegram and Discord, and on Pro and Max by text, call or email. They remember who you are and what they did yesterday.
 
 <p align="center">
-  <img src="docs/images/app.png" width="100%" alt="The main bot's chat on the left, and its computer's four screens on the right, building a lead list">
+  <img src="docs/images/app.png" width="100%" alt="Wispy, the main bot: its chat in the middle and its computer on the right">
 </p>
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="docs/images/screen.png" alt="A bot's screen up close, filling in a spreadsheet, with Watch and Take control">
-      <p><b>Watch or take over.</b> Watch any screen live, take control, then hand it back.</p>
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/images/approve.png" alt="A bot asking before it pays an invoice, with Do it and Don't">
-      <p><b>Asks before it acts.</b> Reading runs at once. Sending, creating and paying wait for your OK.</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="docs/images/vault.png" alt="The Vault: connected apps, several accounts each, and which bots use them">
-      <p><b>Your apps, your rules.</b> About 1,400 apps, several accounts each. Each bot gets only the access you give it.</p>
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/images/slack.png" alt="A bot answering a request sent from Slack">
-      <p><b>Where your team works.</b> Ask in Slack, Telegram or Discord, and the answer comes back there.</p>
-    </td>
-  </tr>
-</table>
-
-<sub>Screenshots are from the original app; the Windows build looks the same, with Windows' own window buttons.</sub>
+- **Watch or take over.** Watch any screen live, take control, then hand it back.
+- **Asks before it acts.** Reading runs at once. Sending, creating and paying wait for your OK.
+- **Your apps, your rules.** About 1,400 apps, several accounts each. Each bot gets only the access you give it.
+- **Where your team works.** Ask in Slack, Telegram or Discord, and the answer comes back there.
 
 ## What your bots can do
 
 - **Work on real computers.** Your bots work on a cloud computer from [Horafirm](https://deskwisp.com): 4 cores, 16 GB RAM and 4 screens, with Chrome, LibreOffice, GIMP and Inkscape. Watch any screen live, or take over. On Free and Pro all your bots share one computer. Max gives you up to 3.
-- **Work as a team.** A main bot runs the team and hands work to the specialists you add. Bots talk to each other, keep threads and report back in the chat. Each workspace is its own team.
+- **Work as a team.** A main bot (Wispy, unless you rename it) runs the team and hands work to the specialists you add. Bots talk to each other, keep threads and report back in the chat. Each workspace is its own team.
 - **Remember.** What you tell your bots, they remember, per workspace, on every channel.
 - **Use your apps.** Connect Gmail, Calendar and any of about 1,400 apps, with several accounts each. Reading runs at once. Sending, creating or paying asks you first. A bot set to Just do it sends and changes things without asking, and still asks before paying.
 - **Look things up.** Companies, people, work emails (checked before they're used), phones, company news, hiring and funding, and local businesses, for cents a lookup. A pricier lookup asks you first, and so does emailing someone a bot found, even on Just do it.
@@ -108,7 +88,7 @@ Running it yourself on your own keys? These plans don't apply: you pay each prov
 1. Build the installer (see [Releasing the Windows app](#releasing-the-windows-app)), or use one you built before: `dist-win\Deskwisp-Setup-<version>-x64.exe`. It runs on Windows 10 and 11, x64.
 2. Run it. The build isn't signed, so Windows SmartScreen asks once: **More info → Run anyway**.
 3. Sign in with Google, with your email, or with Horafirm. If you don't have an Horafirm account yet, one is made for you.
-4. Say hi to your main bot. It takes it from there.
+4. Say hi to Wispy, your main bot. It takes it from there.
 
 The installer is per-user (no admin needed), adds Start menu and desktop shortcuts, and lets you pick the install folder. Updates: build the new version and run its installer over the old one; your data stays.
 
@@ -119,7 +99,6 @@ What's coming next for this port:
 - **A free computer for the bots.** A small server for your own VPS that answers the same API as Horafirm's computers (Docker, Xvfb, Chromium, xdotool), so the bots can work without a paid plan.
 - **WhatsApp.** Reach your bots where most people already are.
 - **Shell tasks on Windows.** The tasks that run on your own PC with a shell, which today are written for another system.
-- **Its own name and look inside the app.** The window, installer and data folder still say "Deskwisp".
 
 ## Credits
 

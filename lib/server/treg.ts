@@ -20,7 +20,7 @@ import { bot, installId, ownerName } from "./store";
  *
  * Every call goes through `call` below, the one place that talks to treg. Signed in with Horafirm, it goes
  * through Deskwisp Cloud (/proxy/treg), which holds the token, tags the call with the user and bot, caps
- * it, and pays it from the user's AI credit at what treg charged. With TREG_TOKEN in this Mac's
+ * it, and pays it from the user's AI credit at what treg charged. With TREG_TOKEN in this PC's
  * settings (self-hosting, or trying business data before the cloud has it), treg is reached directly
  * with that token instead, and paid from that token's treg team, not AI credit. The catalog itself
  * (search, an endpoint's details) is open: read from treg directly.
@@ -32,10 +32,10 @@ import { bot, installId, ownerName } from "./store";
 
 const TREG = (process.env.TREG_URL || "https://treg.to").replace(/\/+$/, "");
 
-/** This Mac's own treg token (TREG_TOKEN), which wins over Deskwisp Cloud's. */
+/** This PC's own treg token (TREG_TOKEN), which wins over Deskwisp Cloud's. */
 const ownToken = () => process.env.TREG_TOKEN?.trim() || "";
 
-/** treg is set up: this Mac's own token, or through Deskwisp Cloud (the session says so). */
+/** treg is set up: this PC's own token, or through Deskwisp Cloud (the session says so). */
 export const tregOn = () => !!ownToken() || (cloudOn() && !!cloudSessionNow()?.treg);
 
 /** Whether a bot has business data: treg is on and the user didn't turn it off for this bot. */

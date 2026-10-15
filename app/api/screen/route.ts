@@ -7,8 +7,8 @@ import { healIfGone } from "@/lib/server/sessions";
 export const dynamic = "force-dynamic";
 
 /**
- * Live view: a fresh screenshot of one screen on a bot's computer (a Chrome window on the Mac, or an
- * Horafirm screen), or with ?mac= of the Chrome a task of the bot's has of its own on the user's Mac (Session.macScreen).
+ * Live view: a fresh screenshot of one screen on a bot's computer (a Chrome window on the PC, or an
+ * Horafirm screen), or with ?mac= of the Chrome a task of the bot's has of its own on the user's PC (Session.macScreen).
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);

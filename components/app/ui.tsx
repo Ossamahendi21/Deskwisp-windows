@@ -41,7 +41,7 @@ export const clockTime = (t: number) => new Date(t).toLocaleTimeString(undefined
 export function needsYou(s: Session) {
   // Dismissed, or a newer thread has the job: it never asks again.
   if (s.dismissed || s.replacedBy) return false;
-  // It can't start until the user says where (their Mac or the cloud), whatever they've said since.
+  // It can't start until the user says where (their PC or the cloud), whatever they've said since.
   if (s.askWhere && live(s)) return true;
   const lastUser = [...s.replies].reverse().find((r) => r.role === "user");
   const lastBot = [...s.replies].reverse().find((r) => r.role === "bot");
@@ -105,11 +105,11 @@ export function chatName(c: Chat, bots: Bot[]) {
 
 export function StatusIcon({ session: s, size = 13, dark }: { session: Session; size?: number; dark?: boolean }) {
   // Each state says what it means on hover (the tooltip layer reads data-tip).
-  const tip = s.askWhere && live(s) ? "Waiting for you: your Mac or the cloud?" : live(s) ? "Working on it" : needsYou(s) ? "Needs you" : s.status === "done" ? "Done" : `Didn't finish${s.error ? `: ${s.error.slice(0, 80)}` : ""}`;
+  const tip = s.askWhere && live(s) ? "Waiting for you: your PC or the cloud?" : live(s) ? "Working on it" : needsYou(s) ? "Needs you" : s.status === "done" ? "Done" : `Didn't finish${s.error ? `: ${s.error.slice(0, 80)}` : ""}`;
   const icon = live(s) && !(s.askWhere && needsYou(s)) ? (
-    <Spinner size={size} color={dark ? "#0A0A0A" : "#3A3A38"} />
+    <Spinner size={size} color={dark ? "#16132B" : "#3A3A38"} />
   ) : needsYou(s) ? (
-    <span className="block rounded-full bg-highlighter shadow-[0_0_0_1.5px_#0A0A0A]" style={{ width: size - 3, height: size - 3 }} />
+    <span className="block rounded-full bg-highlighter shadow-[0_0_0_1.5px_#16132B]" style={{ width: size - 3, height: size - 3 }} />
   ) : s.status === "done" ? (
     <svg width={size} height={size} viewBox="0 0 14 14" className="block">
       <path d="M3 7.5l2.5 2.5L11 4.5" fill="none" stroke="#2BB673" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -167,7 +167,7 @@ export function RoundButton({ label, onClick, children, active }: { label: strin
 }
 
 /**
- * Something needs the user: a small amber dot with an exclamation mark. On their initials while this Mac
+ * Something needs the user: a small amber dot with an exclamation mark. On their initials while this PC
  * still needs something (setup.tsx), and on Full access's one warning in the People sheet (members.tsx).
  */
 export function NeedsYouDot({ className = "" }: { className?: string }) {
@@ -186,7 +186,7 @@ export function CloseButton({ onClick, className = "" }: { onClick: () => void; 
   return (
     <button onClick={onClick} aria-label="Close" className={`flex size-8 shrink-0 items-center justify-center rounded-full shadow-[0_0_0_1px_#E6E6E3] hover:bg-[#F7F7F6] ${className}`}>
       <svg width="12" height="12" viewBox="0 0 12 12">
-        <path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="#0A0A0A" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="#16132B" strokeWidth="1.6" strokeLinecap="round" />
       </svg>
     </button>
   );

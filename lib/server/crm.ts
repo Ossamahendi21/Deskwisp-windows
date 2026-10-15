@@ -29,11 +29,11 @@ import { addMessage, bot, getState, ownerName, session, update, userDir } from "
 import { markFound } from "./treg";
 
 /**
- * The user's CRM: CSV files on this Mac, one folder per workspace, listed on the left of the app and
+ * The user's CRM: CSV files on this PC, one folder per workspace, listed on the left of the app and
  * opened as a chart over a table (components/app/crm.tsx), and read and added to by the bots (the
  * crm_* tools below). The files live in the signed-in user's own folder, so another Horafirm account on
- * this Mac never sees them, and they stay through Restart, Start over, signing out and new versions
- * of the app. They don't go to Deskwisp Cloud: the user's other Macs and the iPhone app don't have them.
+ * this PC never sees them, and they stay through Restart, Start over, signing out and new versions
+ * of the app. They don't go to Deskwisp Cloud: the user's other PCs and the iPhone app don't have them.
  *
  *   <userDir>/crm/<workspace id>/Leads.csv   folders 0700, files 0600
  *                               .seeded      the sample was written once (deleting it is for good)
@@ -45,7 +45,7 @@ import { markFound } from "./treg";
  * at run time carry turbopackIgnore (user-paths.ts says why).
  */
 
-/** Where a CRM could be: on this Mac (not a hosted server), with someone to keep it for. */
+/** Where a CRM could be: on this PC (not a hosted server), with someone to keep it for. */
 const crmHere = () => !onPostgres() && userDir() !== null;
 
 /**
@@ -85,7 +85,7 @@ export function crmOff(): Response | null {
   if (crmOn()) return null;
   // Signed in, but the CRM isn't open to this account yet (lib/crm-access.ts): there's no CRM to speak of.
   if (crmHere()) return Response.json({ error: "Not found." }, { status: 404 });
-  return Response.json({ error: onPostgres() ? "The CRM is only in the Mac app." : CRM_SAY.signIn }, { status: 400 });
+  return Response.json({ error: onPostgres() ? "The CRM is only in the PC app." : CRM_SAY.signIn }, { status: 400 });
 }
 
 /* ---------------- Folders and names ---------------- */
@@ -145,7 +145,7 @@ const listed = (dir: string) => entries(dir).filter((e) => e.regular && e.ours);
 type Found = { dir: string; name: string; file: string; exists: boolean };
 
 /**
- * The file a name means in a workspace: the one there (case ignored, as the Mac's disk does), or
+ * The file a name means in a workspace: the one there (case ignored, as the PC's disk does), or
  * where a new one would go. A link or anything but a plain file is refused, and so is a path that
  * would leave the folder.
  */
@@ -412,7 +412,7 @@ export async function createFile(ws: unknown, name: unknown, from: CrmSource): P
   });
 }
 
-/** Rename a file (only its case is fine too: the Mac's disk ignores case, so it goes through a temporary name). */
+/** Rename a file (only its case is fine too: the PC's disk ignores case, so it goes through a temporary name). */
 export async function renameFile(ws: unknown, from: unknown, to: unknown): Promise<{ file: CrmFileMeta }> {
   const dir = wsDir(ws);
   return inLane(dir, () => {

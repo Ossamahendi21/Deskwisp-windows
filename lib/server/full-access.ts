@@ -5,7 +5,7 @@ import { signedInUser } from "./horafirm-auth";
 import { userDeskwispHome } from "./user-paths";
 
 /**
- * Full access for bots on this Mac (Settings, This Mac; executorCommand in local.ts): this Mac's and
+ * Full access for bots on this PC (Settings, This PC; executorCommand in local.ts): this PC's and
  * the signed-in user's alone, so it's kept in a file of theirs here (~/.deskwisp/users/<id>, beside their
  * bots' workspace: not their state, which lives in Deskwisp Cloud). It's never part of their state in
  * Deskwisp Cloud (state-merge.ts leaves it out both ways), so nothing there can turn it on, and only the

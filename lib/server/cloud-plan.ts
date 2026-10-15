@@ -7,12 +7,12 @@ import { addMessage, bot, sameState, update } from "./store";
 
 /**
  * What the user's plan brings the main bot, set up by Deskwisp Cloud (cloud/plans.ts, cloud/provision.ts)
- * whether or not this Mac was open: a "plan" event from the tunnel (app/api/cloud/event) says the
+ * whether or not this PC was open: a "plan" event from the tunnel (app/api/cloud/event) says the
  * number and inbox as they stand now, and this takes them into the app's state as if the app had made
  * them (Bot.phone and Bot.phoneLine, Bot.email and Bot.mail), with a line in the bot's chat:
  *
  * - ready (or still being set up): the bot has them. The number's 15 minutes for its first caller
- *   open here, when the user is shown it (the cloud never opens them itself: the Mac may have been
+ *   open here, when the user is shown it (the cloud never opens them itself: the PC may have been
  *   closed, and a stranger texting a new number would become its owner), as for a number the app
  *   buys. The inbox is on the workspace's handle; when Deskwisp picked that handle, the app offers to
  *   change it ("Your Deskwisp address").
@@ -102,7 +102,7 @@ function takeInbox(b: Bot, e: PlanInbox, workspaceId: string) {
   else say(b, `${b.name} has an email address now, with your plan: ${e.email}.`);
 }
 
-/** Take a "plan" event into the state. A bot this Mac doesn't have (deleted since) is skipped. */
+/** Take a "plan" event into the state. A bot this PC doesn't have (deleted since) is skipped. */
 export async function adoptPlan(p: CloudPlanPayload) {
   const b = p.botId ? bot(p.botId) : undefined;
   if (p.handle) adoptHandle(p.workspaceId, p.handle.handle, { offer: p.handle.auto && !!p.email && p.email.status !== "paused" && !b?.mail?.plan });

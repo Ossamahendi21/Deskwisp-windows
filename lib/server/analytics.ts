@@ -11,16 +11,16 @@ import { onExit } from "./persist";
 import { getState } from "./store";
 
 /**
- * The Mac's usage events (README, Privacy): horafirm-web's lib/analytics-server.ts for Deskwisp, through
+ * The PC's usage events (README, Privacy): horafirm-web's lib/analytics-server.ts for Deskwisp, through
  * posthog-node to the same project, with the Horafirm user id as the person. Only what's listed in
- * cloud/analytics-rules.ts leaves, cleaned there; never content. Nothing is sent unless this Mac may
+ * cloud/analytics-rules.ts leaves, cleaned there; never content. Nothing is sent unless this PC may
  * (telemetryHere), the app is signed in with Horafirm and on Deskwisp Cloud, and the user's switch is on.
  */
 
 type Client = Pick<PostHog, "capture" | "captureException" | "flush" | "shutdown">;
 const g = globalThis as unknown as { deskwispPosthog?: Client };
 
-/** Whether the Mac sends usage events now. */
+/** Whether the PC sends usage events now. */
 export const analyticsOn = () => telemetryHere() && cloudOn() && !!getState().account && !getState().analyticsOff;
 
 /** Which Deskwisp this is, with horafirm-web's values for its `environment` property. */
@@ -55,7 +55,7 @@ export function milestoneUuid(event: string, userId: string, entityId: string): 
 }
 
 /**
- * Send one of the Mac's events for the signed-in user. `userId`: only if that's still who's signed
+ * Send one of the PC's events for the signed-in user. `userId`: only if that's still who's signed
  * in (for work that finishes after a sign-out or a switch). `once`: counted once per this id. Never throws.
  */
 export function trackServerEvent<E extends EventsBy<"mac_server">>(
@@ -82,7 +82,7 @@ export function trackServerEvent<E extends EventsBy<"mac_server">>(
   }
 }
 
-/** An unexpected error in the Mac's server (instrumentation.ts): its type and where in Deskwisp' code, never its message. Never throws. */
+/** An unexpected error in the PC's server (instrumentation.ts): its type and where in Deskwisp's code, never its message. Never throws. */
 export function captureServerException(err: unknown, routePath?: string): void {
   try {
     const uid = getState().account?.user.id;

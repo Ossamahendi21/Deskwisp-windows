@@ -33,7 +33,7 @@ import { CloseButton, currentWorkspace, post } from "./ui";
  * The CRM: the workspace's CSV files, listed on the left (CrmSection) and each opened as a tab on the
  * right (CrmView): a chart you can point at and click, over a table you can edit. Bots read and add to
  * the same files (lib/server/crm.ts), and each save they make leaves a note in the chat (CrmNote) with
- * Open and Undo. The files are on this Mac (lib/server/crm.ts says where), not in the app's state, so
+ * Open and Undo. The files are on this PC (lib/server/crm.ts says where), not in the app's state, so
  * the lists fetch their own and fetch again when the window comes back, when a bot saves (crmMarkOf)
  * and when anything here saves (the "deskwisp-crm" event).
  */
@@ -87,7 +87,7 @@ export function CrmBarsIcon({ size = 16 }: { size?: number }) {
 function ImportIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 16 16" className="shrink-0" aria-hidden>
-      <path d="M8 2.5v7.5M5 7l3 3 3-3M3 12.5v1h10v-1" fill="none" stroke="#0A0A0A" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8 2.5v7.5M5 7l3 3 3-3M3 12.5v1h10v-1" fill="none" stroke="#16132B" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -392,7 +392,7 @@ export function CrmSection({
 
   return (
     <div
-      className={`flex flex-col rounded-[12px] pt-4 ${dropping ? "shadow-[inset_0_0_0_1.5px_#0A0A0A]" : ""}`}
+      className={`flex flex-col rounded-[12px] pt-4 ${dropping ? "shadow-[inset_0_0_0_1.5px_#16132B]" : ""}`}
       onDragOver={(e) => {
         if (![...e.dataTransfer.types].includes("Files")) return;
         e.preventDefault();
@@ -481,7 +481,7 @@ export function CrmSection({
           <div
             key={f.name}
             onMouseLeave={() => sure === f.name && setSure(null)}
-            className={`group/crm flex h-[34px] items-center gap-2 rounded-[10px] px-2.5 has-[>button:first-child:focus-visible]:shadow-[inset_0_0_0_1.5px_#0A0A0A] ${isActive(f) ? "bg-[#EEEEEC]" : "hover:bg-black/[0.03]"}`}
+            className={`group/crm flex h-[34px] items-center gap-2 rounded-[10px] px-2.5 has-[>button:first-child:focus-visible]:shadow-[inset_0_0_0_1.5px_#16132B] ${isActive(f) ? "bg-[#EEEEEC]" : "hover:bg-black/[0.03]"}`}
           >
             {/* Its focus shows as a ring on the whole row (above). */}
             <button onClick={() => onOpen(ws, f.name)} className="flex h-full min-w-0 flex-1 items-center gap-2 text-left outline-none">
@@ -550,7 +550,7 @@ export function CrmSection({
 
 const viewKey = (ws: string, file: string) => `deskwisp.crm.view.${ws}.${file.toLowerCase()}`;
 
-/** How the user last set a file's chart (this Mac only). */
+/** How the user last set a file's chart (this PC only). */
 function readView(ws: string, file: string): ChartView | null {
   try {
     const v = JSON.parse(localStorage.getItem(viewKey(ws, file)) ?? "null") as ChartView | null;
@@ -638,7 +638,7 @@ function Pick({ label, value, onChange, children }: { label: string; value: stri
           aria-label={label}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-8 max-w-[220px] cursor-pointer appearance-none truncate rounded-full bg-white pl-3 pr-7 text-[13px] text-ink shadow-[0_0_0_1px_#E6E6E3] outline-none hover:bg-[#FCFCFB] focus-visible:shadow-[0_0_0_1.5px_#0A0A0A]"
+          className="h-8 max-w-[220px] cursor-pointer appearance-none truncate rounded-full bg-white pl-3 pr-7 text-[13px] text-ink shadow-[0_0_0_1px_#E6E6E3] outline-none hover:bg-[#FCFCFB] focus-visible:shadow-[0_0_0_1.5px_#16132B]"
         >
           {children}
         </select>
@@ -1091,7 +1091,7 @@ export function CrmView({
             }}
             placeholder="Search rows"
             aria-label="Search rows"
-            className="h-8 w-[220px] max-w-full rounded-full bg-white px-3.5 text-[13px] shadow-[0_0_0_1px_#E6E6E3] outline-none placeholder:text-[#9A9A98] focus:shadow-[0_0_0_1.5px_#0A0A0A]"
+            className="h-8 w-[220px] max-w-full rounded-full bg-white px-3.5 text-[13px] shadow-[0_0_0_1px_#E6E6E3] outline-none placeholder:text-[#9A9A98] focus:shadow-[0_0_0_1.5px_#16132B]"
           />
           {pickedGroup && (
             <span className="flex h-7 shrink-0 items-center gap-1 rounded-full bg-[#F2F2F0] pl-2.5 pr-1 text-[12.5px] leading-4 text-[#3A3A38]">
@@ -1146,7 +1146,7 @@ export function CrmView({
                           }}
                           onBlur={renameColumn}
                           aria-label="Column name"
-                          className={`h-6 w-full min-w-[110px] rounded-[6px] bg-[#F4F4F2] px-1.5 text-[12.5px] font-medium text-ink outline-none focus:shadow-[0_0_0_1.5px_#0A0A0A] ${widthOf(c)}`}
+                          className={`h-6 w-full min-w-[110px] rounded-[6px] bg-[#F4F4F2] px-1.5 text-[12.5px] font-medium text-ink outline-none focus:shadow-[0_0_0_1.5px_#16132B] ${widthOf(c)}`}
                         />
                       ) : (
                         <button
@@ -1209,7 +1209,7 @@ export function CrmView({
                       onBlur={addColumn}
                       placeholder="Column name"
                       aria-label="Column name"
-                      className="h-6 w-[130px] rounded-[6px] bg-[#F4F4F2] px-1.5 text-[12.5px] font-medium text-ink outline-none placeholder:font-normal placeholder:text-[#9A9A98] focus:shadow-[0_0_0_1.5px_#0A0A0A]"
+                      className="h-6 w-[130px] rounded-[6px] bg-[#F4F4F2] px-1.5 text-[12.5px] font-medium text-ink outline-none placeholder:font-normal placeholder:text-[#9A9A98] focus:shadow-[0_0_0_1.5px_#16132B]"
                     />
                   )}
                 </th>
@@ -1255,7 +1255,7 @@ export function CrmView({
                             startEdit(i, c);
                           } else gridKeys(e, i, c);
                         }}
-                        className={`border-b border-[#F0F0EE] px-3 align-top outline-none group-hover/row:bg-black/[0.02] focus-visible:shadow-[inset_0_0_0_1.5px_#0A0A0A] ${editing ? "py-1" : "cursor-text py-2"}`}
+                        className={`border-b border-[#F0F0EE] px-3 align-top outline-none group-hover/row:bg-black/[0.02] focus-visible:shadow-[inset_0_0_0_1.5px_#16132B] ${editing ? "py-1" : "cursor-text py-2"}`}
                       >
                         {editing ? (
                           <textarea
@@ -1290,7 +1290,7 @@ export function CrmView({
                             }}
                             onBlur={() => finish(i, c, edit.draft, null)}
                             aria-label={`${columns[c]}, row ${i + 1}`}
-                            className={`block w-full resize-none overflow-hidden rounded-[6px] bg-[#F4F4F2] px-1.5 py-1 text-[13px] leading-[18px] text-ink outline-none focus:shadow-[0_0_0_1.5px_#0A0A0A] ${widthOf(c)} ${right ? "text-right tabular-nums" : ""}`}
+                            className={`block w-full resize-none overflow-hidden rounded-[6px] bg-[#F4F4F2] px-1.5 py-1 text-[13px] leading-[18px] text-ink outline-none focus:shadow-[0_0_0_1.5px_#16132B] ${widthOf(c)} ${right ? "text-right tabular-nums" : ""}`}
                           />
                         ) : (
                           <div className={`line-clamp-2 whitespace-pre-wrap break-words ${widthOf(c)} ${right ? "text-right tabular-nums" : ""}`}>{v}</div>
@@ -1394,7 +1394,7 @@ function Frame({ mode, drop, children }: { mode: "panel" | "focus"; drop: Drop; 
         <div className={`flex w-full flex-col gap-5 ${mode === "focus" ? "mx-auto max-w-[1200px]" : ""}`}>{children}</div>
       </div>
       {dropping && (
-        <div className="pointer-events-none absolute inset-2 flex items-start justify-center rounded-2xl pt-4 shadow-[inset_0_0_0_1.5px_#0A0A0A]">
+        <div className="pointer-events-none absolute inset-2 flex items-start justify-center rounded-2xl pt-4 shadow-[inset_0_0_0_1.5px_#16132B]">
           <span className="rounded-full bg-ink px-3 py-1.5 text-[12.5px] font-medium leading-4 text-white">Drop a CSV to add it</span>
         </div>
       )}

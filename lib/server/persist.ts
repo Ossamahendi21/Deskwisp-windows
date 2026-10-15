@@ -8,11 +8,11 @@ import { legacyStateFile, moveLegacyState, userDataDir } from "./user-paths";
 /**
  * Where the state lives between starts, and whose it is.
  *
- * - The Mac app, signed in with Horafirm (the usual case): in Deskwisp Cloud, under the user's Horafirm id
- *   (persist-cloud.ts). Nothing is kept on the Mac (but changes the cloud couldn't take yet, in the
+ * - The PC app, signed in with Horafirm (the usual case): in Deskwisp Cloud, under the user's Horafirm id
+ *   (persist-cloud.ts). Nothing is kept on the PC (but changes the cloud couldn't take yet, in the
  *   user's folder until they're up): signing in loads that user's state, signing out lets it go, and
  *   until someone is signed in there is no state to work on (ready() is false).
- * - A self-hosted install (DESKWISP_SELF_HOSTED=1, no cloud): files on this Mac, one per Horafirm user
+ * - A self-hosted install (DESKWISP_SELF_HOSTED=1, no cloud): files on this PC, one per Horafirm user
  *   (.data/users/<id>/state.json), and .data/state.json while nobody's signed in (it runs on its own key).
  * - A hosted server (DESKWISP_DATABASE_URL): each user's row in Postgres (persist-pg.ts).
  *
@@ -45,7 +45,7 @@ export type Persistence = {
   flush(ms: number): Promise<boolean>;
   /** Changes not saved yet. */
   unsent(): boolean;
-  /** Read what changed elsewhere (another Mac of the user's) now. */
+  /** Read what changed elsewhere (another PC of the user's) now. */
   pull(): Promise<void>;
 };
 
@@ -54,15 +54,15 @@ export type StateAccess = {
   get(): AppState;
   /** Replace the state in memory with a saved one (null: start fresh), brought up to the current shape. A new epoch: work in flight is dropped. */
   replace(raw: Record<string, unknown> | null): void;
-  /** The state in memory changed in place (another Mac's changes merged in): the app polls it again. Not a new epoch. */
+  /** The state in memory changed in place (another PC's changes merged in): the app polls it again. Not a new epoch. */
   touch(): void;
 };
 
-/** A sign-in's state couldn't be loaded (Deskwisp Cloud down, or this Mac offline): the sign-in is refused, and the app says so. */
+/** A sign-in's state couldn't be loaded (Deskwisp Cloud down, or this PC offline): the sign-in is refused, and the app says so. */
 export class StateLoadError extends Error {}
 
 export const onPostgres = () => !!process.env.DESKWISP_DATABASE_URL;
-/** Self-hosting: keys in .env.local, no Deskwisp Cloud, the state in files on this Mac. */
+/** Self-hosting: keys in .env.local, no Deskwisp Cloud, the state in files on this PC. */
 export const selfHosted = () => process.env.DESKWISP_SELF_HOSTED === "1";
 
 const gx = globalThis as unknown as { __deskwispExitWork?: Map<string, () => Promise<unknown>>; __deskwispExitHooked?: boolean; __deskwispStopping?: boolean };
@@ -72,7 +72,7 @@ const exitWork = (gx.__deskwispExitWork ??= new Map());
  * Work that has to finish on the way out (the last state save to Deskwisp Cloud, closing its tunnel), by
  * name so a code reload replaces it. On SIGINT or SIGTERM the desktop server gives it up to 5
  * seconds, then exits. Next exits on those signals by itself unless NEXT_MANUAL_SIG_HANDLE is set, as
- * the Mac app sets it (desktop/main.cjs); without it this is best effort.
+ * the PC app sets it (desktop/main.cjs); without it this is best effort.
  */
 export const onExit = (name: string, fn: () => Promise<unknown>) => void exitWork.set(name, fn);
 

@@ -49,7 +49,7 @@ export function postHorafirm<T>(key: string, path: string, body: unknown, header
   return callHorafirm<T>(key, path, { method: "POST", body, headers, timeoutMs });
 }
 
-/* ---------------- Deskwisp' own plan: AI credit ---------------- */
+/* ---------------- Deskwisp's own plan: AI credit ---------------- */
 
 /** GET /api/deskwisp/plan as horafirm-web answers it. */
 type DeskwispPlanAnswer = {
@@ -131,7 +131,7 @@ export async function deskwispBillingLink(key: string, what: { tier: "pro_deskwi
   const got = await postHorafirm<{ url?: unknown; error?: unknown; code?: unknown }>(key, what === "manage" ? "/api/deskwisp/portal" : "/api/deskwisp/checkout", what === "manage" ? {} : what);
   if (!got) return { error: "Couldn't reach Horafirm. Check your internet connection and try again.", status: 502 };
   if (got.status >= 200 && got.status < 300 && typeof got.json.url === "string" && /^https:\/\//.test(got.json.url)) return { url: got.json.url };
-  if (got.status === 401 || got.status === 403) return { error: "Horafirm didn't accept this Mac's sign-in. Sign out, then sign in again.", status: 401 };
+  if (got.status === 401 || got.status === 403) return { error: "Horafirm didn't accept this PC's sign-in. Sign out, then sign in again.", status: 401 };
   if (got.status === 404 || got.json.code === "deskwisp_plans_off") return { error: "Upgrades open soon.", status: got.status === 404 ? 404 : 503, soon: true };
   if (got.json.code === "no_deskwisp_plan") return { error: "You don't have a paid plan to manage yet.", status: 409 };
   return { error: typeof got.json.error === "string" ? got.json.error : `Horafirm couldn't open that page (${got.status}). Try again in a minute.`, status: 502 };
@@ -146,7 +146,7 @@ export async function deskwispBillingLink(key: string, what: { tier: "pro_deskwi
  * the purchase's Idempotency-Key.
  */
 
-const SIGNED_OUT = "Horafirm didn't accept this Mac's sign-in. Sign out, then sign in again.";
+const SIGNED_OUT = "Horafirm didn't accept this PC's sign-in. Sign out, then sign in again.";
 
 /** Horafirm doesn't sell AI credit yet: in its words, for the app. */
 export const CREDIT_OFF = { error: "Adding credit opens soon.", code: "deskwisp_credit_off" };
@@ -442,7 +442,7 @@ export type MainComputer = { id: string; free?: boolean };
 /**
  * The main bot's computer, from the Deskwisp template:
  * - The user's one free Deskwisp computer when they have none yet (at the template's size, off the plan),
- *   or the one they have when no bot here has it (made before this Mac's state, or on another Mac).
+ *   or the one they have when no bot here has it (made before this PC's state, or on another PC).
  * - Else one on the plan, at the plan's size (computerRam), when the plan has room for it.
  * - Else, when another workspace's main bot has the free computer, this one works there too (null,
  *   and it says so in its chat). Only one free computer is ever made.

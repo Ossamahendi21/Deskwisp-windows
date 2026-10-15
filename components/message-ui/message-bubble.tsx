@@ -97,13 +97,13 @@ export const selectionOverlayClass =
   "dark:[--im-sel-blue:#0b50c8] dark:[--im-sel-gray:#55555c]";
 
 /**
- * Dragging across the words inside a balloon, which is a Mac-only gesture: `-[CKUIBehaviorPhone
+ * Dragging across the words inside a balloon, which is a PC-only gesture: `-[CKUIBehaviorPhone
  * enableBalloonTextSelection]` is NO and `-[CKUIBehaviorMac enableBalloonTextSelection]` is YES, so
  * on iOS the text is not selectable at all and "Select" in the long-press menu means the whole
  * message (`ios-select-mode`), not a range inside it. That is why `user-select` is `none` on iOS
  * here rather than an oversight, and it is also why iOS has no colour below.
  *
- * The Mac's colours come from `-[CKUITheme selectionHighlightColorOverrideForColorType:]`, read
+ * The PC's colours come from `-[CKUITheme selectionHighlightColorOverrideForColorType:]`, read
  * beside `balloonColorsForColorType:` and `balloonTextColorForColorType:` so each type's fill, text
  * and highlight line up. Across all twelve types the rule is the text colour, not the fill: every
  * type whose text is white takes white at 0.65 (type 0 green #53e678->#34c759, type 1 blue

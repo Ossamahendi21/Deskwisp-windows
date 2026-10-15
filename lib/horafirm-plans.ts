@@ -202,7 +202,7 @@ export function planShortText(short: PlanShort, plan: HorafirmPlan | null | unde
  * this one (or, on a custom deal, to see what it allows).
  */
 export function planFix(short: PlanShort, plan: HorafirmPlan | null | undefined): { label: string; tab: "plan" | "usage" } {
-  // Deskwisp' own plans are changed in the app (Settings), never on Horafirm's pages: the app shows its own button.
+  // Deskwisp's own plans are changed in the app (Settings), never on Horafirm's pages: the app shows its own button.
   if (short === "deskwisp") return { label: "Upgrade to Max", tab: "plan" };
   const up = upFor(short, plan);
   if (up) return { label: `Upgrade to Horafirm ${up.name}`, tab: "plan" };

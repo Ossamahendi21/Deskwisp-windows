@@ -112,7 +112,7 @@ const UNREAD_LEFT = 7.5;
  * - `-[CKUITheme conversationListSelectedCellColor]` (the phone theme; there is no `CKUIThemePhone`,
  *   the base class *is* it) resolves to **#dcdcdc opaque light / #464646 opaque dark**. The same
  *   selector is `#0088ff / #0091ff` on `CKUIThemePad` — iPadOS's persistent blue list selection —
- *   and **null** on `CKUIThemeMac`, which is why the Mac's own row fill comes from a capture and not
+ *   and **null** on `CKUIThemeMac`, which is why the PC's own row fill comes from a capture and not
  *   from here. `-[CKUITheme detailsSelectedCellColor]` is the same #dcdcdc / #464646 pair, and a
  *   details row has no persistent selection at all, so on the phone this colour is a *tap*
  *   highlight, not a selection.

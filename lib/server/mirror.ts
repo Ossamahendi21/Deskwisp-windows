@@ -15,7 +15,7 @@ import { join } from "node:path";
  * screen (Chrome marks the others hidden) is the one mirrored, and the list of open tabs streams
  * too (as a `deskwisp-tabs` event) so the app can draw them as windows.
  *
- * Works with any reachable Chrome: the Mac's own screens on 127.0.0.1, or an Horafirm computer's over
+ * Works with any reachable Chrome: the PC's own screens on 127.0.0.1, or an Horafirm computer's over
  * the tailnet.
  */
 

@@ -90,7 +90,7 @@ export function AttachmentTray({ items, onRemove }: { items: Attachment[]; onRem
           <img src={a.preview} alt="" className={`size-full rounded-[12px] object-cover shadow-[0_0_0_1px_#0000001A] ${a.status === "failed" ? "opacity-40" : ""}`} />
           {a.status === "uploading" && (
             <span className="absolute inset-0 flex items-center justify-center rounded-[12px] bg-white/50">
-              <span className="size-4 animate-spin rounded-full border-2 border-[#0A0A0A]/20 border-t-[#0A0A0A]" />
+              <span className="size-4 animate-spin rounded-full border-2 border-[#16132B]/20 border-t-[#16132B]" />
             </span>
           )}
           {a.status === "failed" && <span data-tip={a.error ?? "Couldn't attach this"} className="absolute inset-0 flex items-center justify-center text-[11px] font-medium text-[#B42318]">Failed</span>}
@@ -98,7 +98,7 @@ export function AttachmentTray({ items, onRemove }: { items: Attachment[]; onRem
             type="button"
             onClick={() => onRemove(a.key)}
             aria-label="Remove image"
-            className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-[#0A0A0A] text-white shadow-[0_0_0_2px_#FFFFFF]"
+            className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-[#16132B] text-white shadow-[0_0_0_2px_#FFFFFF]"
           >
             <svg width="8" height="8" viewBox="0 0 12 12" aria-hidden>
               <path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />

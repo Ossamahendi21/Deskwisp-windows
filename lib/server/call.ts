@@ -33,7 +33,7 @@ const FEMALE = ["marin", "coral", "shimmer", "sage"];
 const genders = new Map<string, "female" | "male">();
 export async function voiceFor(b: Bot) {
   const voice = await chooseVoice(b);
-  // Kept on the bot, so Deskwisp Cloud answers its calls in the same voice while the Mac is away.
+  // Kept on the bot, so Deskwisp Cloud answers its calls in the same voice while the PC is away.
   if (b.voice !== voice) update(() => void (b.voice = voice));
   return voice;
 }

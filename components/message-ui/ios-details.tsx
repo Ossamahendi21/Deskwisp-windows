@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
  *   Re-measured 2026-09-08 on the Hide Alerts row of both captures: track x 309.00–372.00,
  *   y 496.333–524.333; knob x 311.00–348.00, y 498.333–522.333. Both captures show it **off**; no
  *   capture in this repo holds an on switch, so the on colour comes from the framework instead
- *   (`+[UIColor systemGreenColor]` resolved under each `UIUserInterfaceStyle` in a Mac Catalyst
+ *   (`+[UIColor systemGreenColor]` resolved under each `UIUserInterfaceStyle` in a PC Catalyst
  *   process with the idiom swizzled to phone: #34c759 light, #30d158 dark). `-[UISwitch
  *   intrinsicContentSize]` there is 61×28, which corroborates the measured 28 track height.
  *   The off track darkens the cell fill by 21% in light and lightens it by 28% in dark (sampled
@@ -419,10 +419,10 @@ function swallowClick(node: HTMLElement | null) {
  *   Read as a delta on the details ground that is −16 light and +40 dark, and this screen's own
  *   measured cell composite (#efeff0 over white, #1c1c1f over black) moves −19 and +42 to reach it —
  *   the same step to within three levels, which is the check that the value belongs on this surface
- *   too. **The Mac disagrees and must not be given this value**: at idiom 5 the same selector returns
+ *   too. **The PC disagrees and must not be given this value**: at idiom 5 the same selector returns
  *   #ffc726 / #ffc600, a find-highlight yellow.
  * - **A round button, or a photo tile, dims.** `-[CKUIBehaviorPhone replyButtonTouchAlpha]` is
- *   **0.4**, and every idiom including Mac agrees. It is ChatKit's alpha for a round chrome button
+ *   **0.4**, and every idiom including PC agrees. It is ChatKit's alpha for a round chrome button
  *   held under a finger, so the glass circles and the back button take it directly; applying it to a
  *   shared-photo tile as well is an extension of that reading, not a second one.
  *
@@ -595,7 +595,7 @@ export type IosSwitchProps = Omit<ComponentProps<"button">, "onChange" | "defaul
  * Alerts row of both captures, which show it off).
  *
  * The on colour is not in any capture and is not a guess either: `+[UIColor systemGreenColor]`,
- * resolved for each `UIUserInterfaceStyle` in a Mac Catalyst process with `-[UIDevice
+ * resolved for each `UIUserInterfaceStyle` in a PC Catalyst process with `-[UIDevice
  * userInterfaceIdiom]` swizzled to phone, is #34c759 light and #30d158 dark.
  *
  * Off, the track is the measured composite over this screen's cell fill (`--ios-dt-track`). Away

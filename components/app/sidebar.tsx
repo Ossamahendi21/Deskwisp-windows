@@ -41,12 +41,12 @@ export function Sidebar({
   onCompose: () => void;
   onSettings: () => void;
   onAccount: () => void;
-  /** The setup screen: what this Mac gives Deskwisp (setup.tsx). */
+  /** The setup screen: what this PC gives Deskwisp (setup.tsx). */
   onSetup: () => void;
   onVault: () => void;
   /** The People sheet: who can see the bots' computers on Horafirm (members.tsx). */
   onMembers: () => void;
-  /** Show a watched screen or Mac window. */
+  /** Show a watched screen or PC window. */
   onOpenWatch: (watch: Watch) => void;
   /** Open a category of what Deskwisp knows on the right, at one of its items (memory-categories.tsx). */
   onOpenMemory: (open: MemoryOpen) => void;
@@ -96,11 +96,11 @@ export function Sidebar({
         )}
         <div className="flex gap-2">
           <RoundButton label="Search" active={query !== null} onClick={() => setQuery(query === null ? "" : null)}>
-            <circle cx="7" cy="7" r="4.5" fill="none" stroke="#0A0A0A" strokeWidth="1.5" />
-            <path d="M10.5 10.5L14 14" fill="none" stroke="#0A0A0A" strokeWidth="1.5" strokeLinecap="round" />
+            <circle cx="7" cy="7" r="4.5" fill="none" stroke="#16132B" strokeWidth="1.5" />
+            <path d="M10.5 10.5L14 14" fill="none" stroke="#16132B" strokeWidth="1.5" strokeLinecap="round" />
           </RoundButton>
           <RoundButton label="New chat or bot" onClick={onCompose}>
-            <path d="M8 3v10M3 8h10" fill="none" stroke="#0A0A0A" strokeWidth="1.6" strokeLinecap="round" />
+            <path d="M8 3v10M3 8h10" fill="none" stroke="#16132B" strokeWidth="1.6" strokeLinecap="round" />
           </RoundButton>
         </div>
       </div>
@@ -143,7 +143,7 @@ export function Sidebar({
         </div>
       )}
 
-      {/* A newer Deskwisp on deskwisp.bot (the Mac app checks; Deskwisp doesn't update itself). */}
+      {/* A newer Deskwisp on deskwisp.bot (the PC app checks; Deskwisp doesn't update itself). */}
       <UpdateNotice />
       <div className="flex items-center gap-2.5 p-1 pt-3">
         <YouMenu state={state} onAccount={onAccount} onSettings={onSettings} onSetup={onSetup} />
@@ -169,8 +169,8 @@ export function Sidebar({
 
 /**
  * You, at the bottom of the sidebar: your initials, and a menu with your Horafirm account (plan and
- * usage), Settings, this Mac's permissions, Restart Deskwisp (in the Mac app; restart.tsx) and signing
- * out. While something on this Mac still needs you (and you haven't skipped it on the setup screen),
+ * usage), Settings, this PC's permissions, Restart Deskwisp (in the PC app; restart.tsx) and signing
+ * out. While something on this PC still needs you (and you haven't skipped it on the setup screen),
  * a badge on your initials opens that screen and the menu item carries the same mark.
  */
 function YouMenu({ state, onAccount, onSettings, onSetup }: { state: AppState; onAccount: () => void; onSettings: () => void; onSetup: () => void }) {
@@ -212,8 +212,8 @@ function YouMenu({ state, onAccount, onSettings, onSetup }: { state: AppState; o
             setOpen(false);
             onSetup();
           }}
-          title="Something on this Mac needs you"
-          aria-label="Something on this Mac needs you"
+          title="Something on this PC needs you"
+          aria-label="Something on this PC needs you"
           className="absolute -bottom-0.5 -left-0.5 rounded-full shadow-[0_0_0_2px_#F9F9F8]"
         >
           <NeedsYouDot />
@@ -228,26 +228,26 @@ function YouMenu({ state, onAccount, onSettings, onSetup }: { state: AppState; o
           <div className="mx-2 mb-1 h-px bg-[#ECECEA]" />
           <button onClick={pick(onAccount)} className={item}>
             <svg width="15" height="15" viewBox="0 0 16 16" className="shrink-0">
-              <circle cx="8" cy="5.5" r="2.8" fill="none" stroke="#0A0A0A" strokeWidth="1.4" />
-              <path d="M2.8 13.5c.8-2.6 2.8-3.9 5.2-3.9s4.4 1.3 5.2 3.9" fill="none" stroke="#0A0A0A" strokeWidth="1.4" strokeLinecap="round" />
+              <circle cx="8" cy="5.5" r="2.8" fill="none" stroke="#16132B" strokeWidth="1.4" />
+              <path d="M2.8 13.5c.8-2.6 2.8-3.9 5.2-3.9s4.4 1.3 5.2 3.9" fill="none" stroke="#16132B" strokeWidth="1.4" strokeLinecap="round" />
             </svg>
             Account and usage
           </button>
           <button onClick={pick(onSettings)} className={item}>
             <svg width="15" height="15" viewBox="0 0 16 16" className="shrink-0">
-              <path d="M3 4.5h10M3 8h10M3 11.5h10" fill="none" stroke="#0A0A0A" strokeWidth="1.4" strokeLinecap="round" />
-              <circle cx="6" cy="4.5" r="1.6" fill="#fff" stroke="#0A0A0A" strokeWidth="1.3" />
-              <circle cx="10.5" cy="8" r="1.6" fill="#fff" stroke="#0A0A0A" strokeWidth="1.3" />
-              <circle cx="5" cy="11.5" r="1.6" fill="#fff" stroke="#0A0A0A" strokeWidth="1.3" />
+              <path d="M3 4.5h10M3 8h10M3 11.5h10" fill="none" stroke="#16132B" strokeWidth="1.4" strokeLinecap="round" />
+              <circle cx="6" cy="4.5" r="1.6" fill="#fff" stroke="#16132B" strokeWidth="1.3" />
+              <circle cx="10.5" cy="8" r="1.6" fill="#fff" stroke="#16132B" strokeWidth="1.3" />
+              <circle cx="5" cy="11.5" r="1.6" fill="#fff" stroke="#16132B" strokeWidth="1.3" />
             </svg>
             Settings
           </button>
           <button onClick={pick(onSetup)} className={item}>
             <svg width="15" height="15" viewBox="0 0 16 16" className="shrink-0">
-              <rect x="1.8" y="2.8" width="12.4" height="8.4" rx="1.4" fill="none" stroke="#0A0A0A" strokeWidth="1.4" />
-              <path d="M5.8 13.6h4.4" fill="none" stroke="#0A0A0A" strokeWidth="1.4" strokeLinecap="round" />
+              <rect x="1.8" y="2.8" width="12.4" height="8.4" rx="1.4" fill="none" stroke="#16132B" strokeWidth="1.4" />
+              <path d="M5.8 13.6h4.4" fill="none" stroke="#16132B" strokeWidth="1.4" strokeLinecap="round" />
             </svg>
-            <span className="flex-1">Permissions on this Mac</span>
+            <span className="flex-1">Permissions on this PC</span>
             {needsYou && <NeedsYouDot />}
           </button>
           {canRestart && (
@@ -292,12 +292,12 @@ function MainBot({ chat: c, state, selected, onClick, last }: { chat: Chat; stat
     >
       <span className="relative">
         <Mascot botId={b.id} color={b.color} size={64} />
-        <span className="absolute -bottom-0.5 -right-0.5 flex size-[22px] items-center justify-center rounded-full bg-highlighter shadow-[0_0_0_2.5px_#F9F9F8,0_0_0_3.5px_#0A0A0A]" title="Runs the team">
+        <span className="absolute -bottom-0.5 -right-0.5 flex size-[22px] items-center justify-center rounded-full bg-highlighter shadow-[0_0_0_2.5px_#F9F9F8,0_0_0_3.5px_#16132B]" title="Runs the team">
           <svg width="11" height="11" viewBox="0 0 12 12">
-            <path d="M6 1l1.5 3.1 3.4.5-2.5 2.4.6 3.4L6 8.8 2.9 10.4l.6-3.4L1 4.6l3.5-.5z" fill="#0A0A0A" />
+            <path d="M6 1l1.5 3.1 3.4.5-2.5 2.4.6 3.4L6 8.8 2.9 10.4l.6-3.4L1 4.6l3.5-.5z" fill="#16132B" />
           </svg>
         </span>
-        {unread && <span data-tip="Unread" className="absolute -left-0.5 top-0.5 size-[11px] rounded-full bg-highlighter shadow-[0_0_0_1.5px_#0A0A0A,0_0_0_3.5px_#F9F9F8]" />}
+        {unread && <span data-tip="Unread" className="absolute -left-0.5 top-0.5 size-[11px] rounded-full bg-highlighter shadow-[0_0_0_1.5px_#16132B,0_0_0_3.5px_#F9F9F8]" />}
       </span>
       <span className="flex flex-col items-center gap-0.5">
         <span className="text-[16px] font-semibold leading-5">{b.name}</span>
@@ -342,7 +342,7 @@ function ChatRow({ chat: c, state, selected, onClick, last }: { chat: Chat; stat
         </div>
         <div className="flex items-center gap-2">
           <span className={`min-w-0 flex-1 truncate text-[13px] leading-[17px] ${unread ? "font-medium text-ink" : typing ? "text-[#6B6B6B] italic" : "text-[#6B6B6B]"}`}>{preview}</span>
-          {unread && <span data-tip="Unread" className="size-[9px] shrink-0 rounded-full bg-highlighter shadow-[0_0_0_1.5px_#0A0A0A]" />}
+          {unread && <span data-tip="Unread" className="size-[9px] shrink-0 rounded-full bg-highlighter shadow-[0_0_0_1.5px_#16132B]" />}
         </div>
       </div>
     </button>
@@ -445,7 +445,7 @@ function WorkspaceSwitcher({ state }: { state: AppState }) {
                   <span className="flex size-[18px] shrink-0 items-center justify-center">
                     {w.id === current?.id && (
                       <svg width="12" height="12" viewBox="0 0 12 12">
-                        <path d="M2.5 6.5l2.3 2.2L9.5 3.5" fill="none" stroke="#0A0A0A" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M2.5 6.5l2.3 2.2L9.5 3.5" fill="none" stroke="#16132B" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     )}
                   </span>
@@ -498,7 +498,7 @@ function WorkspaceSwitcher({ state }: { state: AppState }) {
             <button onClick={() => setNaming({ name: "" })} className="flex h-9 items-center gap-2 rounded-[10px] pl-2.5 text-left text-[14px] font-medium hover:bg-black/[0.04]">
               <span className="flex size-[18px] items-center justify-center">
                 <svg width="12" height="12" viewBox="0 0 16 16">
-                  <path d="M8 3v10M3 8h10" fill="none" stroke="#0A0A0A" strokeWidth="1.6" strokeLinecap="round" />
+                  <path d="M8 3v10M3 8h10" fill="none" stroke="#16132B" strokeWidth="1.6" strokeLinecap="round" />
                 </svg>
               </span>
               New workspace
@@ -566,7 +566,7 @@ export function NameInput({ value, placeholder, onChange, onSave, onCancel }: { 
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => e.key === "Escape" && (e.stopPropagation(), onCancel())}
-        className="h-8 min-w-0 flex-1 rounded-[8px] bg-[#F4F4F2] px-2.5 text-[14px] outline-none placeholder:text-[#9A9A98] focus:shadow-[0_0_0_1.5px_#0A0A0A]"
+        className="h-8 min-w-0 flex-1 rounded-[8px] bg-[#F4F4F2] px-2.5 text-[14px] outline-none placeholder:text-[#9A9A98] focus:shadow-[0_0_0_1.5px_#16132B]"
       />
       <button type="submit" disabled={!value.trim()} className="h-8 shrink-0 rounded-[8px] bg-ink px-3 text-[13px] font-medium text-white disabled:opacity-30">
         {placeholder ? "Create" : "Save"}

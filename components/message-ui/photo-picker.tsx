@@ -339,9 +339,9 @@ export type PhotoPickerPlatform = "ios" | "macos";
  * A Catalyst probe (`clang -target arm64-apple-ios26.0-macabi`, dlopen ChatKit, `-[UIDevice
  * userInterfaceIdiom]` swizzled to 5 **before** anything latches it) then `+[CKUIBehavior
  * sharedBehaviors]`, which vends `CKUIBehaviorMac`. The idiom-0 reading is beside each one, because
- * the Mac does not inherit the Phone and the pair is the whole point:
+ * the PC does not inherit the Phone and the pair is the whole point:
  *
- * | Selector | idiom 5 (Mac) | idiom 0 (Phone) |
+ * | Selector | idiom 5 (PC) | idiom 0 (Phone) |
  * |---|---|---|
  * | `popOverWidth` | **252** | absent |
  * | `popOverMaxHeight` | **400** | absent |
@@ -363,7 +363,7 @@ export type PhotoPickerPlatform = "ios" | "macos";
  * There is **no** photo-specific popover selector on either class: the whole
  * `browser|picker|popover|photo|grid|sticker` selector list on `CKUIBehaviorMac` and on the base
  * `CKUIBehavior` was dumped and holds no `photoPopoverSize` or `browserPopoverSize`. So the Photos
- * row takes the generic Mac popover, 252 x 400, and that is what `width` / `maxHeight` are.
+ * row takes the generic PC popover, 252 x 400, and that is what `width` / `maxHeight` are.
  *
  * The **chrome** is the one macOS popover a capture in this repo does hold: the fill, the bright
  * inset rim, the dark hairline outside it and the 12 pt corner `macos-plus-menu.tsx` measured off
@@ -403,7 +403,7 @@ export type PhotoPickerPlatform = "ios" | "macos";
  * - **The motion.** Borrowed whole from `macPlusMenuMetrics.motion`, which is itself borrowed: 160
  *   ms in, 120 ms out, from 0.96 at the anchor corner. Nothing records this popover opening.
  * - **The tile aspect.** The iOS capture's tiles are 0.6 device px taller than they are wide; the
- *   Mac square is `attachmentBrowserDefaultSizeForSquare`, so these are square. That is a reading of
+ *   PC square is `attachmentBrowserDefaultSizeForSquare`, so these are square. That is a reading of
  *   the selector's name, not of a capture.
  */
 export const macPhotoPickerMetrics = {
@@ -454,7 +454,7 @@ const macVars =
 
 /**
  * A host that wraps this picker in its own popover box — `macos-messages-app.tsx` does, from before
- * the picker knew what a Mac was — would otherwise double the material: two fills, two rims, two
+ * the picker knew what a PC was — would otherwise double the material: two fills, two rims, two
  * shadows. These rules switch that box off *only* when the picker inside it is drawing the macOS
  * popover itself, and take back the clip the same host forces on this component so the arrow is not
  * cut off. Both selectors outrank the host's, so they win wherever the two stylesheets land.
@@ -472,7 +472,7 @@ const macHostInteropCss = `[data-slot="mac-attachment-popover"]:has(> [data-slot
  * and inside a bare pane in a lab route, without either caller passing coordinates. When there is no
  * button to find, `macPhotoPickerMetrics.anchor` stands in, measured from the pane's bottom edge.
  *
- * It always opens **upward**. That is the measured rule, not a preference: neither Mac popover fits
+ * It always opens **upward**. That is the measured rule, not a preference: neither PC popover fits
  * below a button whose bottom is 11 pt off the floor of a 640 pt window, and an AppKit popover flips
  * rather than hangs.
  */
@@ -646,7 +646,7 @@ export const photoPickerSamples: PhotoPickerPhoto[] = [
 
 export type PhotoPickerProps = Omit<ComponentProps<"div">, "onSelect" | "children"> & {
   /**
-   * The composer button this popover hangs off on the Mac, by `data-slot`. Defaults to the "+", which
+   * The composer button this popover hangs off on the PC, by `data-slot`. Defaults to the "+", which
    * is what opens it from the plus menu; the smiley passes its own so the arrow points at the button
    * that was actually pressed rather than always at the "+".
    */
@@ -872,7 +872,7 @@ export function PhotoPicker({
   const gridColumns = mac ? macColumns : columns;
   const gridWidth = mac ? macGridWidth : width;
   const tileWidth = (gridWidth - (gridColumns - 1) * gap) / gridColumns;
-  // The Mac's cell is `attachmentBrowserDefaultSizeForSquare`, so its tiles are square; the iOS
+  // The PC's cell is `attachmentBrowserDefaultSizeForSquare`, so its tiles are square; the iOS
   // capture's really are 0.6 device px taller than they are wide.
   const tileHeight = mac ? tileWidth : tileWidth / m.tileAspect;
   const tileRadius = mac ? mm.grid.tileRadius : m.tileRadius;
@@ -1118,7 +1118,7 @@ export function PhotoPicker({
       onScroll={event => setScrollTop(event.currentTarget.scrollTop)}
       onKeyDown={onKeyDown}
       className={cn("overflow-y-auto overflow-x-hidden [overscroll-behavior:contain] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#0088ff]", mac ? null : "w-full")}
-      // On the Mac the grid sits inside the popover's own `popoverPadding` and then inside the
+      // On the PC the grid sits inside the popover's own `popoverPadding` and then inside the
       // browser grid's own 8 pt section inset, both measured; on iOS it is flush to the panel.
       style={mac
         ? { position: "absolute", left: mm.padding + mm.grid.inset, top: mm.heightPadding / 2 + mm.grid.inset, width: macGridWidth, height: viewport }

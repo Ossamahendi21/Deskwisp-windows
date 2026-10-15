@@ -4,8 +4,8 @@ import { bindSignIn, getState, releaseSignOut, update } from "./store";
 
 /**
  * Signing in with Horafirm. A Deskwisp user is an Horafirm user: the app signs in through Horafirm's device-code
- * flow (the same one the Horafirm CLI and Horafirm for Mac use), and the Horafirm API key it gets back lives in
- * the Mac's Keychain. Everything Deskwisp does on Horafirm (the "deskwisp" workspace, the bots' computers, the
+ * flow (the same one the Horafirm CLI and Horafirm for PC use), and the Horafirm API key it gets back lives in
+ * the PC's Keychain. Everything Deskwisp does on Horafirm (the "deskwisp" workspace, the bots' computers, the
  * account page) runs on that key, so it all lands in the user's own Horafirm account and plan.
  *
  * DESKWISP_HORAFIRM_ORIGIN points Deskwisp at another Horafirm (staging, local); the default is production.
@@ -63,7 +63,7 @@ export async function signIn(apiKey: string, user: HorafirmUser) {
   // First this user's own state is loaded (from Deskwisp Cloud, their file, or Postgres): the sign-in is refused if it can't be.
   await bindSignIn(user.id, apiKey);
   // Their key comes in with their state, at once, before the Keychain is written: background work (the
-  // 10-minute look at the bots' computers, routing through this Mac, a screen's view) never runs on the
+  // 10-minute look at the bots' computers, routing through this PC, a screen's view) never runs on the
   // last user's key over this one's state. A computer of theirs that the last key can't see would look
   // deleted, and be let go.
   setKey(apiKey);

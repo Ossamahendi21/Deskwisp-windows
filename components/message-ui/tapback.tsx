@@ -157,12 +157,12 @@ export type BalloonGeometry = { main: number; medium: number; small: number; med
  * 2026-09-10 with the Catalyst probe in `references/tapback-details.md` (`CKUIBehaviorPhone` and
  * `CKUIBehaviorMac`, one process, no scaling):
  * `-[CKUIBehavior messageAcknowledgmentTranscriptBalloonSize]` is **{36, 36} on iPhone and {29, 29} on
- * Mac**, against the Ø34 and Ø28 measured here. The difference is exactly the rim `aggregateStack`
+ * PC**, against the Ø34 and Ø28 measured here. The difference is exactly the rim `aggregateStack`
  * below already documents from the artwork — `AcknowledgmentStackBackground-*` is the silhouette 1.0
- * (phone) / 0.5 (Mac) larger on every side — so 34 + 2×1 = 36 and 28 + 2×0.5 = 29. The framework sizes
+ * (phone) / 0.5 (PC) larger on every side — so 34 + 2×1 = 36 and 28 + 2×0.5 = 29. The framework sizes
  * the balloon *view*; `main` is the ink inside it. Two independent readings, no disagreement.
  *
- * `-[CKUIBehavior messageAcknowledgmentTranscriptGlyphInset]` is **4 on iPhone, 3 on Mac**, so the
+ * `-[CKUIBehavior messageAcknowledgmentTranscriptGlyphInset]` is **4 on iPhone, 3 on PC**, so the
  * glyph's image box is 36 − 8 = 28 and 29 − 6 = 23. `glyph` is the heart's *ink* inside that box
  * (18.34 of 28, 14.64 of 23), which is what a capture can see; the two are not the same number and
  * neither contradicts the other.
@@ -192,7 +192,7 @@ export const balloonGeometry: Record<Platform, BalloonGeometry> = {
  *
  * **ChatKit carries a position too, and it does NOT reproduce these captures.**
  * `-[CKUIBehavior messageAcknowledgmentTranscriptBalloonRelativePosition]` is {12.5, −15.5} on iPhone
- * and {9, −13} on Mac (same probe as `balloonGeometry`). Four readings of what that point could be
+ * and {9, −13} on PC (same probe as `balloonGeometry`). Four readings of what that point could be
  * were tried against the iOS capture, whose Ø34 ink sits at (−13.85, −27.39) from the body's top
  * corner, i.e. ink centre (+3.15, −10.39) and 36-pt view centre the same:
  *
@@ -218,7 +218,7 @@ export const balloonSlot: Record<Platform, { marginTop: number; top: number; sid
  * ChatKit draws an aggregate balloon out of its own artwork: `-[CKUIBehavior
  * aggregateAcknowledgmentStackName2:]` and `...StackName3:` name `AcknowledgmentStack-2` and
  * `AcknowledgmentStack-3`, and `aggregateAcknowledgmentTranscriptBalloonSize` is {46, 40} on the
- * phone against {36, 36} for a single balloon, {35, 30} against {29, 29} on the Mac. Pulling those
+ * phone against {36, 36} for a single balloon, {35, 30} against {29, 29} on the PC. Pulling those
  * renditions out of `ChatKit.framework/Resources/Assets.car` at both idioms and reading their alpha
  * shows what the extra width is: the frontmost balloon carries the glyph and one or two more sit
  * behind it, each shifted along the tail's direction, so only a crescent of each shows. Two
@@ -227,9 +227,9 @@ export const balloonSlot: Record<Platform, { marginTop: number; top: number; sid
  * The widest row of `AcknowledgmentStack-3` at 2x measures, in points: fill 1.00..34.00, gap to
  * 35.00, crescent to 37.00, gap to 38.00, crescent to 40.00. So the phone's artwork is a 33.0 ball
  * with a 1.0 gap and a 3.0 pitch, and the whole silhouette's ink runs 1.00..42.00 for -2 against
- * 1.00..45.00 for -3, which is the same 3.0 read a second way. The Mac's is a 25.0 ball with a 0.5
+ * 1.00..45.00 for -3, which is the same 3.0 read a second way. The PC's is a 25.0 ball with a 0.5
  * gap and a 2.5 pitch (ink 0.50..32.00 against 0.50..34.50). `AcknowledgmentStackBackground-*` is
- * the same silhouette 1.0 (phone) / 0.5 (Mac) larger on every side: the gaps are that rim showing
+ * the same silhouette 1.0 (phone) / 0.5 (PC) larger on every side: the gaps are that rim showing
  * through between the balls, so one rim value draws both.
  *
  * Our balls are 34 and 28, measured off captures rather than off the artwork, so the pitch and gap
@@ -419,7 +419,7 @@ export function Tapback({ reaction = "love", emoji, own = true, side = "left", s
   // at two because ChatKit's artwork stops at `AcknowledgmentStack-3`.
   const a = aggregateStack[platform];
   const behind = Math.min(Math.max((count ?? 1) - 1, 0), a.max);
-  // One rim, not two: the Mac already knocks a 0.51 pt pane rim out of what the ball laps, and the
+  // One rim, not two: the PC already knocks a 0.51 pt pane rim out of what the ball laps, and the
   // stack's gap is 0.56, so the wider of the pair is the only one that shows.
   const gapRing = `0 0 0 ${Math.max(a.gap, platform === "macos" ? macosBalloonRim : 0)}px var(--im-bg, #fff)`;
   const rootStyle: CSSProperties = {

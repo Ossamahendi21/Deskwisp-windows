@@ -27,29 +27,29 @@ import { applyShared, fromShared, merge3, same, toShared, type Blob } from "./st
 import { moveLegacyState, userDataDir } from "./user-paths";
 
 /**
- * The Mac app's state lives in Deskwisp Cloud, under the signed-in Horafirm user (cloud/state.ts). There is
+ * The PC app's state lives in Deskwisp Cloud, under the signed-in Horafirm user (cloud/state.ts). There is
  * no state file: signing in loads the user's state from the cloud, every change goes back up, and
- * signing out lets it go from memory, so the next account to sign in on this Mac starts from its own.
- * Only what the cloud couldn't take yet waits on the Mac, in the user's own folder (see below).
+ * signing out lets it go from memory, so the next account to sign in on this PC starts from its own.
+ * Only what the cloud couldn't take yet waits on the PC, in the user's own folder (see below).
  *
  * - Loading (signIn, before the sign-in lands): the blob (GET /v1/state) and every message, a page at
- *   a time (GET /v1/messages). A user with nothing in the cloud starts fresh, or from this Mac's
+ *   a time (GET /v1/messages). A user with nothing in the cloud starts fresh, or from this PC's
  *   state file from before when it's surely theirs (user-paths.ts moveLegacyState: it waits in their
  *   folder as legacy-state.json, and goes once it's uploaded). If the cloud can't be reached, the
  *   sign-in is refused (StateLoadError) and the app says so.
  * - Saving: a second after a change, one save at a time. Each message is written on its own when it's
  *   new or changed (POST /v1/messages), so a long chat isn't sent again for every line; the rest of
- *   the state goes up (PUT /v1/state) only when it changed, over the version this Mac last saw. When
- *   another Mac of the user's wrote first (409), both are merged (state-merge.ts) and written again.
+ *   the state goes up (PUT /v1/state) only when it changed, over the version this PC last saw. When
+ *   another PC of the user's wrote first (409), both are merged (state-merge.ts) and written again.
  *   Offline, the state keeps working in memory and the save is retried, waiting longer each time.
- * - Hearing from the user's other Macs: the tunnel says when the state changed (a "state" frame,
- *   cloud-tunnel.ts), and every 30 seconds the head is looked at anyway (only one Mac holds the tunnel).
+ * - Hearing from the user's other PCs: the tunnel says when the state changed (a "state" frame,
+ *   cloud-tunnel.ts), and every 30 seconds the head is looked at anyway (only one PC holds the tunnel).
  *   What changed is merged in, so changes not sent yet are kept.
  * - Signing out, or another account signing in: what's still unsent is kept aside with that user's key
  *   and sent in the background, never into the next user's state.
  * - The cloud out of reach when a save fails, or when Deskwisp quits or restarts: what's unsent is also
- *   written to the user's folder on this Mac (unsent-state.json, with what it was based on), and goes
- *   up at their next sign-in here, merged over what the cloud has by then (their other Macs' changes
+ *   written to the user's folder on this PC (unsent-state.json, with what it was based on), and goes
+ *   up at their next sign-in here, merged over what the cloud has by then (their other PCs' changes
  *   stand beside it). It goes once it's all up.
  */
 
@@ -66,19 +66,19 @@ const PAGE = 2000;
 /** A batch of messages at most this big (the cloud takes 20 MB), and one message at most this big (it takes 256 KB). */
 const BATCH_BYTES = 4 * 1024 * 1024;
 const MAX_MESSAGE = 250 * 1024;
-/** The cloud keeps a removed message's row 30 days: a Mac that hasn't looked for longer reads every message again. */
+/** The cloud keeps a removed message's row 30 days: a PC that hasn't looked for longer reads every message again. */
 const REMOVED_KEPT_MS = 25 * 24 * 3600_000;
 const REQUEST_MS = 30_000;
 
 const zip = promisify(gzip);
 
 type Who = { user: string; key: string; device: string };
-/** What this Mac last synced for a user: where its next read and write start. */
+/** What this PC last synced for a user: where its next read and write start. */
 type Sync = Who & {
   /** The blob's version, and the blob, as last read or written (the base for a merge). */
   version: number;
   base: Blob | null;
-  /** A fingerprint of the blob as last read or written from this Mac; "" when it must go up. */
+  /** A fingerprint of the blob as last read or written from this PC; "" when it must go up. */
   blobHash: string;
   /** Each message as last synced (its fingerprint): one that's different now goes up, one that's gone is removed. */
   msgHashes: Map<string, string>;
@@ -89,12 +89,12 @@ type Sync = Who & {
   blobAt: number;
   /** The state file from before, uploaded with this state: removed once it's all up. */
   legacyFile?: string;
-  /** Changes kept on this Mac while the cloud couldn't take them (keepUnsent): removed once it's all up. */
+  /** Changes kept on this PC while the cloud couldn't take them (keepUnsent): removed once it's all up. */
   unsentFile?: string;
   /** How many times they were kept: a save that began before the last time doesn't cover them. */
   keptCount?: number;
 };
-/** What's unsent, as kept on this Mac (unsent-state.json): the blob and the messages, and what they were based on. */
+/** What's unsent, as kept on this PC (unsent-state.json): the blob and the messages, and what they were based on. */
 type Kept = {
   user: string;
   version: number;
@@ -126,13 +126,13 @@ class CallError extends Error {
   }
 }
 
-/** A fingerprint of a value as this Mac serializes it (the same object, the same text). */
+/** A fingerprint of a value as this PC serializes it (the same object, the same text). */
 const fp = (v: unknown) => createHash("sha1").update(typeof v === "string" ? v : JSON.stringify(v)).digest("base64");
 const byTime = (a: Message, b: Message) => (a.at ?? 0) - (b.at ?? 0);
 
-/* ---------------- This Mac ---------------- */
+/* ---------------- This PC ---------------- */
 
-/** This Mac's hardware id (IOPlatformUUID); DESKWISP_DEVICE_SEED stands in for it (a test's second Mac). */
+/** This PC's hardware id (IOPlatformUUID); DESKWISP_DEVICE_SEED stands in for it (a test's second PC). */
 function platformId(): string {
   const g = globalThis as unknown as { deskwispPlatformId?: string };
   if (g.deskwispPlatformId) return g.deskwispPlatformId;
@@ -141,12 +141,12 @@ function platformId(): string {
     try {
       id = /"IOPlatformUUID"\s*=\s*"([^"]+)"/.exec(execFileSync("ioreg", ["-rd1", "-c", "IOPlatformExpertDevice"], { timeout: 3000 }).toString())?.[1] ?? "";
     } catch {
-      /* not a Mac */
+      /* not a PC */
     }
   return (g.deskwispPlatformId = id || `${hostname()}:${homedir()}`);
 }
 
-/** This Mac as the user's state knows it (state.macs): the same Mac is another device for another user. */
+/** This PC as the user's state knows it (state.macs): the same PC is another device for another user. */
 export const deviceIdFor = (userId: string) => createHash("sha256").update(`${userId}\n${platformId()}`).digest("hex").slice(0, 16);
 
 /* ---------------- Calls ---------------- */
@@ -213,15 +213,15 @@ const readJson = (file: string) => {
 };
 
 /**
- * The state to start from: the cloud's, with this Mac's state file from before put in when there is
+ * The state to start from: the cloud's, with this PC's state file from before put in when there is
  * one (it was this user's). Where both have something, the file's stands only while the cloud has
  * just a backup from an older build (its newest work may be only in the file); once a build like this
- * one has written the user's state (another Mac of theirs), the cloud's is newer and stands, and the
+ * one has written the user's state (another PC of theirs), the cloud's is newer and stands, and the
  * file only adds what the cloud never had. Either way nothing of the cloud's is lost.
  *
  * The state in memory and the base kept for merging are copies of their own: the app changes the
  * state's objects in place, and a base that shared them would change with it, so a merge would take
- * this Mac's unsent changes for ones it never made and drop them.
+ * this PC's unsent changes for ones it never made and drop them.
  */
 function build(who: Who, loaded: Loaded, legacy: Record<string, unknown> | null) {
   const messages = loaded.rows.map((r) => r.json as unknown as Message).sort(byTime);
@@ -243,19 +243,19 @@ function build(who: Who, loaded: Loaded, legacy: Record<string, unknown> | null)
   return { state, sync };
 }
 
-/* ---------------- Unsent, kept on this Mac ---------------- */
+/* ---------------- Unsent, kept on this PC ---------------- */
 
 const unsentFileOf = (user: string) => join(userDataDir(user), "unsent-state.json");
 
-/** The changes kept on this Mac for this user, if there are (and they're surely this user's). */
+/** The changes kept on this PC for this user, if there are (and they're surely this user's). */
 function readKept(user: string): Kept | null {
   const k = readJson(unsentFileOf(user)) as Kept | null;
   return k && k.user === user && k.blob && typeof k.blob === "object" && Array.isArray(k.messages) && Array.isArray(k.msgHashes) ? k : null;
 }
 
 /**
- * Write what's unsent to the user's folder on this Mac (Deskwisp quitting with the cloud out of reach, or
- * a save that failed): the blob and every message, and what this Mac last synced (the base for a merge,
+ * Write what's unsent to the user's folder on this PC (Deskwisp quitting with the cloud out of reach, or
+ * a save that failed): the blob and every message, and what this PC last synced (the base for a merge,
  * and each message's fingerprint), so the next sign-in sends exactly what changed here.
  */
 function keepUnsent(sync: Sync, state: AppState) {
@@ -277,12 +277,12 @@ function keepUnsent(sync: Sync, state: AppState) {
     sync.unsentFile = file;
     sync.keptCount = (sync.keptCount ?? 0) + 1;
   } catch (e) {
-    console.warn(`[store] keeping ${sync.user}'s unsent changes on this Mac: ${(e as Error).message}`);
+    console.warn(`[store] keeping ${sync.user}'s unsent changes on this PC: ${(e as Error).message}`);
   }
 }
 
 /**
- * The state to start from when changes were kept on this Mac: the cloud's, with this Mac's changes
+ * The state to start from when changes were kept on this PC: the cloud's, with this PC's changes
  * since its base merged over it, as a save would have (merge3 for the blob; each message new or changed
  * here stands, each removed here goes, the rest are the cloud's). The state file from before isn't
  * read with it (see load).
@@ -344,7 +344,7 @@ export function cloudStore({ get, replace, touch }: StateAccess): Persistence {
     return out;
   }
 
-  /** Another Mac's blob (what PUT's 409 or a read brought), merged into `state` over what was last synced. */
+  /** Another PC's blob (what PUT's 409 or a read brought), merged into `state` over what was last synced. */
   function mergeIn(sync: Sync, state: AppState, theirs: { version: number; state: Blob }) {
     const mine = JSON.parse(shared(state, sync.device)) as Blob;
     const merged = merge3(sync.base, mine, theirs.state);
@@ -352,13 +352,13 @@ export function cloudStore({ get, replace, touch }: StateAccess): Persistence {
     applyShared(state as unknown as Blob, fromShared(structuredClone(merged), sync.device));
     sync.base = theirs.state;
     sync.version = theirs.version;
-    // Nothing of this Mac's left to send for the blob, or it goes up next.
+    // Nothing of this PC's left to send for the blob, or it goes up next.
     sync.blobHash = same(merged, theirs.state) ? fp(shared(state, sync.device)) : "";
   }
 
   /**
    * Send what changed in `state` since `sync`: the messages, then the blob. `shown`: the state in
-   * memory (another Mac's changes merged in show in the app); else one kept aside. `blobNow`: the blob
+   * memory (another PC's changes merged in show in the app); else one kept aside. `blobNow`: the blob
    * too, however soon after the last (else it waits for BLOB_EVERY_MS: the answer is how long, 0
    * when nothing waits). Throws when the cloud can't take it; what didn't go is sent next time.
    */
@@ -413,13 +413,13 @@ export function cloudStore({ get, replace, touch }: StateAccess): Persistence {
       }
       const conflict = r.body as CloudStateConflict | null;
       if (r.status !== 409 || conflict?.code !== STATE_CONFLICT) refused("Saving your Deskwisp", r);
-      // Another Mac wrote first: theirs and this Mac's together, then written over theirs.
+      // Another PC wrote first: theirs and this PC's together, then written over theirs.
       const target = state();
       if (!target) return 0;
       mergeIn(sync, target, conflict);
       if (shown) touch();
     }
-    // What was kept on this Mac while the cloud couldn't take it (before this save began) is all up now:
+    // What was kept on this PC while the cloud couldn't take it (before this save began) is all up now:
     // the file goes, so it's never merged in again over newer changes. Changes since go with the next save.
     if (up && sync.keptCount === kept) dropUnsent(sync);
     return 0;
@@ -435,7 +435,7 @@ export function cloudStore({ get, replace, touch }: StateAccess): Persistence {
   function dropUnsent(sync: Sync) {
     if (!sync.unsentFile) return;
     rmSync(sync.unsentFile, { force: true });
-    console.info(`[store] the changes kept on this Mac are in Deskwisp Cloud now; removed ${sync.unsentFile}`);
+    console.info(`[store] the changes kept on this PC are in Deskwisp Cloud now; removed ${sync.unsentFile}`);
     sync.unsentFile = undefined;
   }
 
@@ -464,7 +464,7 @@ export function cloudStore({ get, replace, touch }: StateAccess): Persistence {
           box.failures++;
           // Keep working from memory; say so on the first failure and then now and then, not every retry.
           if (box.failures === 1 || box.failures % 10 === 0) console.warn(`[store] saving to Deskwisp Cloud failed (${box.failures}x, trying again in ${retryDelay() / 1000}s): ${e.message}`);
-          // Also on this Mac, until it's up: Deskwisp may quit (or stop) before the cloud is back.
+          // Also on this PC, until it's up: Deskwisp may quit (or stop) before the cloud is back.
           keepUnsent(sync, get());
           schedule(retryDelay());
         });
@@ -472,9 +472,9 @@ export function cloudStore({ get, replace, touch }: StateAccess): Persistence {
     box.timer.unref?.();
   }
 
-  /* -------- Reading what another Mac changed -------- */
+  /* -------- Reading what another PC changed -------- */
 
-  /** A message row from the cloud, into the live state: unless this Mac changed that message and hasn't sent it yet. */
+  /** A message row from the cloud, into the live state: unless this PC changed that message and hasn't sent it yet. */
   function takeRows(sync: Sync, rows: CloudMessageRow[], seen?: Set<string>) {
     const st = get();
     const byId = new Map(st.messages.map((m) => [m.id, m]));
@@ -517,7 +517,7 @@ export function cloudStore({ get, replace, touch }: StateAccess): Persistence {
     return changed;
   }
 
-  /** What changed in the cloud since this Mac last looked: the blob merged in, and the messages. */
+  /** What changed in the cloud since this PC last looked: the blob merged in, and the messages. */
   async function pullOnce(sync: Sync) {
     if (box.sync !== sync) return;
     const h = await call<CloudStateHead>(sync, "/v1/state/head");
@@ -559,7 +559,7 @@ export function cloudStore({ get, replace, touch }: StateAccess): Persistence {
     sync.pulledAt = Date.now();
     if (changed) {
       touch();
-      // Merged with changes of this Mac's own: those go up.
+      // Merged with changes of this PC's own: those go up.
       schedule();
     }
   }
@@ -618,7 +618,7 @@ export function cloudStore({ get, replace, touch }: StateAccess): Persistence {
 
   async function load(userId: string, key: string) {
     const who: Who = { user: userId, key, device: deviceIdFor(userId) };
-    // Signed out with changes that hadn't gone up: they go now, or this Mac carries on from them.
+    // Signed out with changes that hadn't gone up: they go now, or this PC carries on from them.
     const a = box.aside.get(userId);
     if (a) {
       if (a.timer) clearTimeout(a.timer);
@@ -645,7 +645,7 @@ export function cloudStore({ get, replace, touch }: StateAccess): Persistence {
       throw new StateLoadError((e as Error).message);
     }
     const legacyFile = join(userDataDir(userId), "legacy-state.json");
-    // Changes kept on this Mac when Deskwisp last stopped with the cloud out of reach. When they hold the
+    // Changes kept on this PC when Deskwisp last stopped with the cloud out of reach. When they hold the
     // file from before, it goes once they're up; one that came later (an older build run meanwhile) is
     // left for the next sign-in, read then as ever.
     const kept = readKept(userId);
@@ -656,17 +656,17 @@ export function cloudStore({ get, replace, touch }: StateAccess): Persistence {
     if (kept) {
       sync.unsentFile = unsentFileOf(userId);
       if (kept.legacy && existsSync(legacyFile)) sync.legacyFile = legacyFile;
-      console.info(`[store] sending the changes kept on this Mac to ${userId}'s Deskwisp Cloud`);
+      console.info(`[store] sending the changes kept on this PC to ${userId}'s Deskwisp Cloud`);
     } else if (legacy) {
       sync.legacyFile = legacyFile;
-      console.info(`[store] uploading this Mac's state from before to ${userId}'s Deskwisp Cloud`);
+      console.info(`[store] uploading this PC's state from before to ${userId}'s Deskwisp Cloud`);
     } else if (loaded.got) {
       // Nothing to send for the cloud's own blob, unless it was in an older shape (brought up to date here): then it goes up as it is now.
       const now = shared(get(), sync.device);
       sync.blobHash = same(JSON.parse(now), sync.base) ? fp(now) : "";
     }
     console.info(`[store] loaded ${userId}'s Deskwisp from Deskwisp Cloud (v${sync.version}, ${get().messages.length} messages)`);
-    // A new user's first state, the file from before, or what was kept on this Mac: up now.
+    // A new user's first state, the file from before, or what was kept on this PC: up now.
     schedule(loaded.got && !legacy && !kept ? SAVE_MS : 0);
   }
 
@@ -690,7 +690,7 @@ export function cloudStore({ get, replace, touch }: StateAccess): Persistence {
     box.hooked = true;
     hookExit();
     // On the way out: the last changes go up (the exit gives this up to 5 seconds), the signed-out ones
-    // too. What the cloud didn't take by then is kept on this Mac, for each user's next sign-in here.
+    // too. What the cloud didn't take by then is kept on this PC, for each user's next sign-in here.
     onExit("state", async () => {
       const asides = [...box.aside.values()];
       const sends = [flushLive(3500), ...asides.map((a) => a.sending ?? send(a.sync, () => a.state, false))];

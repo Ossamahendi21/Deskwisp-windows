@@ -11,10 +11,10 @@ import { SPEAKING } from "./style";
 import { recordCallMinutes, recordTokens, usageTags } from "./usage";
 
 /**
- * Calls to a bot's number, answered on this Mac. Every Deskwisp number's calls go to its AgentPhone
+ * Calls to a bot's number, answered on this PC. Every Deskwisp number's calls go to its AgentPhone
  * agent in voice mode "webhook" (phone.ts callsToAgent): AgentPhone hears the caller and sends each
  * turn to the webhook (on Deskwisp Cloud, replayed here over the tunnel), and the text answered is what
- * it speaks. While this Mac is away, Deskwisp Cloud answers the turns itself (cloud/voice.ts).
+ * it speaks. While this PC is away, Deskwisp Cloud answers the turns itself (cloud/voice.ts).
  *
  * - **Who's calling** is Deskwisp Cloud's to say (CallerVerdict, from deskwisp.phone_lines: the line's owner,
  *   the user's own numbers, or the first caller in a new line's 15 minutes); self-hosting, the
@@ -300,14 +300,14 @@ export function phoneCallEnded(e: ApEvent) {
   if (c) finish(c);
 }
 
-/** Whether this Mac is in the middle of a call (for tests). */
+/** Whether this PC is in the middle of a call (for tests). */
 export const callOpen = (id: string) => calls.has(id);
 
 /**
  * A call's answer as AgentPhone takes it: JSON when it's quick, else NDJSON with a filler spoken at
  * once and the answer as the final chunk (`filler` false: always JSON, for the hello). Through Deskwisp
  * Cloud the answer goes back as JSON (the cloud does the filler); this is for AgentPhone calling this
- * Mac's webhook directly.
+ * PC's webhook directly.
  */
 export async function voiceResponse(reply: Promise<VoiceReply>, filler = true): Promise<Response> {
   const quick = await Promise.race([reply, ...(filler ? [sleep(voiceTiming.fillerAfterMs).then(() => null)] : [])]);

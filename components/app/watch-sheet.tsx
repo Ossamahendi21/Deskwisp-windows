@@ -76,8 +76,8 @@ export function WatchSheet({
       <div className="flex items-start gap-3">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#F2F2F0]">
           <svg width="18" height="18" viewBox="0 0 16 16">
-            <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" fill="none" stroke="#0A0A0A" strokeWidth="1.3" strokeLinejoin="round" />
-            <circle cx="8" cy="8" r="2" fill="#0A0A0A" />
+            <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" fill="none" stroke="#16132B" strokeWidth="1.3" strokeLinejoin="round" />
+            <circle cx="8" cy="8" r="2" fill="#16132B" />
           </svg>
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -92,7 +92,7 @@ export function WatchSheet({
         </div>
         <button onClick={onClose} aria-label="Close" className="flex size-7 shrink-0 items-center justify-center rounded-full hover:bg-[#F2F2F0]">
           <svg width="10" height="10" viewBox="0 0 12 12">
-            <path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="#0A0A0A" strokeWidth="1.6" strokeLinecap="round" />
+            <path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="#16132B" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
         </button>
       </div>
@@ -117,7 +117,7 @@ export function WatchSheet({
           onChange={(e) => setText(e.target.value)}
           rows={2}
           placeholder={`Or in your words, e.g. "${known.lookFor}"`}
-          className="resize-none rounded-xl bg-[#F7F7F6] px-3 py-2 text-[13px] leading-[18px] outline-none placeholder:text-[#9A9A98] focus:bg-white focus:shadow-[0_0_0_1.5px_#0A0A0A]"
+          className="resize-none rounded-xl bg-[#F7F7F6] px-3 py-2 text-[13px] leading-[18px] outline-none placeholder:text-[#9A9A98] focus:bg-white focus:shadow-[0_0_0_1.5px_#16132B]"
         />
       </div>
 

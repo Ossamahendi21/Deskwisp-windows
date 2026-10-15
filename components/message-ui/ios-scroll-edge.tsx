@@ -45,7 +45,7 @@ import { cn } from "@/lib/utils";
  * The captures cannot separate them here: a blur pulling the page colour in from above a bubble
  * produces the same ramp on a flat interior that a wash does, and there is no text inside the ramp in
  * either frame to tell them apart — the only sharp glyphs up there are the bar's own name pill, which
- * is painted above the effect. `macos-header.tsx` stacks four backdrop-filter layers for the Mac's
+ * is painted above the effect. `macos-header.tsx` stacks four backdrop-filter layers for the PC's
  * version of this because that capture *does* show the blur; until an iOS capture does, the honest
  * thing here is the part that was measured.
  */

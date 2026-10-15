@@ -6,7 +6,7 @@ import { ensureInbox } from "./mail";
 
 /**
  * Workspaces: separate teams. Each has its own main bot (Wispy by default, who runs it and whose computer the
- * team's computers fork from), its bots, chats and work. The user's Mac and the Vault are shared.
+ * team's computers fork from), its bots, chats and work. The user's PC and the Vault are shared.
  */
 export function createWorkspace(name: string) {
   const clean = name.trim().slice(0, 40) || "New workspace";
@@ -16,7 +16,7 @@ export function createWorkspace(name: string) {
     id: mainId,
     name: "Wispy",
     role: "Chief of Staff",
-    color: "#0A0A0A",
+    color: "#16132B",
     isMain: true,
     computerStatus: "none",
     workspaceId: ws,

@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 
 /*
- * A newer Deskwisp is out. The Mac app asks deskwisp.bot for the newest release at launch and every hour
+ * A newer Deskwisp is out. The PC app asks deskwisp.bot for the newest release at launch and every hour
  * (desktop/main.cjs, "New versions"). Deskwisp doesn't update itself, so this only says so, with what's new
  * in it when the release says (docs/releases), and sends the user to deskwisp.bot for the download; put
- * away, it stays away for that version. In a browser there's no Mac app to ask, so it never shows.
+ * away, it stays away for that version. In a browser there's no PC app to ask, so it never shows.
  */
 
 type UpdateInfo = { version: string; notes?: string[] } | null;

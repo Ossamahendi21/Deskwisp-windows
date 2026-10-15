@@ -20,7 +20,7 @@ import { Avatar, type AvatarProps } from "@/components/message-ui/avatar";
  * circle in those two PNGs is drawn by Apple's code, in a live window, with a live blur. See
  * `references/group-avatar.md` for the layout and how to re-take them.
  *
- * The frames and diameters below are read straight out of the frameworks with a Mac Catalyst probe
+ * The frames and diameters below are read straight out of the frameworks with a PC Catalyst probe
  * (`clang -target arm64-apple-ios26.0-macabi`, `-[UIDevice userInterfaceIdiom]` swizzled to the idiom
  * being asked about, then `dlopen`), and cross-checked against those captures.
  *
@@ -76,10 +76,10 @@ import { Avatar, type AvatarProps } from "@/components/message-ui/avatar";
  *
  * ## Sizes, per behaviour object
  *
- * `-[CKUIBehavior* groupAvatarViewSize]` is 60 x 60 on Phone, Pad and Mac alike — the nav-bar avatar's
+ * `-[CKUIBehavior* groupAvatarViewSize]` is 60 x 60 on Phone, Pad and PC alike — the nav-bar avatar's
  * Ø60 in `conv3-light.png`. The list rows are a different constant:
  * `conversationListContactImageDiameter` is 45 on Phone and Pad (SPEC's Ø45 iOS list rows) and 40 on
- * Mac (SPEC's Ø40 sidebar rows and Ø40 header avatar). See `groupAvatarMetrics`.
+ * PC (SPEC's Ø40 sidebar rows and Ø40 header avatar). See `groupAvatarMetrics`.
  *
  * The iOS **details** header is not this stack. `CKDetailsAvatarPancakeView` — diameter 37, cut-out
  * 41, overlap 13.5, widths 58 and 72 for two and three, all still on the behaviour object as
@@ -191,7 +191,7 @@ export function snowglobeFrame(slot: StackSlot, size: number, rtl = false): { le
 /**
  * Group-photo diameters, per behaviour object. `groupAvatar` is `groupAvatarViewSize` (the nav bar and
  * the macOS header slot); `conversationList` is `conversationListContactImageDiameter` (the iOS list
- * rows and the macOS sidebar rows). Read off `CKUIBehaviorPhone` / `Pad` / `Mac` directly.
+ * rows and the macOS sidebar rows). Read off `CKUIBehaviorPhone` / `Pad` / `PC` directly.
  */
 export const groupAvatarMetrics = {
   phone: { groupAvatar: 60, conversationList: 45 },
@@ -348,7 +348,7 @@ export function senderAvatarMetricsForPlatform(platform: "ios" | "macos") {
 /**
  * The hand-off: when a new message joins an incoming cluster the avatar moves to the new last bubble
  * on the transcript's insert animation, `-[CKUIBehavior* scrollInNewMessageAnimationDuration]` =
- * 0.300 s (identical on Phone, Pad and Mac).
+ * 0.300 s (identical on Phone, Pad and PC).
  *
  * `easing` is **unmeasured** — nothing in `references/` records a group transcript, so there is no
  * curve to fit. `ease-in-out` is UIView's default for a plain `animateWithDuration:`; treat it as a

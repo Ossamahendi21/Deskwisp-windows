@@ -18,9 +18,9 @@ import { checkVerification, emailCodesOn, forgetVerification, pendingVerificatio
  *   offers a code that can't arrive.
  * - A bot's own address (its inboxes, agentmail.to, deskwisp.bot, a workspace's part of this server's
  *   bot domain) is never added as the user's.
- * - What the user proves is kept with their Horafirm user id: another account signed in on this Mac
+ * - What the user proves is kept with their Horafirm user id: another account signed in on this PC
  *   doesn't inherit it (ofThisUser in lib/server/store.ts).
- * - Like adding a number, this is for the app on the user's Mac only (app/api/owner-email). A
+ * - Like adding a number, this is for the app on the user's PC only (app/api/owner-email). A
  *   hosted server would also claim each address in deskwisp.owner_emails (ownerEmailTable in
  *   lib/server/persist-pg.ts) once its requests prove which user sent them.
  */
@@ -28,7 +28,7 @@ import { checkVerification, emailCodesOn, forgetVerification, pendingVerificatio
 /** Who's asking, for the limits and pending codes: on a hosted server the signed-in user, else this install (as in lib/server/phone.ts). */
 const verifier = () => (onPostgres() ? `u:${getState().account?.user.id ?? "nobody"}` : `i:${installId()}`);
 
-/** The app on this Mac, not anyone else who reaches the server: loopback, and not a hosted server (which can't tell its users apart yet). */
+/** The app on this PC, not anyone else who reaches the server: loopback, and not a hosted server (which can't tell its users apart yet). */
 export const fromThisMac = (request: Request) => !onPostgres() && ["localhost", "127.0.0.1", "::1", "[::1]"].includes(new URL(request.url).hostname);
 
 /** " Me@Example.com " → "me@example.com", or "" when it isn't an email address. */
@@ -111,7 +111,7 @@ export function setSignInEmailCounted(on: boolean) {
 
 /**
  * For Settings: whether mail is on, whether codes can be emailed from here, whether addresses can be
- * added here at all (`local`: the request came from the app on this Mac; a hosted server can't tell
+ * added here at all (`local`: the request came from the app on this PC; a hosted server can't tell
  * its users apart yet), the user's addresses with where each comes from, and the addresses with a
  * code out (never the code). The sign-in email is read here, on the server: the app never sends it.
  *

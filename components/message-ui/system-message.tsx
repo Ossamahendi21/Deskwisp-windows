@@ -196,7 +196,7 @@ export const systemMessageMetrics: Record<Platform, SystemMessageMetrics> = {
   macos: {
     // ChatKit, .mac idiom: transcriptRegularFontAttributes is .SFNS-Regular 11 / 13 there too. The
     // 9 pt this file used to carry was `transcriptMessageStatusFont`, the "Delivered" label, which
-    // is the one transcript metric that does scale on the Mac.
+    // is the one transcript metric that does scale on the PC.
     fontSize: 11,
     // ChatKit's natural line height for the font. No macOS capture holds a two-line status sentence,
     // so unlike iOS's 13.3333 this one is not confirmed against a rasterised pitch.

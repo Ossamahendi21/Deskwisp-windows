@@ -190,7 +190,7 @@ export type IosMessagesAppProps = {
    * caller keeps one selection state for both platforms. Left out, the shell keeps the set itself.
    *
    * `context.id` is the message the tap acted on, or `null` when the whole selection was cleared.
-   * There is no `shiftKey`/`metaKey` here as there is on the Mac: a tap on a phone carries no
+   * There is no `shiftKey`/`metaKey` here as there is on the PC: a tap on a phone carries no
    * modifier, so a tap toggles exactly one message and nothing extends a range.
    */
   selectedMessageIds?: readonly string[];
@@ -479,7 +479,7 @@ function useExit(key: string | null) {
  * photos — it is the whole RUN those photos belong to, and each photo of a multi-photo send is its
  * own message.
  *
- * MEASURED, in ChatKit on this Mac (macOS 26.5.2), by disassembling the loaded iOSSupport image the
+ * MEASURED, in ChatKit on this PC (macOS 26.5.2), by disassembling the loaded iOSSupport image the
  * way `references/image-viewer.md` describes:
  * `-[CKChatController _displayPreviewItemForMediaObject:]` — the method that puts the viewer up —
  * calls `-previewItemsForMediaObject:currentItemIndex:containsRestoring:`, sets the result on

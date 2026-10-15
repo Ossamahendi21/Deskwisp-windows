@@ -3,17 +3,17 @@ import { cleanWindowEvent, POSTHOG_HOST, POSTHOG_PROJECT, POSTHOG_UI_HOST, type 
 /**
  * The window's usage events (README, Privacy): horafirm-web's PostHog setup (providers/posthogProvider.tsx
  * and SupabaseAuthContext's identify/reset), for the few things only the screen sees. Everything the
- * user does in Deskwisp is sent by the Mac's server instead (lib/server/analytics.ts). posthog-js loads
+ * user does in Deskwisp is sent by the PC's server instead (lib/server/analytics.ts). posthog-js loads
  * only when analytics is on, and never records the screen. No React here, so Node tests import it.
  */
 
 /** GET /api/analytics: whether this window sends usage events, and as whom. */
 export type AnalyticsInfo = {
-  /** Signed in with Horafirm, usage data shared, and allowed on this Mac. */
+  /** Signed in with Horafirm, usage data shared, and allowed on this PC. */
   on: boolean;
   /** The account's switch (Settings → You → Share usage data). */
   share: boolean;
-  /** Off on this Mac whatever the switch says (DESKWISP_TELEMETRY=0, DO_NOT_TRACK=1, self-hosted, a development build). */
+  /** Off on this PC whatever the switch says (DESKWISP_TELEMETRY=0, DO_NOT_TRACK=1, self-hosted, a development build). */
   locked: boolean;
   /** The Horafirm user id, the same distinct_id deskwisp.com identifies them with. */
   userId: string | null;

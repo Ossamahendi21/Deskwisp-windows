@@ -10,7 +10,7 @@ import { getState, stateEpoch, updateUnseen } from "./store";
  * (the bots' computers' hours) is billed by Horafirm and read from Horafirm on the account page; these
  * events are the parts Horafirm doesn't see. Through Deskwisp Cloud, what AI credit paid for is the cloud's
  * own count (GET /v1/usage), which the account page shows; each call says which bot and what kind
- * of work it's for (usageTags) so the cloud can count it that way. Tasks on the user's Mac are counted
+ * of work it's for (usageTags) so the cloud can count it that way. Tasks on the user's PC are counted
  * the same way: they run on the Agents API through the cloud, like every task.
  */
 

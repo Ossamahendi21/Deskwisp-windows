@@ -4,7 +4,7 @@ import type { AppState } from "./types";
  * What Deskwisp knows, sorted into categories that fill themselves as people use their bots: the people
  * they deal with, what's coming up, what they still have to do, what was promised and decided, and how
  * they like things. Read from the workspace's memory (Honcho), where every chat and finished task
- * already goes (lib/server/memory.ts), and sorted on this Mac (lib/server/memory-categories.ts). Each
+ * already goes (lib/server/memory.ts), and sorted on this PC (lib/server/memory-categories.ts). Each
  * category is a section of the sidebar that folds open (components/app/memory-categories.tsx).
  */
 
@@ -158,7 +158,7 @@ export type MemorySnapshot = {
   error?: string;
 };
 
-/** Who has the categories: every account signed in (they're kept in the account's own folder on this Mac). */
+/** Who has the categories: every account signed in (they're kept in the account's own folder on this PC). */
 export const categoriesOpen = (state: Pick<AppState, "account">) => !!state.account?.user.id;
 
 /**

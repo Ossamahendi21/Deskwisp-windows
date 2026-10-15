@@ -57,8 +57,8 @@ const done = (got: Got) => !!got && got.status >= 200 && got.status < 300;
 
 /**
  * Whether Deskwisp puts keys of its own on the bots' computers, which someone with Full access (root there)
- * could read: the apps key and this Mac's tailnet address in /opt/deskwisp/apps.json when the server listens
- * beyond this Mac (DESKWISP_LISTEN_ALL=1), the executor's key (DESKWISP_COMPUTER_TOOL=0), Tailscale's auth key.
+ * could read: the apps key and this PC's tailnet address in /opt/deskwisp/apps.json when the server listens
+ * beyond this PC (DESKWISP_LISTEN_ALL=1), the executor's key (DESKWISP_COMPUTER_TOOL=0), Tailscale's auth key.
  */
 const keysOnComputers = () => reachableFromComputers() || !computerToolOn() || !!process.env.TAILSCALE_AUTH_KEY;
 

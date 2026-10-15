@@ -4,7 +4,7 @@
  *
  * Every Deskwisp computer of every Deskwisp workspace lives in one Horafirm workspace the user owns, named "deskwisp"
  * (lib/server/horafirm.ts deskwispWorkspace). The people the user adds are members of that Horafirm workspace:
- * they sign in on deskwisp.com and see the bots' computers there, never this Mac, the chats or the vault.
+ * they sign in on deskwisp.com and see the bots' computers there, never this PC, the chats or the vault.
  * Deskwisp keeps none of this itself: horafirm-web holds the list, the invites and the plan's rules (Free
  * adds nobody, Pro 2 people, Max up to 5), and the app shows what it says. Nobody is added from an
  * horafirm-web that doesn't send its numbers (seats): one from before that rule holds no plan to it.
@@ -64,7 +64,7 @@ export type MembersInfo =
       state: "ready";
       /** The workspace on deskwisp.com. */
       horafirmUrl: string;
-      /** Where the bots work now: on this Mac, people the user adds see nothing of it. */
+      /** Where the bots work now: on this PC, people the user adds see nothing of it. */
       host: "horafirm" | "mac";
       fullAccess: FullAccess;
       /**
@@ -124,7 +124,7 @@ export const WORDS = {
   horafirmLoadError: "Horafirm couldn't load who has access. Try again in a minute.",
   loadFailed: "Couldn't load who has access.",
   noKey: "Deskwisp can't use your Horafirm sign-in right now. Sign out, then sign in again.",
-  rejected: "Horafirm didn't accept this Mac's sign-in. Sign out, then sign in again.",
+  rejected: "Horafirm didn't accept this PC's sign-in. Sign out, then sign in again.",
   selfHosted:
     "On a self-hosted Deskwisp, add people on deskwisp.com, in the workspace your bots use. Self-hosted setups can keep your own keys on your bots' computers, so give Full access only to people you'd trust with those keys.",
   noComputers: "Your bots don't have a computer on Horafirm yet. Once they do, you can add people to watch it here.",
@@ -140,12 +140,12 @@ export const WORDS = {
   gone: "They don't have access anymore.",
   notOwner: "Horafirm says only the owner can do that.",
   windowOnly: "People can only be added in the Deskwisp app.",
-  fullAccessOff: "Full access is off while your bots' computers hold keys from this Mac.",
-  fullAccessOffTip: "Off while your bots' computers hold keys from this Mac.",
+  fullAccessOff: "Full access is off while your bots' computers hold keys from this PC.",
+  fullAccessOffTip: "Off while your bots' computers hold keys from this PC.",
   fullAccessNotYet: "Deskwisp adds people with View only for now.",
-  keysOff: "Your bots' computers hold keys from this Mac, so Full access is off.",
+  keysOff: "Your bots' computers hold keys from this PC, so Full access is off.",
   keysOffFull: "Anyone who already has it can read those keys. Switch them to View only.",
-  keysHeld: "Your bots' computers hold keys from this Mac. Anyone with Full access can read them. Switch them to View only.",
+  keysHeld: "Your bots' computers hold keys from this PC. Anyone with Full access can read them. Switch them to View only.",
   copiedPassword: "A computer password they copied keeps working until it's changed.",
   appUnreachable: "Couldn't reach Deskwisp. Try again.",
   whatToSend: "Say who to add, and what they can do.",

@@ -7,7 +7,7 @@ import { APP_VERSION_HEADER, TELEMETRY_HEADER } from "@/cloud/protocol";
 export const appVersion = (): string | undefined => process.env.DESKWISP_APP_VERSION || undefined;
 
 /**
- * Whether this Mac may send usage events at all (README, Privacy): a production build of the app,
+ * Whether this PC may send usage events at all (README, Privacy): a production build of the app,
  * or DESKWISP_TELEMETRY=1 on another; never self-hosted or on a hosted server (DESKWISP_DATABASE_URL), and
  * never with DESKWISP_TELEMETRY=0 or DO_NOT_TRACK=1. The account's own switch is checked on top of this.
  */
@@ -19,7 +19,7 @@ export function telemetryHere(): boolean {
 
 /**
  * What tells Deskwisp Cloud which app is calling, for every call to it (cloud/app-version.ts), and, on a
- * Mac that sends no usage events, that the cloud should send none for what it does either.
+ * PC that sends no usage events, that the cloud should send none for what it does either.
  */
 export const appHeaders = (): Record<string, string> => {
   const v = appVersion();

@@ -33,7 +33,7 @@ export function Mascot({
   );
 }
 
-export function Spinner({ size = 13, color = "#0A0A0A" }: { size?: number; color?: string }) {
+export function Spinner({ size = 13, color = "#16132B" }: { size?: number; color?: string }) {
   return (
     <svg viewBox="0 0 14 14" width={size} height={size} className="animate-spin" style={{ flexShrink: 0 }}>
       <circle cx="7" cy="7" r="5.2" fill="none" stroke={color} strokeWidth="1.6" strokeDasharray="24 9" strokeLinecap="round" />
@@ -41,10 +41,10 @@ export function Spinner({ size = 13, color = "#0A0A0A" }: { size?: number; color
   );
 }
 
-/** ♪ and ♫, as on deskwisp.bot (site/notes.js). */
+/** Two sparks, the kind that float off a wisp. */
 const NOTES = [
-  '<ellipse cx="7" cy="17.5" rx="3.3" ry="2.5" transform="rotate(-20 7 17.5)"/><rect x="9.4" y="4" width="1.8" height="13.6" rx=".9"/><path d="M11.2 4c0 3.2 4.8 3.8 4.8 7.6-.9-1.7-2.7-2.4-4.8-2.7z"/>',
-  '<ellipse cx="6" cy="18.3" rx="3" ry="2.3" transform="rotate(-20 6 18.3)"/><ellipse cx="17.6" cy="16.3" rx="3" ry="2.3" transform="rotate(-20 17.6 16.3)"/><rect x="8.1" y="6.2" width="1.7" height="12" rx=".85"/><rect x="19.7" y="4.2" width="1.7" height="12" rx=".85"/><path d="M8.1 6.2 21.4 3.6v2.9L8.1 9.1z"/>',
+  '<path d="M12 2c.7 4.6 2.6 6.6 7.2 7.2-4.6.7-6.5 2.6-7.2 7.2-.7-4.6-2.6-6.5-7.2-7.2C9.4 8.6 11.3 6.6 12 2z"/>',
+  '<path d="M12 4c.5 3.4 1.9 4.8 5.3 5.3-3.4.5-4.8 1.9-5.3 5.3-.5-3.4-1.9-4.8-5.3-5.3C10.1 8.8 11.5 7.4 12 4z"/><circle cx="18.5" cy="17.5" r="1.6"/>',
 ];
 
 /**
@@ -57,9 +57,9 @@ export function WispyLoading({ label, children }: { label: string; children?: Re
       <div className="wispy-loading-scene" aria-hidden="true">
         <div className="wispy-loading-shadow" />
         {(["l", "r", "l", "r"] as const).map((side, i) => (
-          <svg key={i} className={`wispy-loading-note ${side}`} viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: `<g fill="#0A0A0A">${NOTES[i === 0 || i === 3 ? 0 : 1]}</g>` }} />
+          <svg key={i} className={`wispy-loading-note ${side}`} viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: `<g fill="#7C5CFF">${NOTES[i === 0 || i === 3 ? 0 : 1]}</g>` }} />
         ))}
-        <svg className="wispy-loading-wispy" viewBox="0 0 40 40" dangerouslySetInnerHTML={{ __html: mascotMarkup("wispy", "#0A0A0A", { mood: "awake" }) }} />
+        <svg className="wispy-loading-wispy" viewBox="0 0 40 40" dangerouslySetInnerHTML={{ __html: mascotMarkup("wispy", "#16132B", { mood: "awake" }) }} />
       </div>
       <div>{label}</div>
       {/* Below the label without moving it: the scene stays where the splash had it. */}

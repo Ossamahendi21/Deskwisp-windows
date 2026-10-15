@@ -10,7 +10,7 @@ import { ON_MAC, ON_WINDOWS } from "./platform";
 /**
  * Secrets, under "Deskwisp Vault".
  *
- * - On a Mac: the Keychain. Values go to `security` on stdin, hex-encoded, so they never show up in
+ * - On a PC: the Keychain. Values go to `security` on stdin, hex-encoded, so they never show up in
  *   the process list; reading one back only names the item.
  * - Elsewhere (Windows, Linux): an AES-256-GCM sealed file, .data/vault.sealed. Its key is made once
  *   and kept beside it: on Windows sealed with DPAPI for this Windows user (vault.key.dpapi, readable
@@ -20,7 +20,7 @@ import { ON_MAC, ON_WINDOWS } from "./platform";
 const SERVICE = "Deskwisp Vault";
 const MAC = ON_MAC;
 
-// ---------------------------------------------------------------- Mac Keychain
+// ---------------------------------------------------------------- PC Keychain
 
 const q = (s: string) => `"${s.replace(/["\\]/g, "")}"`;
 

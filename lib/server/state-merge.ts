@@ -1,18 +1,18 @@
 import { createHash } from "node:crypto";
 
 /**
- * The state as Deskwisp Cloud keeps it (lib/server/persist-cloud.ts), and putting two Macs' changes
+ * The state as Deskwisp Cloud keeps it (lib/server/persist-cloud.ts), and putting two PCs' changes
  * together. Pure functions, no server: the tests run them directly.
  *
  * In the cloud a user's state is a blob (everything but the messages, which are rows of their own)
- * shared by every Mac they sign in on. Some of it is this Mac's alone, kept in the blob under
- * `macs[deviceId]` and lifted to the top level in memory (PER_MAC); some never leaves this Mac at all
+ * shared by every PC they sign in on. Some of it is this PC's alone, kept in the blob under
+ * `macs[deviceId]` and lifted to the top level in memory (PER_MAC); some never leaves this PC at all
  * (NEVER_SYNCED, and each bot's appsKey and each chat's typing and asking).
  */
 
 export type Blob = Record<string, unknown>;
 
-/** This Mac's own, under macs[deviceId] in the blob: routing through it, whether bots can work on it (state.mac) and its setup. */
+/** This PC's own, under macs[deviceId] in the blob: routing through it, whether bots can work on it (state.mac) and its setup. */
 export const PER_MAC = ["relay", "relayRoutes", "mac", "setup"] as const;
 /** Never in the cloud: who's signed in here, what's on screen right now, what waits on a live bot. */
 export const NEVER_SYNCED = ["account", "screens", "takeover", "connecting", "appApprovals", "screenStream", "cloudUser", "messages", "macs"] as const;
@@ -29,7 +29,7 @@ export const same = (a: unknown, b: unknown) => a === b || canonical(a) === cano
 const isObject = (v: unknown): v is Blob => !!v && typeof v === "object" && !Array.isArray(v);
 const withIds = (v: unknown): v is { id: string }[] => Array.isArray(v) && v.length > 0 && v.every((x) => isObject(x) && typeof x.id === "string");
 
-/** The blob for the cloud from the state in memory: no messages, nothing NEVER_SYNCED, this Mac's own under macs[device]. */
+/** The blob for the cloud from the state in memory: no messages, nothing NEVER_SYNCED, this PC's own under macs[device]. */
 export function toShared(state: Blob, device: string): Blob {
   const out: Blob = {};
   for (const [k, v] of Object.entries(state)) if (v !== undefined && !(NEVER_SYNCED as readonly string[]).includes(k) && !(PER_MAC as readonly string[]).includes(k)) out[k] = v;
@@ -37,7 +37,7 @@ export function toShared(state: Blob, device: string): Blob {
   if (Array.isArray(state.chats)) out.chats = state.chats.map((c: Blob) => strip(c, ["typing", "asking"]));
   const mine: Blob = {};
   for (const k of PER_MAC) if (state[k] !== undefined) mine[k] = state[k];
-  // Full access is this Mac's alone, kept here (full-access.ts): never in the cloud.
+  // Full access is this PC's alone, kept here (full-access.ts): never in the cloud.
   if (isObject(mine.mac)) mine.mac = strip(mine.mac, ["fullAccess"]);
   const macs: Blob = { ...(isObject(state.macs) ? state.macs : {}) };
   if (Object.keys(mine).length) macs[device] = mine;
@@ -49,7 +49,7 @@ export function toShared(state: Blob, device: string): Blob {
 
 const strip = (o: Blob, keys: string[]) => Object.fromEntries(Object.entries(o).filter(([k]) => !keys.includes(k)));
 
-/** The state in memory from a blob: this Mac's own lifted back to the top level (the other Macs' stay under macs). */
+/** The state in memory from a blob: this PC's own lifted back to the top level (the other PCs' stay under macs). */
 export function fromShared(blob: Blob, device: string): Blob {
   const out: Blob = { ...blob };
   for (const k of NEVER_SYNCED) if (k !== "macs") delete out[k];
@@ -61,15 +61,15 @@ export function fromShared(blob: Blob, device: string): Blob {
 }
 
 /**
- * Two Macs' changes put together: `mine` and `theirs` both started from `base` (the last blob this
- * Mac synced; null when it has none). A key changed on one side only takes that side. Where both
+ * Two PCs' changes put together: `mine` and `theirs` both started from `base` (the last blob this
+ * PC synced; null when it has none). A key changed on one side only takes that side. Where both
  * changed it:
  * - lists of things with ids (bots, chats, sessions, routines, watches, workspaces, accounts, vault…)
- *   go thing by thing: one changed here keeps this Mac's copy, one removed on either side (and not
- *   changed on the other) goes, one added on either side stays; this Mac's order, the others' new
+ *   go thing by thing: one changed here keeps this PC's copy, one removed on either side (and not
+ *   changed on the other) goes, one added on either side stays; this PC's order, the others' new
  *   ones after;
  * - usage is both ledgers together; macs, and any other object, key by key;
- * - anything else is this Mac's.
+ * - anything else is this PC's.
  */
 export function merge3(base: Blob | null, mine: Blob, theirs: Blob): Blob {
   return mergeObject(base ?? {}, mine, theirs, true);
@@ -105,10 +105,10 @@ function mergeById(base: { id: string }[], mine: { id: string }[], theirs: { id:
     const was = b.get(x.id);
     const other = t.get(x.id);
     if (other) out.push(was && same(x, was) ? other : x);
-    // Gone on their side: gone here too, unless this Mac changed it since (or added it).
+    // Gone on their side: gone here too, unless this PC changed it since (or added it).
     else if (!was || !same(x, was)) out.push(x);
   }
-  // Theirs that this Mac hasn't got: new there (kept), or removed here (gone).
+  // Theirs that this PC hasn't got: new there (kept), or removed here (gone).
   for (const x of theirs) if (!m.has(x.id) && !b.has(x.id)) out.push(x);
   return out;
 }
@@ -122,7 +122,7 @@ function usageOf(mine: unknown[], theirs: unknown[]) {
 
 /**
  * Make `target` (the state in memory) hold `source` (a merged blob, lifted by fromShared), keeping
- * what never leaves this Mac (NEVER_SYNCED, bots' appsKey, chats' typing and asking) and keeping each
+ * what never leaves this PC (NEVER_SYNCED, bots' appsKey, chats' typing and asking) and keeping each
  * object that stays the same object, so code holding a bot or a chat keeps working on the live one.
  */
 export function applyShared(target: Blob, source: Blob) {

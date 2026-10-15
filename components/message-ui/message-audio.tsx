@@ -22,7 +22,7 @@ import { MessageBubble } from "@/components/message-ui/message-bubble";
  * | vertical inset | `audioBalloonVerticalSpacing` **7** | the text bubble's 10 |
  *
  * Read at both idioms rather than assumed: `CKUIBehaviorMac` overrides exactly one of them,
- * `audioProgressViewSize` **{22, 22}**. Everything else above is the same on the Mac, including the
+ * `audioProgressViewSize` **{22, 22}**. Everything else above is the same on the PC, including the
  * 35 waveform, which is why macOS no longer draws a 22 one.
  *
  * So the row is not one height: the waveform is 35 and the control is 29, and the balloon insets its
@@ -93,7 +93,7 @@ export function MessageAudio({ peaks, duration, direction = "outgoing", tail = f
   const barGap = ios ? 2 : 2;
   /** `audioWaveformHeight`: 35 on both idioms, taller than the control beside it. */
   const waveHeight = 35;
-  /** `audioProgressViewSize`: the one value the Mac class overrides, {22, 22} against {29, 29}. */
+  /** `audioProgressViewSize`: the one value the PC class overrides, {22, 22} against {29, 29}. */
   const controlSize = ios ? 29 : 22;
   /** `audioBalloonVerticalSpacing`: 7 on both, not the text bubble's 10 (iOS) or 7.03 (macOS). */
   const insetY = 7;

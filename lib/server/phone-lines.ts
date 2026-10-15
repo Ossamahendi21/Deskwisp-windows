@@ -7,7 +7,7 @@ import { getState, update } from "./store";
 /**
  * Who owns each of the bots' numbers, kept by Deskwisp Cloud (deskwisp.phone_lines, cloud/lines.ts), never
  * here: on every call and text the cloud checks the caller against the line's owner and tells this
- * Mac (CallerVerdict), and this Mac follows it. Only through the cloud (signed in with Horafirm); a
+ * PC (CallerVerdict), and this PC follows it. Only through the cloud (signed in with Horafirm); a
  * self-hoster's numbers keep counting only the verified numbers in Settings and DESKWISP_OWNER_PHONES.
  *
  * - When Deskwisp gets a number for a bot or a workspace, the cloud gives the line 15 minutes: the first

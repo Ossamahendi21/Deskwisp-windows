@@ -76,7 +76,7 @@ import { GroupAvatar, groupAvatarPlate } from "@/components/message-ui/group-ava
  * - `CKUIThemeMac` has no conversation-list hover, pressed or cell colour at all. Dumping every
  *   zero-argument `UIColor` getter on it (86 of them) turns up `conversationListCellSelectedText/
  *   Summary/DateColor` and nothing that could fill a row; `conversationListCellColor` and
- *   `conversationListSelectedCellColor` are both **null** on the Mac theme, where the phone theme
+ *   `conversationListSelectedCellColor` are both **null** on the PC theme, where the phone theme
  *   answers #dcdcdc / #464646 and the Pad theme #0088ff / #0091ff.
  * - `+[UIBackgroundConfiguration listSidebarCellConfiguration]` and `listPlainCellConfiguration`,
  *   resolved for every combination of `highlighted` and `selected` at idiom 5, change **only** for
@@ -106,7 +106,7 @@ import { GroupAvatar, groupAvatarPlate } from "@/components/message-ui/group-ava
  * **Search** (`onSearch`, `searchQuery`). Typing in the field replaces the list *in place*:
  * `-[CKUIBehaviorMac searchControllerObscuresConversationList]` is **NO**, where the same selector on
  * `CKUIBehaviorPhone` is **YES** — which is why iOS covers its whole screen (`ios-search.tsx`) and the
- * Mac does not. The pinned strip goes with the list, a "Conversations" header takes its place, and
+ * PC does not. The pinned strip goes with the list, a "Conversations" header takes its place, and
  * the rows underneath are the sidebar's own measured 80.5 rows, unchanged. Every number in
  * `macSidebarMetrics.results` is a Catalyst probe reading off `CKUIBehaviorMac` in ChatKit 26.5, with
  * the Phone value beside it so the two idioms can be told apart; what is **not** measured is where the
@@ -116,7 +116,7 @@ import { GroupAvatar, groupAvatarPlate } from "@/components/message-ui/group-ava
  * "No Results". ⌘F reaches the field from the window; that binding lives in `macos-messages-app.tsx`.
  *
  * **What the match looks like, settled out of ChatKit 26.5 rather than guessed.** A conversation
- * result on the Mac is `+[CKConversationSearchResultCell conversationListCellClass]` =
+ * result on the PC is `+[CKConversationSearchResultCell conversationListCellClass]` =
  * `CKConversationSearchResultEmbeddedCell`, a `CKConversationListStandardCell` subclass — this row.
  * Disassembling `-[CKConversationSearchResultEmbeddedCell configureWithQueryResult:searchText:]`
  * settles all three questions a highlight raises:
@@ -404,7 +404,7 @@ function SearchIcon() {
 }
 
 /**
- * xmark.circle.fill, the cancel button of a Mac search field: a filled disc with the cross knocked
+ * xmark.circle.fill, the cancel button of a PC search field: a filled disc with the cross knocked
  * out of it in the field's own fill, so it reads as a hole rather than as a second stroke.
  * **UNMEASURED** — see `macSidebarMetrics.search.clear`.
  */
@@ -458,7 +458,7 @@ export function MacSidebar({ conversations, selectedId, onSelect, active = true,
   const query = searchQuery ?? ownQuery;
   const searching = query.trim().length > 0;
   const matches = searching ? conversations.filter(c => conversationMatchesQuery(c, query)) : null;
-  // Results replace the list outright, pinned tiles included: on the Mac the search does not cover the
+  // Results replace the list outright, pinned tiles included: on the PC the search does not cover the
   // window (`searchControllerObscuresConversationList` NO), it takes the list's place inside the panel.
   const pinned = searching ? [] : conversations.filter(c => c.pinned);
   const rows = matches ?? conversations.filter(c => !c.pinned);
@@ -527,13 +527,13 @@ export function MacSidebar({ conversations, selectedId, onSelect, active = true,
             (`macos-messages-app.tsx`); nothing else keys off it. */}
         <input type="search" data-slot="sidebar-search-input" placeholder={macSidebarSearchStrings.placeholder} value={query}
           onChange={event => setQuery(event.target.value)}
-          // Escape empties a Mac search field before it does anything else, which is why it stops here
+          // Escape empties a PC search field before it does anything else, which is why it stops here
           // rather than reaching the window's own Escape handling.
           onKeyDown={event => { if (event.key === "Escape" && query) { event.preventDefault(); event.stopPropagation(); setQuery(""); } }}
           className="absolute bg-transparent text-[13px] leading-[16px] text-[var(--sb-name)] outline-none placeholder:font-medium placeholder:text-[var(--sb-placeholder)] [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
           style={{ left: m.search.textLeft - m.search.left, right: searching ? m.search.textRight : 8, top: m.search.textTop - m.search.top }} />
         {/* Only while there is something to clear, so the empty field every capture holds is
-            untouched. It clears the text and keeps the caret, which is what a Mac search field does. */}
+            untouched. It clears the text and keeps the caret, which is what a PC search field does. */}
         {searching && (
           <button type="button" data-slot="sidebar-search-clear" aria-label="Clear search"
             onClick={event => {

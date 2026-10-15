@@ -60,11 +60,11 @@ import { Avatar } from "@/components/message-ui/avatar";
  * | map 196 tall | `detailsViewMapHeight` — **also measured (197 ± 1)** |
  * | photo grid gap 10, tile radius 8 | `searchPhotosInterItemSpacingDetailsView`, `searchPhotosCellZKWAndDetailsCornerRadius` |
  * | link / document row radius 8, row height 40, option row 44 | `searchLinksCellCornerRadius`, `detailsContactCellMinimumHeight`, `+[CKDetailsChatOptionsCell estimatedHeight]` |
- * | 16 × 16 checkboxes | `CKDetailsChatOptionsCheckboxCell`; a Mac-idiom `UISwitch` reports style 1, 16 × 16 |
+ * | 16 × 16 checkboxes | `CKDetailsChatOptionsCheckboxCell`; a PC-idiom `UISwitch` reports style 1, 16 × 16 |
  * | section heading 13 Regular | `searchDetailsHeaderFont` |
  *
  * Three of those — 300, 16 and 196 — the capture independently reproduces, which is the cross-check
- * that the probe was reading genuine Mac values.
+ * that the probe was reading genuine PC values.
  *
  * ### Glyphs
  *
@@ -227,7 +227,7 @@ export const macDetailsUnmeasured = {
   photoGap: 10,
   photoRadius: 8,
   listRadius: 8,
-  /** `-[UISwitch intrinsicContentSize]` under the Mac idiom, where `style` resolves to checkbox. */
+  /** `-[UISwitch intrinsicContentSize]` under the PC idiom, where `style` resolves to checkbox. */
   checkbox: 16,
   checkboxRadius: 3.5,
   /**

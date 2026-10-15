@@ -20,7 +20,7 @@ import { knownSite, siteOf } from "@/lib/watch-sites";
  * it, and the bot tells the user in its chat, offering to draft a reply. Only page changes are read,
  * at most every half minute per screen, so watching costs next to nothing while nothing happens.
  *
- * A window on the user's own Mac can be watched the same way (a Messages conversation, a mailbox): its
+ * A window on the user's own PC can be watched the same way (a Messages conversation, a mailbox): its
  * text is read through macOS accessibility, without a screenshot and without touching the window,
  * and the main bot of the workspace gives the heads-up.
  */
@@ -144,14 +144,14 @@ export function watchTarget(w: Watch) {
   return w.target ?? (w.mac ? `"${w.mac.title}" in ${w.mac.app}` : w.site);
 }
 
-/** What a Mac window is usually worth watching for, by app. */
+/** What a PC window is usually worth watching for, by app. */
 function macLookFor(app: string, title: string) {
   if (/messages|whatsapp|telegram|signal|discord|slack/i.test(app)) return `new messages from ${title} that I haven't answered`;
   if (/mail|outlook|superhuman|spark/i.test(app)) return "new emails that need me";
   return "anything new there that needs me";
 }
 
-/** Watch a window on the user's Mac. The workspace's main bot keeps an eye on it and gives the heads-up. */
+/** Watch a window on the user's PC. The workspace's main bot keeps an eye on it and gives the heads-up. */
 export async function startMacWatch(app: string, windowId: number, title: string, lookFor?: string) {
   const s = getState();
   const main = s.bots.find((b) => b.isMain && workspaceOf(b) === (s.workspace ?? MAIN_WORKSPACE)) ?? s.bots.find((b) => b.isMain);
@@ -218,8 +218,8 @@ export function draftReply(watchId: string) {
   // One draft at a time per screen: a second tap shows the one already being written.
   const drafting = getState().sessions.find((s) => s.onWatch === watchId && live(s));
   if (drafting) return drafting;
-  // A window on the Mac: bots can't write in the Mac's apps for now (lib/server/mac.ts).
-  if (w.mac) throw new Error(`Bots can't write in ${w.mac.app} on your Mac for now.`);
+  // A window on the PC: bots can't write in the PC's apps for now (lib/server/mac.ts).
+  if (w.mac) throw new Error(`Bots can't write in ${w.mac.app} on your PC for now.`);
   const what = w.alert?.text ?? [w.told ?? []].flat().at(-1) ?? "the newest thing waiting for me";
   patchWatch(watchId, { alert: undefined });
   return startSession({
@@ -254,7 +254,7 @@ async function look(watchId: string) {
     lastSeen.set(watchId, fingerprint);
     lastRead.set(watchId, Date.now());
 
-    // A Mac conversation lists its newest messages last: keep the top (the list, "Unread") and the end.
+    // A PC conversation lists its newest messages last: keep the top (the list, "Unread") and the end.
     const lines = w.mac && page.lines.length > 60 ? [...page.lines.slice(0, 20), ...page.lines.slice(-40)] : page.lines.slice(0, 60);
     // Jev sees the page as it was at the last read too, so "big price moves" or "a new item" can be judged.
     const before = lastLines.get(watchId);
@@ -330,9 +330,9 @@ async function look(watchId: string) {
     // (Watches from before kept only the last one, as a string.)
     const told: string[] = Array.isArray(now.told) ? now.told : now.told ? [now.told] : [];
     if (told.includes(text)) return;
-    const where = now.mac ? `in ${now.mac.title} on your Mac` : `on ${now.site}`;
+    const where = now.mac ? `in ${now.mac.title} on your PC` : `on ${now.site}`;
     // How much of the user's attention it gets: interrupt now, just show it, or hold it for later.
-    const level = await urgency({ kind: "watch", what: now.mac ? `"${now.mac.title}" in ${now.mac.app} on ${owner}'s Mac` : now.site, news: text, lookFor: now.lookFor });
+    const level = await urgency({ kind: "watch", what: now.mac ? `"${now.mac.title}" in ${now.mac.app} on ${owner}'s PC` : now.site, news: text, lookFor: now.lookFor });
     // Signed out, or another account in, meanwhile: what this watch saw was the last account's.
     if (epoch !== stateEpoch()) return;
     patchWatch(watchId, { alert: { text, at: Date.now(), level }, told: [...told, text].slice(-30) });
@@ -345,7 +345,7 @@ async function look(watchId: string) {
   }
 }
 
-/** A watched Mac window read as a page: its text through accessibility. Following it if its id changed. */
+/** A watched PC window read as a page: its text through accessibility. Following it if its id changed. */
 async function macPage(w: Watch) {
   const m = w.mac!;
   const win = await findWindow(m.app, m.title, m.windowId);
@@ -368,7 +368,7 @@ g.__deskwispWatches ??= setInterval(() => {
 const loose = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 
 /**
- * The user asked a bot in chat to watch something; set it up like the Watch button would. On their Mac:
+ * The user asked a bot in chat to watch something; set it up like the Watch button would. On their PC:
  * the window of that app whose title matches (a Messages window shows one conversation, so it has to
  * be the one showing). On the bot's computer: a screen already on that site, else a free one opened
  * to it. When it can't tell or can't see it, `reply` says what the user needs to do (the bot passes it on).
@@ -380,7 +380,7 @@ export async function watchFromChat(
   if (a.where === "mac") {
     const owner = ownerName();
     const app = loose(a.app ?? "");
-    if (!app) return { reply: "Which app on the Mac (Messages, Mail, Slack…)?" };
+    if (!app) return { reply: "Which app on the PC (Messages, Mail, Slack…)?" };
     // Already watched (maybe paused while the app shows something else): keep it, with what the user said now.
     const want0 = loose(a.window ?? "");
     const had = watches().find((w) => w.mac && loose(w.mac.app).includes(app) && (!want0 || loose(w.mac.title).includes(want0) || want0.includes(loose(w.mac.title))));
@@ -389,7 +389,7 @@ export async function watchFromChat(
       return { watch: watchById(had.id) ?? had, already: true };
     }
     const wins = (await listWindows()).filter((w) => loose(w.app).includes(app) || app.includes(loose(w.app)));
-    if (!wins.length) return { reply: `${a.app} isn't open on ${owner}'s Mac. Ask ${owner} to open it (and the conversation or mailbox to watch), then try again.` };
+    if (!wins.length) return { reply: `${a.app} isn't open on ${owner}'s PC. Ask ${owner} to open it (and the conversation or mailbox to watch), then try again.` };
     const want = loose(a.window ?? "");
     const hits = want ? wins.filter((w) => loose(w.title).includes(want) || want.includes(loose(w.title))) : wins;
     if (!hits.length) return { reply: `${wins[0].app} is showing ${wins.map((w) => `"${w.title}"`).join(", ")}, not ${a.window}. Ask ${owner} to open it there, then try again.` };
@@ -438,8 +438,8 @@ export function watchesNote(botIds: string[], withMac: boolean) {
   if (!mine.length) return "";
   const owner = ownerName();
   return [
-    `Watches (screens and Mac windows Deskwisp keeps an eye on for ${owner}; stop_watch takes the id):`,
-    ...mine.map((w) => `- ${w.id}: ${w.mac ? `"${w.mac.title}" in ${w.mac.app} on ${owner}'s Mac` : `${w.site} on ${bot(w.botId)?.name}'s screen ${screenNo(w.display)}`} · looking for ${w.lookFor}${w.away ? " · paused (not showing right now)" : ""}`),
+    `Watches (screens and PC windows Deskwisp keeps an eye on for ${owner}; stop_watch takes the id):`,
+    ...mine.map((w) => `- ${w.id}: ${w.mac ? `"${w.mac.title}" in ${w.mac.app} on ${owner}'s PC` : `${w.site} on ${bot(w.botId)?.name}'s screen ${screenNo(w.display)}`} · looking for ${w.lookFor}${w.away ? " · paused (not showing right now)" : ""}`),
   ].join("\n");
 }
 
@@ -447,7 +447,7 @@ export function watchesNote(botIds: string[], withMac: boolean) {
  * The user asks a thread to keep an eye on its screen ("watch this chart and tell me if it goes above
  * 86,000"). A thread would do that by checking again and again itself, spending model time without
  * end and never showing as a watch; a watch reads the page whenever it changes, for nothing in
- * between. So the thread stops and its screen (or, on their Mac, the window it worked in) becomes a
+ * between. So the thread stops and its screen (or, on their PC, the window it worked in) becomes a
  * watch for what they asked. Returns null when the message isn't that (then it goes to the thread as usual).
  */
 export async function watchInstead(sessionId: string, text: string): Promise<Watch | null> {
@@ -456,7 +456,7 @@ export async function watchInstead(sessionId: string, text: string): Promise<Wat
   const display = s?.display ?? s?.lastDisplay;
   if (!s) return null;
   const owner = ownerName();
-  // On the user's Mac: the window the thread last worked in (its tools record it), else its app's main one.
+  // On the user's PC: the window the thread last worked in (its tools record it), else its app's main one.
   const macApp = s.runsOn === "mac" ? s.macApps?.at(-1) : undefined;
   if (s.runsOn === "mac" ? !macApp : display === undefined) return null;
   const a = await decide(
@@ -501,7 +501,7 @@ export async function watchInstead(sessionId: string, text: string): Promise<Wat
         (s.macWindow && wins.find((x) => x.window_id === s.macWindow!.windowId)) ||
         wins.find((x) => x.title && loose(x.title).split(" ").some((word) => word.length > 2 && told.includes(word))) ||
         (await mainWindow(macApp));
-      if (!win) throw new Error(`${macApp} isn't open on your Mac anymore`);
+      if (!win) throw new Error(`${macApp} isn't open on your PC anymore`);
       w = await startMacWatch(win.app_name, win.window_id, win.title || macApp, lookFor);
       // The same window may have been watched already, for something else: now it's for this.
       if (w.lookFor !== lookFor) editWatch(w.id, lookFor);
@@ -511,7 +511,7 @@ export async function watchInstead(sessionId: string, text: string): Promise<Wat
     addMessage({ chatId: s.chatId, role: "system", text: `Couldn't watch that screen: ${(e as Error).message}` });
     return null;
   }
-  const said = `Watching ${macApp ? `${w.mac?.title ?? macApp} on your Mac` : "this screen"} for ${lookFor}. You'll get a heads-up when it happens.`;
+  const said = `Watching ${macApp ? `${w.mac?.title ?? macApp} on your PC` : "this screen"} for ${lookFor}. You'll get a heads-up when it happens.`;
   patchSession(s.id, (x) => {
     x.replies.push({ id: id("rep"), role: "user", text, at: Date.now(), delivered: true });
     x.replies.push({ id: id("rep"), role: "bot", text: said, at: Date.now(), delivered: true });

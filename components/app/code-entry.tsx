@@ -166,7 +166,7 @@ export function CodeInput({ disabled, onComplete, ariaLabel = "Code from the tex
             } else if (e.key === "ArrowLeft" && i > 0) boxes.current[i - 1]?.focus();
             else if (e.key === "ArrowRight" && i < CODE_LENGTH - 1) boxes.current[i + 1]?.focus();
           }}
-          className="h-9 w-8 rounded-[10px] bg-[#F7F7F6] text-center text-[15px] font-medium tabular-nums outline-none shadow-[0_0_0_1px_#E6E6E3] focus:shadow-[0_0_0_1.5px_#0A0A0A] disabled:opacity-50"
+          className="h-9 w-8 rounded-[10px] bg-[#F7F7F6] text-center text-[15px] font-medium tabular-nums outline-none shadow-[0_0_0_1px_#E6E6E3] focus:shadow-[0_0_0_1.5px_#16132B] disabled:opacity-50"
         />
       ))}
     </div>

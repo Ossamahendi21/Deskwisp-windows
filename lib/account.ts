@@ -39,7 +39,7 @@ export type DeskwispPlan = {
 export type HorafirmBilling = {
   /**
    * "ok": every part came back. "partial": some did. "expired": Horafirm turned the key down. "unreachable": no answer.
-   * "no-key": signed in, but this Mac couldn't read the key back from the Keychain.
+   * "no-key": signed in, but this PC couldn't read the key back from the Keychain.
    */
   status: "ok" | "partial" | "expired" | "unreachable" | "no-key";
   plan?: {
@@ -58,7 +58,7 @@ export type HorafirmBilling = {
   };
   /**
    * The plan's computers: how many it allows (Horafirm's count, computers bought on top and a custom deal
-   * included), how many are in use across the whole Horafirm account (Deskwisp' or not), and how many of those
+   * included), how many are in use across the whole Horafirm account (Deskwisp's or not), and how many of those
    * aren't the bots'. In use is missing when Horafirm didn't say.
    */
   computers?: { allowed: number; inUse?: number; outsideDeskwisp?: number };
@@ -72,9 +72,9 @@ export type HorafirmBilling = {
 };
 
 /**
- * One month of Deskwisp' usage. Through Deskwisp Cloud, model use, calls and AI credit spent are the cloud's
+ * One month of Deskwisp's usage. Through Deskwisp Cloud, model use, calls and AI credit spent are the cloud's
  * own count (GET /v1/usage: the rows it charges), and the rest (computers, numbers and inboxes made)
- * this Mac's ledger; otherwise all of it is this Mac's ledger. Every way it's
+ * this PC's ledger; otherwise all of it is this PC's ledger. Every way it's
  * cut adds up to the same: tokens by kind of work, by day and by bot each sum to `tokens`, and the
  * parts of `spend` to its total.
  */
@@ -84,7 +84,7 @@ export type UsageTotals = {
   phoneNumbers: number;
   inboxes: number;
   callMinutes: number;
-  /** Model tokens Deskwisp used (its OpenAI models and Jev, tasks on the user's Mac too): what AI credit pays for. */
+  /** Model tokens Deskwisp used (its OpenAI models and Jev, tasks on the user's PC too): what AI credit pays for. */
   tokens: number;
   tokensBySource: Partial<Record<TokenSource, number>>;
   /** Tokens per day of the month, index 0 is the 1st. */
@@ -96,7 +96,7 @@ export type UsageTotals = {
    * the cloud takes it (`charged`). Missing without the cloud's answer.
    */
   spend?: { costMicros: number; charged: boolean; parts: SpendPart[] };
-  /** Where model use and calls come from: Deskwisp Cloud's count, or this Mac's ledger (self-hosted, or the cloud didn't answer). */
+  /** Where model use and calls come from: Deskwisp Cloud's count, or this PC's ledger (self-hosted, or the cloud didn't answer). */
   from: "cloud" | "mac";
 };
 

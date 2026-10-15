@@ -20,7 +20,7 @@ const PAGE = 60;
 /** The bot whose text this is, so a file it links opens from its computer (see Inline). */
 const LinkedBy = createContext<string | undefined>(undefined);
 
-/** A link to a file a bot made, not a web page: a path on its computer (/workspace/…) or on this Mac (~/…, /Users/…). */
+/** A link to a file a bot made, not a web page: a path on its computer (/workspace/…) or on this PC (~/…, /Users/…). */
 const isFileLink = (href: string) => /^(\/workspace\/|~\/|\/Users\/|file:\/\/\/)/.test(href);
 
 export function Rich({ text, botId }: { text: string; botId?: string }) {
@@ -118,7 +118,7 @@ function Prose({ text }: { text: string }) {
 /** Light inline markdown: **bold** and [links](url). */
 function Inline({ text }: { text: string }) {
   // Links open as a tab on the right; ⌘-click still opens your browser. A page a bot made opens there too.
-  // So does a file it linked: Deskwisp fetches it from the bot's computer (or this Mac) first, as the link itself goes nowhere.
+  // So does a file it linked: Deskwisp fetches it from the bot's computer (or this PC) first, as the link itself goes nowhere.
   const openLink = useContext(OpenLink);
   const botId = useContext(LinkedBy);
   const openFile = async (href: string, label: string, browser: boolean) => {
@@ -191,7 +191,7 @@ export function ChatView({
   wide: boolean;
   onOpenThread: (s: Session) => void;
   onShowBot: (botId: string) => void;
-  /** Open the "Your Mac" tab. */
+  /** Open the "Your PC" tab. */
   onShowMac: () => void;
   /** Open a bot's computer on one screen, e.g. the watched screen a heads-up is about. */
   onShowScreen: (botId: string, display: number) => void;
@@ -338,7 +338,7 @@ export function ChatView({
       }}
     >
       {dropping && (
-        <div className="pointer-events-none absolute inset-3 z-[40] flex items-center justify-center rounded-[20px] border-2 border-dashed border-[#0A0A0A]/25 bg-white/85 backdrop-blur-[2px]">
+        <div className="pointer-events-none absolute inset-3 z-[40] flex items-center justify-center rounded-[20px] border-2 border-dashed border-[#16132B]/25 bg-white/85 backdrop-blur-[2px]">
           <span className="text-[14px] font-medium text-[#3A3A38]">Drop images to send {solo ? `to ${solo.name}` : "to the group"}</span>
         </div>
       )}
@@ -351,7 +351,7 @@ export function ChatView({
             title={`Call ${solo.name}`}
             className="flex size-11 items-center justify-center rounded-full bg-white shadow-[0_0_0_1px_#E6E6E3,0_8px_20px_-10px_#00000040] hover:shadow-[0_0_0_1px_#C9C9C6,0_8px_20px_-10px_#00000040]"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" strokeWidth="1.7" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16132B" strokeWidth="1.7" strokeLinejoin="round">
               <path d="M5 3.5h3.2l1.6 4.2-2.1 1.4a11 11 0 0 0 5.2 5.2l1.4-2.1 4.2 1.6V17a2.5 2.5 0 0 1-2.7 2.5C9.4 19 5 14.6 4.5 8.2A2.5 2.5 0 0 1 5 3.5z" />
             </svg>
           </button>
@@ -424,7 +424,7 @@ export function ChatView({
           {waiting.map((p) => (
             <div key={p.id} className="flex max-w-[86%] flex-col items-end gap-1 self-end">
               {p.previews && <MessageImages previews={p.previews} />}
-              {p.text && <div className="whitespace-pre-wrap rounded-[18px] bg-[#0A0A0A] px-3.5 py-2 text-[14px] leading-5 text-white [overflow-wrap:anywhere]">{p.text}</div>}
+              {p.text && <div className="whitespace-pre-wrap rounded-[18px] bg-[#16132B] px-3.5 py-2 text-[14px] leading-5 text-white [overflow-wrap:anywhere]">{p.text}</div>}
             </div>
           ))}
           {c.typing.map((b) => {
@@ -610,7 +610,7 @@ function RepliesView({
           </span>
           <button onClick={onClose} aria-label="Close replies" className="flex size-[30px] items-center justify-center rounded-full shadow-[0_0_0_1px_#E6E6E3] hover:bg-[#F7F7F6]">
             <svg width="11" height="11" viewBox="0 0 12 12">
-              <path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="#0A0A0A" strokeWidth="1.6" strokeLinecap="round" />
+              <path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="#16132B" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           </button>
         </div>
@@ -694,7 +694,7 @@ type RowProps = {
   chipIds: string[];
   onOpenThread: (s: Session) => void;
   onShowScreen: (botId: string, display: number) => void;
-  /** Open the Your Mac tab (a heads-up about a watched Mac window). */
+  /** Open the Your PC tab (a heads-up about a watched PC window). */
   onShowMac: () => void;
   /** Inline replies to this message, shown as "2 replies" under it. */
   replyCount: number;
@@ -898,7 +898,7 @@ function MessageRow({ m, state, showSender, continued, sessionById, chipIds, onO
     <div className="flex gap-1.5 pl-0.5">
       <button
         onClick={() => {
-          // A watched Mac window shows in Your Mac (it cuts to the window with the news).
+          // A watched PC window shows in Your PC (it cuts to the window with the news).
           if (watch.mac) onShowMac();
           else onShowScreen(watch.botId, watch.display);
           void post("/api/watches", { id: watch.id, action: "seen" }, "PATCH");
@@ -907,7 +907,7 @@ function MessageRow({ m, state, showSender, continued, sessionById, chipIds, onO
       >
         Show me
       </button>
-      {/* Bots can't write in the apps on the user's Mac for now (lib/server/mac.ts), so a Mac window gets no draft. */}
+      {/* Bots can't write in the apps on the user's PC for now (lib/server/mac.ts), so a PC window gets no draft. */}
       {!watch.mac && (
         <button
           onClick={() => void post("/api/watches", { id: watch.id, action: "draft" }, "PATCH")}
@@ -950,7 +950,7 @@ function MessageRow({ m, state, showSender, continued, sessionById, chipIds, onO
           <div key={`${s.id}-where`} className="flex gap-1.5 pl-1">
             <button onClick={() => void post(`/api/sessions/${s.id}/where`, { to: "mac" })} className="flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-[12.5px] font-medium leading-4 text-white">
               <MacIcon size={13} />
-              On your Mac
+              On your PC
             </button>
             <button onClick={() => void post(`/api/sessions/${s.id}/where`, { to: "cloud" })} className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[12.5px] font-medium leading-4 shadow-[0_0_0_1px_#E2E2DF] hover:bg-[#F7F7F6]">
               <CloudIcon />
@@ -958,14 +958,14 @@ function MessageRow({ m, state, showSender, continued, sessionById, chipIds, onO
             </button>
           </div>
         ))}
-      {/* The bot (or someone's words) suggested the Mac, but the user didn't ask: nothing moves until they say so (sessions.ts offerMove). Only while it runs (once it's over, a move would do it all again), and not while its card above offers Try on your Mac. */}
+      {/* The bot (or someone's words) suggested the PC, but the user didn't ask: nothing moves until they say so (sessions.ts offerMove). Only while it runs (once it's over, a move would do it all again), and not while its card above offers Try on your PC. */}
       {chips
         .filter((s) => s.offerMac && live(s) && s.runsOn !== "mac" && state.mac?.ready && !(needsYou(s) && (s.blocker || s.status === "failed")))
         .map((s) => (
           <div key={`${s.id}-move`} className="flex gap-1.5 pl-1">
             <button onClick={() => void post(`/api/sessions/${s.id}/where`, { move: true })} className="flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-[12.5px] font-medium leading-4 text-white">
               <MacIcon size={13} />
-              Move to your Mac?
+              Move to your PC?
             </button>
             <button onClick={() => void post(`/api/sessions/${s.id}/where`, { move: false })} className="rounded-full bg-white px-3 py-1.5 text-[12.5px] font-medium leading-4 shadow-[0_0_0_1px_#E2E2DF] hover:bg-[#F7F7F6]">
               Not now
@@ -1019,7 +1019,7 @@ function MessageRow({ m, state, showSender, continued, sessionById, chipIds, onO
   // A call shows as a bubble from you in the bot's color, like a call in Messages.
   if (m.call) {
     const caller = state.bots.find((x) => `bot:${x.id}` === m.chatId);
-    const fill = !caller || caller.isMain ? "#0A0A0A" : caller.color;
+    const fill = !caller || caller.isMain ? "#16132B" : caller.color;
     const mins = Math.floor(m.call.seconds / 60);
     return (
       <div
@@ -1139,7 +1139,7 @@ function AskedLine({ state, asked, by }: { state: AppState; asked: NonNullable<M
 }
 
 /** A bot's name as a label, in its color (Sam's, which is black, in ink). */
-const nameColor = (b: Bot) => (b.isMain || /^#0[0-9a-f]{5}$/i.test(b.color) ? "#0A0A0A" : `color-mix(in oklab, ${b.color} 75%, black)`);
+const nameColor = (b: Bot) => (b.isMain || /^#0[0-9a-f]{5}$/i.test(b.color) ? "#16132B" : `color-mix(in oklab, ${b.color} 75%, black)`);
 
 /**
  * Two bots' conversation with each other (what Max asked Sam, and what Sam said, over time), over
@@ -1208,7 +1208,7 @@ function PairSheet({ state, pairId, focusId, onClose }: { state: AppState; pairI
                       {label(b)}
                     </span>
                   )}
-                  <div className={`whitespace-pre-wrap rounded-[18px] bg-[#F2F2F0] px-3.5 py-2 text-[14px] leading-5 [overflow-wrap:anywhere] ${m.id === focusId ? "shadow-[0_0_0_2px_#0A0A0A1F]" : ""}`}>
+                  <div className={`whitespace-pre-wrap rounded-[18px] bg-[#F2F2F0] px-3.5 py-2 text-[14px] leading-5 [overflow-wrap:anywhere] ${m.id === focusId ? "shadow-[0_0_0_2px_#16132B1F]" : ""}`}>
                     <Rich text={m.text} botId={m.botId} />
                   </div>
                 </div>
@@ -1405,7 +1405,7 @@ function MemoryNote({ m }: { m: Message }) {
 function readableOn(hex: string) {
   const n = parseInt(hex.slice(1), 16);
   const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  return 0.299 * r + 0.587 * g + 0.114 * b > 170 ? "#0A0A0A" : "#FFFFFF";
+  return 0.299 * r + 0.587 * g + 0.114 * b > 170 ? "#16132B" : "#FFFFFF";
 }
 
 /** A thread, collapsed to one line in the chat. Opens the thread sheet. */
@@ -1419,11 +1419,11 @@ function SessionChip({ session: s, state, onClick }: { session: Session; state: 
     >
       <StatusIcon session={s} size={14} dark />
       <span className={`truncate text-[14px] leading-[18px] ${live(s) || waiting ? "text-ink" : "text-[#6B6B6B]"}`}>{s.title}</span>
-      {/* Where it runs: the user's Mac or the cloud (deciding: nothing yet). */}
+      {/* Where it runs: the user's PC or the cloud (deciding: nothing yet). */}
       {s.runsOn === "mac" ? (
-        <span title="On your Mac" className="flex shrink-0 items-center gap-1 rounded-full bg-[#F2F2F0] px-1.5 py-px text-[11px] leading-[14px] text-[#3A3A38]">
+        <span title="On your PC" className="flex shrink-0 items-center gap-1 rounded-full bg-[#F2F2F0] px-1.5 py-px text-[11px] leading-[14px] text-[#3A3A38]">
           <MacIcon size={11} />
-          Your Mac
+          Your PC
         </span>
       ) : s.askWhere && live(s) ? (
         <span className="shrink-0 text-[12px] leading-4 text-[#6B6B6B]">· where?</span>
@@ -1494,18 +1494,18 @@ export function ThreadSheet({ state, session: s, onClose, onShowComputer }: { st
           <div className="flex min-w-0 flex-1 flex-col gap-px">
             <span className="truncate text-[15px] font-semibold leading-[18px]">{s.title}</span>
             <button onClick={onShowComputer} className="flex items-center gap-1.5 text-left text-[12px] leading-4 text-[#6B6B6B] hover:text-ink">
-              {b.name} · {s.runsOn === "mac" ? "on your Mac · " : ""}
+              {b.name} · {s.runsOn === "mac" ? "on your PC · " : ""}
               {s.askWhere && live(s) ? "waiting for you" : live(s) ? "working" : s.status === "done" ? "finished" : "stopped"} · {toolCount} steps
             </button>
           </div>
           {s.runsOn !== "mac" && state.mac?.ready && (s.blocker || s.status === "failed" || (s.offerMac && live(s))) && (
             <button
               onClick={() => void post(`/api/sessions/${s.id}/where`, { move: true })}
-              title="Do this on your Mac instead, on your home internet"
+              title="Do this on your PC instead, on your home internet"
               className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium shadow-[0_0_0_1px_#E6E6E3] hover:bg-[#F7F7F6]"
             >
               <MacIcon size={13} />
-              {s.offerMac && live(s) && !s.blocker ? "Move to your Mac" : "Try on your Mac"}
+              {s.offerMac && live(s) && !s.blocker ? "Move to your PC" : "Try on your PC"}
             </button>
           )}
           {live(s) ? (
@@ -1525,7 +1525,7 @@ export function ThreadSheet({ state, session: s, onClose, onShowComputer }: { st
           )}
           <button onClick={onClose} aria-label="Close thread" className="flex size-[34px] items-center justify-center rounded-full shadow-[0_0_0_1px_#E6E6E3] hover:bg-[#F7F7F6]">
             <svg width="12" height="12" viewBox="0 0 12 12">
-              <path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="#0A0A0A" strokeWidth="1.6" strokeLinecap="round" />
+              <path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="#16132B" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           </button>
         </div>
@@ -1536,7 +1536,7 @@ export function ThreadSheet({ state, session: s, onClose, onShowComputer }: { st
               {via && <Mascot botId={via.id} color={via.color} size={16} antenna={false} />}
               {s.sentVia === "routine" ? "Sent by a routine" : `Sent via ${via?.name ?? "the main bot"}`}
             </div>
-            <div className="flex flex-col gap-2 rounded-[18px] bg-[#FBFFE0] px-[15px] pb-2.5 pt-[11px] shadow-[0_0_0_1px_#EEF7A8]">
+            <div className="flex flex-col gap-2 rounded-[18px] bg-[#F3F0FF] px-[15px] pb-2.5 pt-[11px] shadow-[0_0_0_1px_#EEF7A8]">
               <div className={`whitespace-pre-wrap text-[14px] leading-[21px] ${expanded ? "" : "line-clamp-3"}`}>{s.goal}</div>
               {s.goal.length > 160 && (
                 <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-1 self-start text-[13px] leading-4 text-[#6B6B6B]">
@@ -1558,7 +1558,7 @@ export function ThreadSheet({ state, session: s, onClose, onShowComputer }: { st
                 <div className="flex gap-1.5 pt-0.5">
                   <button onClick={() => void post(`/api/sessions/${s.id}/where`, { to: "mac" })} className="flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-[12.5px] font-medium leading-4 text-white">
                     <MacIcon size={12} />
-                    Your Mac
+                    Your PC
                   </button>
                   <button onClick={() => void post(`/api/sessions/${s.id}/where`, { to: "cloud" })} className="rounded-full bg-white px-3 py-1.5 text-[12.5px] font-medium leading-4 shadow-[0_0_0_1px_#E2E2DF] hover:bg-[#F7F7F6]">
                     {b.name}&rsquo;s computer
@@ -1625,7 +1625,7 @@ export function ThreadSheet({ state, session: s, onClose, onShowComputer }: { st
             ),
           )}
           {s.status === "failed" && s.error && (
-            <div className="rounded-xl bg-[#FBFFE0] px-3 py-2.5 text-[13px] leading-5 shadow-[0_0_0_1px_#E6F57A]">{s.error}</div>
+            <div className="rounded-xl bg-[#F3F0FF] px-3 py-2.5 text-[13px] leading-5 shadow-[0_0_0_1px_#DCD3FF]">{s.error}</div>
           )}
           {live(s) && <span className="animate-pulse text-[14px] leading-[18px] text-[#B5B5B2]">{s.status === "queued" ? "Queued" : "Thinking"}</span>}
           <div ref={end} />
@@ -1814,7 +1814,7 @@ function Check({ on }: { on: boolean }) {
     <span className={`flex size-5 items-center justify-center rounded-md ${on ? "bg-ink" : "shadow-[0_0_0_1.5px_#C9C9C6]"}`}>
       {on && (
         <svg width="11" height="11" viewBox="0 0 14 14">
-          <path d="M3 7.5l2.5 2.5L11 4.5" fill="none" stroke="#E9FF3B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M3 7.5l2.5 2.5L11 4.5" fill="none" stroke="#C9BDFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
     </span>
@@ -1842,7 +1842,7 @@ function CloudIcon() {
 
 /**
  * A bot waiting on the user, as a card they can act on in one tap: sign it in, answer with one of the
- * replies it offered, retry, or move it to their Mac, instead of working out what to type back.
+ * replies it offered, retry, or move it to their PC, instead of working out what to type back.
  */
 function NeedsYouCard({ session: s, state, quote, onShow, onSomethingElse }: { session: Session; state: AppState; quote?: boolean; onShow: () => void; onSomethingElse: () => void }) {
   const [busy, setBusy] = useState(false);
@@ -1867,9 +1867,9 @@ function NeedsYouCard({ session: s, state, quote, onShow, onSomethingElse }: { s
   const primary = "rounded-full bg-ink px-3.5 py-1.5 text-[13px] font-semibold leading-4 text-white disabled:opacity-50";
   const plain = "rounded-full bg-white px-3.5 py-1.5 text-[13px] font-medium leading-4 shadow-[0_0_0_1px_#E2E2DF] hover:bg-[#F7F7F6] disabled:opacity-50";
   return (
-    <div className="flex w-full max-w-[460px] flex-col gap-2.5 rounded-2xl bg-[#FBFFE0] px-3.5 py-3 shadow-[0_0_0_1px_#E6F57A]">
+    <div className="flex w-full max-w-[460px] flex-col gap-2.5 rounded-2xl bg-[#F3F0FF] px-3.5 py-3 shadow-[0_0_0_1px_#DCD3FF]">
       <span className="flex items-center gap-2 text-[13.5px] font-semibold leading-[18px]">
-        <span className="size-2 shrink-0 rounded-full bg-highlighter shadow-[0_0_0_1.5px_#0A0A0A]" />
+        <span className="size-2 shrink-0 rounded-full bg-highlighter shadow-[0_0_0_1.5px_#16132B]" />
         {title}
       </span>
       {question && <span className="-mt-1 pl-4 text-[13.5px] leading-[19px] text-[#3A3A38]">{question}</span>}
@@ -1881,7 +1881,7 @@ function NeedsYouCard({ session: s, state, quote, onShow, onSomethingElse }: { s
             </button>
             {toMac && (
               <button disabled={busy} onClick={() => void post(`/api/sessions/${s.id}/where`, { move: true })} className={plain}>
-                Try on your Mac
+                Try on your PC
               </button>
             )}
             <button disabled={busy} onClick={dismiss} className={plain}>
@@ -1895,7 +1895,7 @@ function NeedsYouCard({ session: s, state, quote, onShow, onSomethingElse }: { s
             </button>
             {toMac && (
               <button disabled={busy} onClick={() => void post(`/api/sessions/${s.id}/where`, { move: true })} className={plain}>
-                Try on your Mac
+                Try on your PC
               </button>
             )}
             <button disabled={busy} onClick={dismiss} className={plain}>

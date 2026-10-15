@@ -81,7 +81,7 @@ export async function computerBriefing(botId: string, opts: { thread?: string } 
 
   const ownersMac = await macBriefing(botId);
   return [
-    `${shared ? `The computer you share with ${c.name}` : "Your computer"}${mac ? ` (browsers on ${owner}'s Mac)` : ""}, as of now:`,
+    `${shared ? `The computer you share with ${c.name}` : "Your computer"}${mac ? ` (browsers on ${owner}'s PC)` : ""}, as of now:`,
     ...lines,
     ...(waiting.length ? [`Waiting on ${owner}: ${waiting.join("; ")}.`] : []),
     ...(queued.length ? [`Up next: ${queued.join(", ")}.`] : []),
@@ -90,29 +90,29 @@ export async function computerBriefing(botId: string, opts: { thread?: string } 
   ].join("\n");
 }
 
-/** The user's own Mac, when bots can work there: ready or not, and what's running. */
+/** The user's own PC, when bots can work there: ready or not, and what's running. */
 async function macBriefing(botId: string) {
   const state = getState();
   const m = state.mac;
   const owner = ownerName();
-  // Windows on the user's Mac that Jev watches for them (they work whether or not bots can use the Mac).
+  // Windows on the user's PC that Jev watches for them (they work whether or not bots can use the PC).
   const watched = (state.watches ?? []).filter((w) => w.mac);
   const ago = (t?: number) => (t ? `${Math.max(1, Math.round((Date.now() - t) / 60_000))} min ago` : "not yet");
   const watching = watched.length
-    ? `Windows watched on ${owner}'s Mac (${watched.length}; Deskwisp reads each when it changes, and ${bot(watched[0].botId)?.name ?? "the main bot"} gives the heads-up): ${watched
+    ? `Windows watched on ${owner}'s PC (${watched.length}; Deskwisp reads each when it changes, and ${bot(watched[0].botId)?.name ?? "the main bot"} gives the heads-up): ${watched
         .map((w) => `"${w.mac!.title}" in ${w.mac!.app}, for ${w.lookFor}, last read ${ago(w.readAt)}${w.away ? ", paused: the window shows something else right now" : ""}${w.alert ? `, waiting for ${owner}: "${w.alert.text}"` : ""}`)
         .join("; ")}.`
-    : `No windows on ${owner}'s Mac are being watched.`;
+    : `No windows on ${owner}'s PC are being watched.`;
   if (!m) return watching;
-  if (!m.ready) return [`${owner}'s Mac: not available to bots (${m.reason ?? "not set up"}).`, watching].join("\n");
+  if (!m.ready) return [`${owner}'s PC: not available to bots (${m.reason ?? "not set up"}).`, watching].join("\n");
   const onMac = state.sessions.filter((s) => s.runsOn === "mac" && live(s));
   const yours = onMac.filter((s) => s.botId === botId);
   return [
     fullAccessOn()
-      ? `${owner}'s Mac: available with full access: a Chrome of the bot's own there (websites see ${owner}'s home internet), a shell, ${owner}'s files and their apps (Messages, Notes, Finder…).`
-      : `${owner}'s Mac: available, in a Chrome of the bot's own there (websites see ${owner}'s home internet). Not its apps (Messages, Notes, Finder…) or files: bots can't use those for now.`,
-    ...(yours.length ? [`Your tasks on ${owner}'s Mac: ${yours.map((s) => `"${s.title}"${s.activity ? ` (${s.activity})` : ""}`).join("; ")}.`] : []),
-    ...(onMac.length > yours.length ? [`Other bots are working on ${owner}'s Mac too (${onMac.length - yours.length}).`] : []),
+      ? `${owner}'s PC: available with full access: a Chrome of the bot's own there (websites see ${owner}'s home internet), a shell, ${owner}'s files and their apps (Messages, Notes, Finder…).`
+      : `${owner}'s PC: available, in a Chrome of the bot's own there (websites see ${owner}'s home internet). Not its apps (Messages, Notes, Finder…) or files: bots can't use those for now.`,
+    ...(yours.length ? [`Your tasks on ${owner}'s PC: ${yours.map((s) => `"${s.title}"${s.activity ? ` (${s.activity})` : ""}`).join("; ")}.`] : []),
+    ...(onMac.length > yours.length ? [`Other bots are working on ${owner}'s PC too (${onMac.length - yours.length}).`] : []),
     watching,
   ].join("\n");
 }
@@ -129,7 +129,7 @@ export function teamBriefing(mainId: string) {
   if (!others.length) return "Your team: just you so far.";
   const now = Date.now();
   const owner = ownerName();
-  const where = (s: Session) => (s.runsOn === "mac" ? `on ${owner}'s Mac` : s.askWhere ? `waiting for ${owner} to pick Mac or cloud` : "in the cloud");
+  const where = (s: Session) => (s.runsOn === "mac" ? `on ${owner}'s PC` : s.askWhere ? `waiting for ${owner} to pick PC or cloud` : "in the cloud");
   const lines = others.map((b) => {
     const mine = state.sessions.filter((s) => s.botId === b.id);
     const running = mine.filter(live);
@@ -144,7 +144,7 @@ export function teamBriefing(mainId: string) {
     const c = workComputer(b);
     const computer = c.id !== b.id ? "Works on your computer." : c.computerStatus === "ready" ? "" : c.computerStatus === "cloning" ? "Its computer is being set up." : "No computer yet.";
     return [
-      `- ${b.name} (${b.role}${b.runsOn && b.runsOn !== "auto" ? `, works on ${b.runsOn === "mac" ? `${owner}'s Mac` : "the cloud"}` : ""}):`,
+      `- ${b.name} (${b.role}${b.runsOn && b.runsOn !== "auto" ? `, works on ${b.runsOn === "mac" ? `${owner}'s PC` : "the cloud"}` : ""}):`,
       doing.length ? `working on ${doing.join("; ")}.` : "free.",
       watching.length ? `Watching ${watching.join(", ")}.` : "",
       alerts.length ? `Waiting on ${owner}: ${alerts.join("; ")}.` : "",

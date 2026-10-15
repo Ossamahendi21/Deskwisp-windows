@@ -55,7 +55,7 @@ export function initialsFrom(label: string) {
   return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : (parts[0]?.[1] ?? ""))).toUpperCase() || "?";
 }
 
-/** Sign out of Horafirm on this Mac (the route clears the key from the Keychain), asking first when changes haven't reached Deskwisp Cloud. */
+/** Sign out of Horafirm on this PC (the route clears the key from the Keychain), asking first when changes haven't reached Deskwisp Cloud. */
 export const signOutOfHorafirm = async () => {
   const res = await signOutAsking();
   await refreshState();
@@ -113,12 +113,12 @@ export function Account({ state, onClose, onThisMac }: { state: AppState; onClos
             <span className="truncate text-[18px] font-semibold leading-[22px]">{name}</span>
             <span className="truncate text-[13px] leading-[17px] text-[#6B6B6B]">
               {user ? (user.email ?? "Signed in with Horafirm") : "Not signed in"}
-              {user && info?.signedInAt ? <span className="text-[#9A9A98]"> · on this Mac since {day(info.signedInAt)}</span> : null}
+              {user && info?.signedInAt ? <span className="text-[#9A9A98]"> · on this PC since {day(info.signedInAt)}</span> : null}
             </span>
           </div>
           <button onClick={onClose} aria-label="Close" className="flex size-8 shrink-0 items-center justify-center rounded-full shadow-[0_0_0_1px_#E6E6E3]">
             <svg width="12" height="12" viewBox="0 0 12 12">
-              <path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="#0A0A0A" strokeWidth="1.6" strokeLinecap="round" />
+              <path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="#16132B" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           </button>
         </div>
@@ -143,7 +143,7 @@ export function Account({ state, onClose, onThisMac }: { state: AppState; onClos
               <>
                 {" "}
                 <button onClick={onThisMac} className="underline underline-offset-2 hover:text-ink">
-                  Permissions on this Mac
+                  Permissions on this PC
                 </button>
               </>
             )}
@@ -186,7 +186,7 @@ export function Placeholder({ title }: { title: string }) {
 /** Micro-dollars as money, rounded down to the cent (none below 0). */
 const credit = (micros: number) => money(Math.max(0, Math.floor(micros / 10_000)));
 
-/** Deskwisp' three plans, as the sheet lists them (lib/plan-includes.ts, the same words as deskwisp.bot). */
+/** Deskwisp's three plans, as the sheet lists them (lib/plan-includes.ts, the same words as deskwisp.bot). */
 const PLANS = PLAN_CARDS;
 const RANK: Record<DeskwispTier, number> = { free_deskwisp: 0, pro_deskwisp: 1, max_deskwisp: 2 };
 
@@ -244,7 +244,7 @@ function YourPlan({ plan, known, onPlan, userId }: { plan: DeskwispPlan | null |
           const mine = current === p.tier;
           const a = action(p.tier);
           return (
-            <div key={p.tier} className={`flex flex-col gap-3 rounded-[14px] p-4 ${mine ? "shadow-[0_0_0_1.5px_#0A0A0A]" : "shadow-[0_0_0_1px_#E6E6E3]"}`}>
+            <div key={p.tier} className={`flex flex-col gap-3 rounded-[14px] p-4 ${mine ? "shadow-[0_0_0_1.5px_#16132B]" : "shadow-[0_0_0_1px_#E6E6E3]"}`}>
               <div className="flex flex-col gap-1">
                 <span className="flex min-h-5 items-center justify-between gap-2">
                   <span className="text-[13px] font-semibold leading-5">{p.name}</span>
@@ -258,8 +258,8 @@ function YourPlan({ plan, known, onPlan, userId }: { plan: DeskwispPlan | null |
               {/* How many computers the plan includes, before anything else it does (paper, not highlighter: yellow only marks what needs you). */}
               <div className="flex items-start gap-2 rounded-[10px] bg-[#F7F7F6] px-2.5 py-2">
                 <svg width="16" height="16" viewBox="0 0 20 20" className="mt-px shrink-0" aria-hidden>
-                  <rect x="2" y="3" width="16" height="11" rx="2" fill="none" stroke="#0A0A0A" strokeWidth="1.6" />
-                  <path d="M7 17.5h6M10 14v3.5" fill="none" stroke="#0A0A0A" strokeWidth="1.6" strokeLinecap="round" />
+                  <rect x="2" y="3" width="16" height="11" rx="2" fill="none" stroke="#16132B" strokeWidth="1.6" />
+                  <path d="M7 17.5h6M10 14v3.5" fill="none" stroke="#16132B" strokeWidth="1.6" strokeLinecap="round" />
                 </svg>
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="text-[13px] font-semibold leading-[18px] text-ink">{p.computers.title}</span>
@@ -656,13 +656,13 @@ function AddCredit({ plan, topUp, onPlan, userId }: { plan: DeskwispPlan; topUp:
             aria-pressed={choice === p}
             disabled={busy}
             onClick={() => pick(p)}
-            className={`${chip} ${choice === p ? "bg-white shadow-[0_0_0_1.5px_#0A0A0A]" : "shadow-[0_0_0_1px_#E6E6E3] hover:bg-[#F7F7F6]"}`}
+            className={`${chip} ${choice === p ? "bg-white shadow-[0_0_0_1.5px_#16132B]" : "shadow-[0_0_0_1px_#E6E6E3] hover:bg-[#F7F7F6]"}`}
           >
             {dollars(p)}
           </button>
         ))}
         <label
-          className={`flex h-7 w-[92px] cursor-text items-center gap-0.5 rounded-full px-3 text-[12.5px] font-medium leading-4 ${choice === "other" ? "bg-white shadow-[0_0_0_1.5px_#0A0A0A]" : "bg-[#F7F7F6] shadow-[0_0_0_1px_#E6E6E3]"}`}
+          className={`flex h-7 w-[92px] cursor-text items-center gap-0.5 rounded-full px-3 text-[12.5px] font-medium leading-4 ${choice === "other" ? "bg-white shadow-[0_0_0_1.5px_#16132B]" : "bg-[#F7F7F6] shadow-[0_0_0_1px_#E6E6E3]"}`}
         >
           <span className={choice === "other" && other ? "text-ink" : "text-[#9A9A98]"}>$</span>
           <input

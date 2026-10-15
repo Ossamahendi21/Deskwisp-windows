@@ -6,8 +6,8 @@ import { notReady } from "@/lib/server/ready";
 export const dynamic = "force-dynamic";
 
 /**
- * Events from Deskwisp' own Slack app. Signed in with Horafirm, Deskwisp Cloud takes them for every user
- * (/hooks/slack), checks Slack's signature (it keeps the secret) and replays the ones for this Mac's
+ * Events from Deskwisp's own Slack app. Signed in with Horafirm, Deskwisp Cloud takes them for every user
+ * (/hooks/slack), checks Slack's signature (it keeps the secret) and replays the ones for this PC's
  * bots here over its tunnel, with the token only this server knows (lib/server/cloud-tunnel.ts): that
  * request counts as checked. Self-hosted, the self-hoster's front door (edge/, /hooks/slack) relays
  * them over the tailnet, and Slack's own signature (DESKWISP_SLACK_SIGNING_SECRET) is checked here:

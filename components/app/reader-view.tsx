@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 type Article = { url: string; title: string; site: string; blocks: { kind: string; text?: string; src?: string; alt?: string }[] };
 
 /**
- * Whatever the bot is reading, as a clean page in Deskwisp' own type: the article's headings,
+ * Whatever the bot is reading, as a clean page in Deskwisp's own type: the article's headings,
  * paragraphs, lists, quotes and images, without the site's chrome. It follows the bot as it reads
  * (refreshing every few seconds), so you can skim along.
  */

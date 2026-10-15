@@ -133,7 +133,7 @@ export function OwnerEmail({ info, onInfo }: { info: OwnerEmailInfo; onInfo: (i:
     return (
       <div className="flex flex-col gap-1.5">
         <span className="text-[13px] font-medium leading-4">Your email</span>
-        <span className={note}>Adding an email only works in the app on your Mac for now.</span>
+        <span className={note}>Adding an email only works in the app on your PC for now.</span>
       </div>
     );
 
@@ -253,7 +253,7 @@ export function OwnerEmail({ info, onInfo }: { info: OwnerEmailInfo; onInfo: (i:
               autoComplete="email"
               autoCapitalize="none"
               spellCheck={false}
-              className="h-8 w-[240px] rounded-full bg-[#F7F7F6] px-3 text-[13px] outline-none shadow-[0_0_0_1px_#E6E6E3] focus:shadow-[0_0_0_1.5px_#0A0A0A] disabled:opacity-50"
+              className="h-8 w-[240px] rounded-full bg-[#F7F7F6] px-3 text-[13px] outline-none shadow-[0_0_0_1px_#E6E6E3] focus:shadow-[0_0_0_1.5px_#16132B] disabled:opacity-50"
             />
             <button
               disabled={busy || !!retry || !address.trim()}

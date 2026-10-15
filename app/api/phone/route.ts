@@ -17,7 +17,7 @@ export async function GET(request?: Request) {
 }
 
 /**
- * Only from this Mac: { action: "provision", botId, areaCode? } gives a bot its own number (about $3 a month),
+ * Only from this PC: { action: "provision", botId, areaCode? } gives a bot its own number (about $3 a month),
  * in the area code picked from /api/phone/numbers;
  * { action: "remove-owner", number } removes one of the user's mobiles (adding one is /api/phone/verify/start and /check);
  * { action: "assign-line", workspaceId, number, scope } makes an existing number the workspace's (its main bot's);
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     workspaceId?: string;
     scope?: "parent" | "sub";
   };
-  // All of it is for this Mac only. Removing the user's number too: a hosted server can't yet tell its
+  // All of it is for this PC only. Removing the user's number too: a hosted server can't yet tell its
   // user from anyone else who reaches it (see /api/phone/verify/start).
   if (!local(request) || (onPostgres() && action === "remove-owner")) return Response.json({ error: "local only" }, { status: 403 });
   try {
