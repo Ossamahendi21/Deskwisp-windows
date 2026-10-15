@@ -31,10 +31,12 @@ desktop() {
 vnc() {
   local n="$1"
   [ -f "$STATE/vncpass" ] || return 0
+  # The braces matter: "a || b &" would put the whole list, and the caller's output pipe, in the
+  # background for as long as the daemon runs, and the call would never return.
   pgrep -f "[x]11vnc .*-display :$n " >/dev/null 2>&1 ||
-    setsid nohup x11vnc -display ":$n" -rfbport $((5900 + n)) -rfbauth "$STATE/vncpass" -forever -shared -noxdamage -quiet -o "$LOG/vnc-$n.log" </dev/null >/dev/null 2>&1 &
+    { setsid nohup x11vnc -display ":$n" -rfbport $((5900 + n)) -rfbauth "$STATE/vncpass" -forever -shared -noxdamage -quiet -o "$LOG/vnc-$n.log" </dev/null >/dev/null 2>&1 & }
   pgrep -f "[w]ebsockify.* $((5981 + n)) " >/dev/null 2>&1 ||
-    setsid nohup websockify $((5981 + n)) "127.0.0.1:$((5900 + n))" </dev/null >"$LOG/ws-$n.log" 2>&1 &
+    { setsid nohup websockify $((5981 + n)) "127.0.0.1:$((5900 + n))" </dev/null >"$LOG/ws-$n.log" 2>&1 & }
 }
 
 up() {

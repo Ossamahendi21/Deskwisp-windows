@@ -69,14 +69,11 @@ function run(command: string, home: string, timeoutSec: number): Promise<ExecRes
         process.kill(-p.pid!, "SIGKILL");
       } catch {}
     }, timeoutSec * 1000);
-    // On the shell's exit, not its pipes closing: a daemon it started may hold them open for good.
-    p.on("exit", (code) => {
+    // Done when the output pipes close, as on E2B: a daemon left holding them hangs the call here too,
+    // so the tests catch it.
+    p.on("close", (code) => {
       clearTimeout(timer);
-      setTimeout(() => {
-        p.stdout.destroy();
-        p.stderr.destroy();
-        resolve({ output: Buffer.concat(chunks).toString("utf8"), exitCode: code ?? 124 });
-      }, 30);
+      resolve({ output: Buffer.concat(chunks).toString("utf8"), exitCode: code ?? 124 });
     });
     p.on("error", (e) => {
       clearTimeout(timer);
