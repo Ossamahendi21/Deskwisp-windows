@@ -133,7 +133,6 @@ const openInBrowser = (url: string) => void window.open(url, "_blank", "noopener
 const primary = "flex h-10 w-full items-center justify-center gap-2 rounded-full bg-ink text-[13.5px] font-medium text-white disabled:opacity-50";
 const secondary =
   "flex h-10 w-full items-center justify-center gap-2 rounded-full text-[13.5px] font-medium shadow-[0_0_0_1px_#E6E6E3] hover:bg-[#FCFCFB] disabled:opacity-50";
-const link = "font-medium text-ink underline underline-offset-2 hover:text-[#3A3A38] disabled:opacity-50";
 
 export function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
   const [step, setStep] = useState<Step>({ kind: "idle" });
@@ -245,18 +244,20 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
             />
           )}
         </div>
-        <span className="pt-5 text-[12px] leading-4 text-pencil">
-          By continuing you agree to Horafirm&apos;s{" "}
-          <a href={TERMS} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ink">
-            Terms
-          </a>{" "}
-          and{" "}
-          <a href={PRIVACY} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ink">
-            Privacy Policy
-          </a>
-          .
-        </span>
-        {telemetryHere && <span className="pt-1.5 text-[12px] leading-4 text-pencil">Deskwisp shares usage counts and error reports with Horafirm, never your content. You can turn this off in Settings.</span>}
+        {TERMS && PRIVACY && (
+          <span className="pt-5 text-[12px] leading-4 text-pencil">
+            By continuing you agree to Deskwisp&apos;s{" "}
+            <a href={TERMS} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ink">
+              Terms
+            </a>{" "}
+            and{" "}
+            <a href={PRIVACY} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ink">
+              Privacy Policy
+            </a>
+            .
+          </span>
+        )}
+        {telemetryHere && <span className="pt-1.5 text-[12px] leading-4 text-pencil">Deskwisp shares usage counts and error reports with the Deskwisp team, never your content. You can turn this off in Settings.</span>}
       </div>
     </div>
   );
@@ -287,13 +288,6 @@ function Welcome({ starting, onStart }: { starting: Way | null; onStart: (way: W
           Continue with email
         </button>
       </div>
-      <span className="flex items-center gap-1.5 pt-3.5 text-center text-[12px] leading-4 text-pencil">
-        {starting === "horafirm" && <Spinner size={11} color="#6B6B6B" />}
-        Have an Horafirm account?
-        <button disabled={busy} onClick={() => onStart("horafirm")} className={link}>
-          Sign in with Horafirm
-        </button>
-      </span>
     </>
   );
 }
@@ -342,9 +336,9 @@ function Retry({
 
 /** What to do in the browser, by the way picked. Every way lands on Horafirm's page shown as Deskwisp; Google and email go straight to that sign-in. */
 const FINISH: Record<Way, string> = {
-  google: "Sign in with Google, check that the page shows this code, then allow Deskwisp.",
-  email: "Sign in with your email, check that the page shows this code, then allow Deskwisp.",
-  horafirm: "Your browser is open at deskwisp.com. Check that it shows this code, then allow Deskwisp.",
+  google: "Sign in in your browser (Google is there), check that the page shows this code, then allow Deskwisp.",
+  email: "Sign in in your browser with your email, check that the page shows this code, then allow Deskwisp.",
+  horafirm: "Your browser is open. Check that it shows this code, then allow Deskwisp.",
 };
 
 function Waiting({ step, way, onReopen, onCancel }: { step: Extract<Step, { kind: "waiting" }>; way: Way; onReopen: () => void; onCancel: () => void }) {

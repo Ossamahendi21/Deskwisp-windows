@@ -25,7 +25,7 @@ const missing = ["Xvfb", "xdotool", "convert", "x11vnc", "websockify"].filter((b
 const dir = mkdtempSync(join(tmpdir(), "dcloud-test-"));
 const cfg = loadConfig({ DESKWISP_PROVIDER: "local", DESKWISP_DATA_DIR: dir, DESKWISP_PORT: "8799", DESKWISP_API_KEYS: "k1=alice,k2=bob", DESKWISP_MAX_COMPUTERS: "2" });
 const base = `http://127.0.0.1:${cfg.port}/api`;
-let app: ReturnType<typeof startServer>;
+let app: Awaited<ReturnType<typeof startServer>>;
 
 const call = async (key: string, method: string, path: string, body?: unknown) => {
   const res = await fetch(`${base}${path}`, {
@@ -40,7 +40,7 @@ const call = async (key: string, method: string, path: string, body?: unknown) =
 };
 
 before(async () => {
-  app = startServer(cfg);
+  app = await startServer(cfg);
   await new Promise((r) => app.server.once("listening", r));
 });
 after(async () => {

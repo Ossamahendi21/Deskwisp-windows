@@ -13,7 +13,12 @@ import { bindSignIn, getState, releaseSignOut, update } from "./store";
 
 export const horafirmOrigin = () => (process.env.DESKWISP_HORAFIRM_ORIGIN || "https://app.deskwisp.com").replace(/\/+$/, "");
 
-const KEY_ACCOUNT = "horafirm-api-key";
+/**
+ * Where the signed-in key is kept: one slot per server. A key from deskwisp.com's sign-in stays in its own
+ * ("horafirm-api-key"), and one from another server (Deskwisp Cloud: DESKWISP_HORAFIRM_ORIGIN) in a slot named for
+ * that server, so a key is only ever sent back to the server that gave it.
+ */
+const keyAccount = () => (process.env.DESKWISP_HORAFIRM_ORIGIN ? `deskwisp-key@${new URL(horafirmOrigin()).host}` : "horafirm-api-key");
 
 export type HorafirmUser = { id: string; email?: string; name?: string };
 
@@ -41,7 +46,7 @@ export function loadHorafirmKey(): Promise<string | null> {
   if (ownKey()) return Promise.resolve(null);
   if (g.deskwispHorafirmKey) return Promise.resolve(g.deskwispHorafirmKey);
   if (g.deskwispHorafirmKey === null && Date.now() - (g.deskwispHorafirmKeyMissAt ?? 0) < RETRY_MS) return Promise.resolve(null);
-  const load = (g.deskwispHorafirmKeyLoad ??= getSecret(KEY_ACCOUNT).then((k) => {
+  const load = (g.deskwispHorafirmKeyLoad ??= getSecret(keyAccount()).then((k) => {
     // A sign-in or sign-out while this read was out has the last word.
     if (g.deskwispHorafirmKeyLoad !== load) return g.deskwispHorafirmKey ?? null;
     g.deskwispHorafirmKeyLoad = undefined;
@@ -76,7 +81,7 @@ export async function signIn(apiKey: string, user: HorafirmUser) {
   // deleted, and be let go.
   setKey(apiKey);
   try {
-    await setSecret(KEY_ACCOUNT, apiKey);
+    await setSecret(keyAccount(), apiKey);
   } catch (e) {
     // The key that's still in use is the one before; so must the state be, or one user's key would run over another's state.
     await giveBack(before, was);
@@ -116,7 +121,7 @@ async function giveBack(before: HorafirmUser | null, was: ReturnType<typeof keyN
 
 export async function signOut() {
   await releaseSignOut();
-  await deleteSecret(KEY_ACCOUNT);
+  await deleteSecret(keyAccount());
   setKey(null);
   update((s) => {
     s.account = undefined;

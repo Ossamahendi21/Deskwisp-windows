@@ -5,8 +5,15 @@ export type Config = {
   port: number;
   host: string;
   dataDir: string;
-  /** Who may call the computers API, by key: "key=owner" pairs (until accounts, step 2.2, replace them). */
+  /** Where people reach this server (the sign-in page's address): DESKWISP_PUBLIC_URL, else http://localhost:<port>. */
+  publicUrl: string;
+  /** Keys for development, besides signing in: "key=owner" pairs (DESKWISP_API_KEYS). */
   apiKeys: Map<string, string>;
+  /** Postgres (Neon) for users, keys and computers; without it, a JSON file in dataDir. */
+  databaseUrl?: string;
+  /** Clerk: the secret key checks sign-ins here, the publishable key runs Clerk's sign-in on the page. */
+  clerkSecretKey?: string;
+  clerkPublishableKey?: string;
   provider: "e2b" | "local";
   e2bApiKey?: string;
   e2bTemplate: string;
@@ -26,9 +33,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   }
   const provider = env.DESKWISP_PROVIDER === "local" ? "local" : "e2b";
   if (provider === "e2b" && !env.E2B_API_KEY) throw new Error("E2B_API_KEY is missing (or set DESKWISP_PROVIDER=local for development)");
+  const port = Number(env.DESKWISP_PORT) || 8791;
   return {
-    port: Number(env.DESKWISP_PORT) || 8791,
+    port,
     host: env.DESKWISP_HOST || "127.0.0.1",
+    publicUrl: (env.DESKWISP_PUBLIC_URL || `http://localhost:${port}`).replace(/\/+$/, ""),
+    databaseUrl: env.DATABASE_URL || undefined,
+    clerkSecretKey: env.CLERK_SECRET_KEY || undefined,
+    clerkPublishableKey: env.CLERK_PUBLISHABLE_KEY || undefined,
     dataDir: env.DESKWISP_DATA_DIR || join(process.cwd(), ".dcloud-data"),
     apiKeys: keys,
     provider,

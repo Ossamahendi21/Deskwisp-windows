@@ -157,10 +157,12 @@ function Details({
           <path d="M3 2.2h2.6l1 2.6-1.6 1a7 7 0 003 3l1-1.6 2.6 1V11a.9.9 0 01-.9.9A9.6 9.6 0 012.1 3.1.9.9 0 013 2.2z" fill="#16132B" />
         </ActionButton>
         {/* Video calls with bots aren't here yet; meanwhile it books a video call with the Deskwisp team. */}
-        <ActionButton label="Book a 20-minute video call with the Deskwisp team" onClick={() => window.open(BOOK_A_CALL)}>
-          <rect x="1.2" y="3.5" width="8" height="7" rx="1.5" fill="#16132B" />
-          <path d="M9.6 6.2l3.2-2v5.6L9.6 7.8z" fill="#16132B" />
-        </ActionButton>
+        {BOOK_A_CALL && (
+          <ActionButton label="Book a video call with the Deskwisp team" onClick={() => window.open(BOOK_A_CALL)}>
+            <rect x="1.2" y="3.5" width="8" height="7" rx="1.5" fill="#16132B" />
+            <path d="M9.6 6.2l3.2-2v5.6L9.6 7.8z" fill="#16132B" />
+          </ActionButton>
+        )}
         <ActionButton label={b.email ? `Email ${b.email}` : emailRoom ? emailRoom.text : emailOnAsk ? `${b.name} has no email yet` : plan.planNeeded ? "An email comes with Pro and Max" : "Its inbox is coming"} disabled={!b.email} onClick={() => b.email && window.open(`mailto:${b.email}`)}>
           <rect x="1.5" y="3" width="11" height="8.5" rx="1.5" fill="none" stroke="#16132B" strokeWidth="1.3" />
           <path d="M2 4l5 4 5-4" fill="none" stroke="#16132B" strokeWidth="1.3" strokeLinejoin="round" />

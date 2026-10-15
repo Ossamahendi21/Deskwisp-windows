@@ -1,3 +1,4 @@
+import { POSTHOG_PROJECT } from "@/cloud/analytics-rules";
 import { APP_VERSION_HEADER, TELEMETRY_HEADER } from "@/cloud/protocol";
 
 /**
@@ -13,6 +14,8 @@ export const appVersion = (): string | undefined => process.env.DESKWISP_APP_VER
  */
 export function telemetryHere(): boolean {
   const env = process.env;
+  // No project of Deskwisp's own to send to yet (cloud/analytics-rules.ts): nothing is sent.
+  if (!POSTHOG_PROJECT) return false;
   if (env.DESKWISP_SELF_HOSTED === "1" || env.DESKWISP_DATABASE_URL || env.DESKWISP_TELEMETRY === "0" || env.DO_NOT_TRACK === "1") return false;
   return env.NODE_ENV === "production" || env.DESKWISP_TELEMETRY === "1";
 }

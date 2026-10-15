@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Config } from "./config.ts";
 import * as desk from "./desktop.ts";
 import { BoxGone, type Box, type Provider } from "./providers/types.ts";
-import type { Computer, Registry } from "./registry.ts";
+import type { Computer, Store } from "./store.ts";
 
 /**
  * The computers API, in the shape the app already speaks (Horafirm's REST API, lib/server/horafirm.ts), so the
@@ -23,14 +23,14 @@ type Ctx = { owner: string; method: string; parts: string[]; query: URLSearchPar
 
 export class Computers {
   private readonly cfg: Config;
-  private readonly reg: Registry;
+  private readonly reg: Store;
   private readonly provider: Provider;
   /** Open boxes, kept a few minutes so each request doesn't reconnect. */
   private readonly open = new Map<string, { box: Promise<Box>; at: number }>();
   /** Boxes whose screens this process has set up. */
   private readonly readied = new Set<string>();
 
-  constructor(cfg: Config, reg: Registry, provider: Provider) {
+  constructor(cfg: Config, reg: Store, provider: Provider) {
     this.cfg = cfg;
     this.reg = reg;
     this.provider = provider;
@@ -60,8 +60,8 @@ export class Computers {
     return box;
   }
 
-  private mine(owner: string, id: string) {
-    const c = this.reg.computer(owner, id);
+  private async mine(owner: string, id: string) {
+    const c = await this.reg.computer(owner, id);
     if (!c) throw new HttpError(404, "Computer not found", "not_found");
     return c;
   }
@@ -108,9 +108,8 @@ export class Computers {
 
     // ---- The plan the app reads (lib/server/plan.ts): Deskwisp's limits, until billing sets them per user.
     if (a === "user" && b === "subscription" && method === "GET") return { tier: "deskwisp", planLimits: { maxDesktops: this.cfg.maxComputers } };
-    if (a === "user" && b === "profile" && method === "GET") return { id: owner, email: null };
     if (a === "billing" && b === "compute-limits" && method === "GET") {
-      const mine = this.reg.computers(owner);
+      const mine = await this.reg.computers(owner);
       const ram = mine.reduce((n, x) => n + x.ram, 0);
       return {
         max_computers: this.cfg.maxComputers,
@@ -123,15 +122,15 @@ export class Computers {
 
     // ---- Workspaces: each owner's own; nobody else's, and no sharing yet.
     if (a === "workspaces") {
-      if (!b && method === "GET") return { workspaces: this.reg.workspaces(owner).map((w) => ({ id: w.id, name: w.name, role: "owner", member_count: 1 })) };
+      if (!b && method === "GET") return { workspaces: (await this.reg.workspaces(owner)).map((w) => ({ id: w.id, name: w.name, role: "owner", member_count: 1 })) };
       if (!b && method === "POST") {
         const body = (await ctx.body()) as { name?: string };
-        const w = this.reg.addWorkspace(owner, String(body?.name ?? "deskwisp").slice(0, 60));
+        const w = await this.reg.addWorkspace(owner, String(body?.name ?? "deskwisp").slice(0, 60));
         return { id: w.id, name: w.name };
       }
-      const w = b ? this.reg.workspace(owner, b) : null;
+      const w = b ? await this.reg.workspace(owner, b) : null;
       if (!w) throw new HttpError(404, "Workspace not found", "not_found");
-      if (!c && method === "GET") return { id: w.id, name: w.name, desktops: this.reg.computers(owner, w.id).map((x) => ({ id: x.id, name: x.name })) };
+      if (!c && method === "GET") return { id: w.id, name: w.name, desktops: (await this.reg.computers(owner, w.id)).map((x) => ({ id: x.id, name: x.name })) };
       throw new HttpError(403, "Sharing a workspace isn't available yet", "not_available");
     }
 
@@ -142,14 +141,14 @@ export class Computers {
     // ---- Create.
     if (!b && method === "POST") {
       const body = (await ctx.body()) as { workspace_id?: string; name?: string; ram?: number };
-      const w = body?.workspace_id ? this.reg.workspace(owner, body.workspace_id) : null;
+      const w = body?.workspace_id ? await this.reg.workspace(owner, body.workspace_id) : null;
       if (!w) throw new HttpError(404, "Workspace not found", "not_found");
-      if (this.reg.computers(owner).length >= this.cfg.maxComputers)
+      if ((await this.reg.computers(owner)).length >= this.cfg.maxComputers)
         throw new HttpError(403, `Your plan includes ${this.cfg.maxComputers} computers`, "COMPUTER_LIMIT");
       return this.view(await this.create(owner, w.id, String(body?.name ?? "Computer").slice(0, 80)));
     }
 
-    const comp = b ? this.mine(owner, b) : null;
+    const comp = b ? await this.mine(owner, b) : null;
     if (!comp) return false;
 
     if (!c) {
@@ -164,7 +163,7 @@ export class Computers {
         });
         this.open.delete(comp.boxId);
         this.readied.delete(comp.boxId);
-        this.reg.removeComputer(comp.id);
+        await this.reg.removeComputer(comp.id);
         return { ok: true };
       }
     }
@@ -182,7 +181,7 @@ export class Computers {
         throw new HttpError(409, "This computer can't be forked", "NOT_FORKABLE");
       case "clone": {
         const body = (await ctx.body()) as { name?: string };
-        if (this.reg.computers(owner).length >= this.cfg.maxComputers)
+        if ((await this.reg.computers(owner)).length >= this.cfg.maxComputers)
           throw new HttpError(403, `Your plan includes ${this.cfg.maxComputers} computers`, "COMPUTER_LIMIT");
         // A fresh computer from the template: what the app needs from a clone is a computer of its own.
         return this.view(await this.create(owner, comp.workspaceId, String(body?.name ?? `${comp.name} copy`).slice(0, 80)));
@@ -243,7 +242,7 @@ export class Computers {
 
   private async create(owner: string, workspaceId: string, name: string) {
     const box = await this.provider.create({ cpu: this.cfg.cpu, ramGb: this.cfg.ramGb, meta: { owner, name } });
-    const c = this.reg.addComputer({ owner, workspaceId, name, boxId: box.id, provider: this.provider.name, cpu: this.cfg.cpu, ram: this.cfg.ramGb });
+    const c = await this.reg.addComputer({ owner, workspaceId, name, boxId: box.id, provider: this.provider.name, cpu: this.cfg.cpu, ram: this.cfg.ramGb });
     this.open.set(box.id, { box: Promise.resolve(box), at: Date.now() });
     try {
       await desk.ready(box, c.vncPassword);
@@ -251,7 +250,7 @@ export class Computers {
     } catch (e) {
       // A computer whose screens never came up is no use: it goes, and the app is told why.
       await this.provider.kill(box.id).catch(() => {});
-      this.reg.removeComputer(c.id);
+      await this.reg.removeComputer(c.id);
       throw new HttpError(503, (e as Error).message, "computer_failed");
     }
     return c;
@@ -259,7 +258,7 @@ export class Computers {
 
   /** The URL of a computer's VNC bridge for one screen, for the live view proxy. */
   async bridge(computerId: string, token: string, screenId: string | null) {
-    const c = this.reg.anyComputer(computerId);
+    const c = await this.reg.anyComputer(computerId);
     if (!c || !token || token !== c.vncPassword) return null;
     const display = desk.displayOf(screenId);
     if (display === null) return null;
