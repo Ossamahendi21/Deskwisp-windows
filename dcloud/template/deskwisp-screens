@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# The screens on a Deskwisp computer: X displays :99 (the boot screen) and :100-:102, each with a
+# desktop, a VNC server and a websockify bridge for the live view. Deskwisp Cloud pushes this script into
+# every computer and calls it over the provider's shell (dcloud/src/desktop.ts).
+#
+#   deskwisp-screens boot <vnc-password> [WxH]   the boot screen and the VNC password (idempotent)
+#   deskwisp-screens up <display> [WxH]          start another screen (idempotent)
+#   deskwisp-screens down <display>              stop a screen (never the boot screen)
+#   deskwisp-screens list                        the running screens, as JSON
+#   deskwisp-screens shot <display> <scale> <png|jpeg> <out>   a screenshot, scaled, to a file
+#
+# Process patterns are bracketed ("[X]vfb") so they never match a shell whose command line names them.
+# Ports: VNC on 5900 + display, websockify on 5981 + display (6080 for :99, 6081-6083 for the others).
+set -u
+STATE="$HOME/.deskwisp"
+LOG=/tmp/deskwisp-screens
+mkdir -p "$STATE" "$LOG"
+
+running() { pgrep -f "[X]vfb :$1 " >/dev/null 2>&1; }
+
+desktop() {
+  local n="$1"
+  if [ "$n" = 99 ] && command -v startxfce4 >/dev/null 2>&1; then
+    DISPLAY=":$n" setsid nohup dbus-launch --exit-with-session startxfce4 </dev/null >"$LOG/xfce-$n.log" 2>&1 &
+  elif command -v xfwm4 >/dev/null 2>&1; then
+    DISPLAY=":$n" setsid nohup xfwm4 --replace </dev/null >"$LOG/xfwm-$n.log" 2>&1 &
+    if command -v xfdesktop >/dev/null 2>&1; then DISPLAY=":$n" setsid nohup xfdesktop </dev/null >"$LOG/xfdesktop-$n.log" 2>&1 & fi
+  fi
+}
+
+vnc() {
+  local n="$1"
+  [ -f "$STATE/vncpass" ] || return 0
+  pgrep -f "[x]11vnc .*-display :$n " >/dev/null 2>&1 ||
+    setsid nohup x11vnc -display ":$n" -rfbport $((5900 + n)) -rfbauth "$STATE/vncpass" -forever -shared -noxdamage -quiet -o "$LOG/vnc-$n.log" </dev/null >/dev/null 2>&1 &
+  pgrep -f "[w]ebsockify.* $((5981 + n)) " >/dev/null 2>&1 ||
+    setsid nohup websockify $((5981 + n)) "127.0.0.1:$((5900 + n))" </dev/null >"$LOG/ws-$n.log" 2>&1 &
+}
+
+up() {
+  local n="$1" size="${2:-1280x960}"
+  if ! running "$n"; then
+    setsid nohup Xvfb ":$n" -screen 0 "${size}x24" -ac -nolisten tcp +extension RANDR </dev/null >"$LOG/xvfb-$n.log" 2>&1 &
+    for _ in $(seq 1 50); do DISPLAY=":$n" xdpyinfo >/dev/null 2>&1 && break; sleep 0.1; done
+    desktop "$n"
+  fi
+  vnc "$n"
+}
+
+down() {
+  local n="$1"
+  [ "$n" = 99 ] && { echo "the boot screen stays" >&2; return 1; }
+  pkill -f "[w]ebsockify.* $((5981 + n)) " 2>/dev/null
+  pkill -f "[x]11vnc .*-display :$n " 2>/dev/null
+  pkill -f "[X]vfb :$n " 2>/dev/null
+  return 0
+}
+
+case "${1:-list}" in
+  boot)
+    pw="${2:?vnc password}"
+    if [ ! -f "$STATE/vncpass" ] || [ "$(cat "$STATE/vncpass.txt" 2>/dev/null)" != "$pw" ]; then
+      x11vnc -storepasswd "$pw" "$STATE/vncpass" >/dev/null 2>&1
+      printf '%s' "$pw" >"$STATE/vncpass.txt"
+      chmod 600 "$STATE/vncpass" "$STATE/vncpass.txt"
+      # A new password: the VNC servers start again with it.
+      pkill -f "^[x]11vnc " 2>/dev/null
+    fi
+    up 99 "${3:-1280x960}"
+    for n in 100 101 102; do running "$n" && vnc "$n"; done
+    echo ok
+    ;;
+  up) up "${2:?display}" "${3:-1280x960}" && echo ok ;;
+  down) down "${2:?display}" && echo ok ;;
+  list)
+    first=1
+    printf '['
+    for n in 99 100 101 102; do
+      running "$n" || continue
+      read -r W H < <(DISPLAY=":$n" xdotool getdisplaygeometry 2>/dev/null || echo "1280 960")
+      [ "$first" = 1 ] || printf ','
+      first=0
+      printf '{"display":%s,"width":%s,"height":%s}' "$n" "$W" "$H"
+    done
+    printf ']\n'
+    ;;
+  shot)
+    n="${2:?display}" scale="${3:-1}" fmt="${4:-png}" out="${5:?out}"
+    running "$n" || { echo "no screen :$n" >&2; exit 3; }
+    raw="$out.raw.png"
+    DISPLAY=":$n" import -window root "$raw" 2>/dev/null || DISPLAY=":$n" scrot --overwrite "$raw" || exit 4
+    pct=$(awk -v s="$scale" 'BEGIN{printf "%d", s*100}')
+    if [ "$fmt" = jpeg ]; then convert "$raw" -resize "${pct}%" -quality 80 "jpeg:$out"; else convert "$raw" -resize "${pct}%" "png:$out"; fi
+    rm -f "$raw"
+    echo ok
+    ;;
+  *) echo "usage: deskwisp-screens boot|up|down|list|shot" >&2; exit 2 ;;
+esac
