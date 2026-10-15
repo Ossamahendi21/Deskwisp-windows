@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { WebSocket, WebSocketServer } from "ws";
 import { Computers, HttpError, readBody } from "./computers.ts";
 import { loadConfig, type Config } from "./config.ts";
@@ -95,8 +96,17 @@ export function startServer(cfg: Config, provider: Provider = makeProvider(cfg))
   return { server, registry, computers };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run directly (not imported by the tests). Node 24 says so in import.meta.main; on 22, compare paths,
+// case-blind for Windows ("file://" + argv[1] never matched a Windows path, so the server didn't start).
+const isMain =
+  (import.meta as { main?: boolean }).main ??
+  (!!process.argv[1] && fileURLToPath(import.meta.url).toLowerCase() === resolve(process.argv[1]).toLowerCase());
+if (isMain) {
   const cfg = loadConfig();
   const { server } = startServer(cfg);
   server.on("listening", () => console.log(`Deskwisp Cloud on http://${cfg.host}:${cfg.port} (computers on ${cfg.provider})`));
+  server.on("error", (e) => {
+    console.error(`Deskwisp Cloud couldn't start: ${e.message}`);
+    process.exit(1);
+  });
 }
