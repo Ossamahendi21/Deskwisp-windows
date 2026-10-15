@@ -135,6 +135,8 @@ if (isMain) {
   const cfg = loadConfig();
   const fail = (e: Error) => {
     console.error(`Deskwisp Cloud couldn't start: ${e.message}`);
+    if (/password authentication failed|role .* does not exist/.test(e.message))
+      console.error("Check DATABASE_URL in dcloud/.env: copy it again from Neon (your project → Connect), with its password.");
     process.exit(1);
   };
   startServer(cfg).then(({ server, store }) => {

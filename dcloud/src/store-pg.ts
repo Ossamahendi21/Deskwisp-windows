@@ -47,7 +47,10 @@ export class PgStore implements Store {
 
   static async open(url: string): Promise<PgStore> {
     // Neon closes idle connections on its side; a small pool that lets them go is enough here.
-    const pool = new pg.Pool({ connectionString: url, max: 5, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 15_000 });
+    // Neon's strings say sslmode=require, which pg already treats as verify-full (and warns about):
+    // say verify-full outright, the check it does today and keeps doing.
+    const connectionString = url.replace(/([?&]sslmode=)(require|prefer|verify-ca)\b/, "$1verify-full");
+    const pool = new pg.Pool({ connectionString, max: 5, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 15_000 });
     pool.on("error", (e) => console.warn(`[dcloud] database: ${e.message}`));
     const store = new PgStore(pool);
     await store.migrate();
