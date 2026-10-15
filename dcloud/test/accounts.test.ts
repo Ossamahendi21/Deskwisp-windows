@@ -155,7 +155,7 @@ for (const kind of stores) {
     test("the approve page loads Clerk from the instance's own host", async () => {
       const page = await call("GET", "/cli/approve?code=ABCD-EFGH");
       assert.equal(page.status, 200);
-      assert.match(page.text, /src="https:\/\/fine-ant-12\.clerk\.accounts\.dev\/npm\/@clerk\/clerk-js@6\/dist\/clerk\.browser\.js"/);
+      assert.match(page.text, /src="https:\/\/fine-ant-12\.clerk\.accounts\.dev\/npm\/@clerk\/clerk-js@5\/dist\/clerk\.browser\.js"/);
       assert.match(page.text, /data-clerk-publishable-key="pk_test_/);
       assert.match(page.text, /<title>Sign in to Deskwisp<\/title>/);
     });

@@ -4,7 +4,9 @@ import { readFileSync } from "node:fs";
  * The page the app opens in the browser to sign in (/cli/approve?code=XXXX-XXXX): Clerk's sign-in
  * (Google or email) if the browser isn't signed in yet, then "Sign in to Deskwisp on <this PC>?" with
  * the code to compare against the app's, and Allow / Don't allow. Clerk's script comes from the
- * instance's own Frontend API host, which the publishable key names.
+ * instance's own Frontend API host, which the publishable key names. It's clerk-js 5: 6 no longer
+ * carries the sign-in components (they come from @clerk/ui, passed to Clerk.load), so with it
+ * mountSignIn draws nothing.
  */
 
 const LOGO = (() => {
@@ -21,7 +23,7 @@ const scriptJson = (v: unknown) => JSON.stringify(v).replace(/</g, "\\u003c");
 export function approvePage(opts: { publishableKey: string | null; frontendApi: string | null }) {
   const clerkScript =
     opts.publishableKey && opts.frontendApi
-      ? `<script async crossorigin="anonymous" data-clerk-publishable-key="${opts.publishableKey.replace(/"/g, "")}" src="https://${opts.frontendApi}/npm/@clerk/clerk-js@6/dist/clerk.browser.js"></script>`
+      ? `<script async crossorigin="anonymous" data-clerk-publishable-key="${opts.publishableKey.replace(/"/g, "")}" src="https://${opts.frontendApi}/npm/@clerk/clerk-js@5/dist/clerk.browser.js"></script>`
       : "";
   return `<!doctype html>
 <html lang="en">
@@ -153,8 +155,10 @@ ${clerkScript}
     } catch (e) {
       return show("Couldn't load sign-in", String(e && e.message || e), { bad: true });
     }
-    window.Clerk.addListener(function () { render(); });
-    render();
+    // Anything that goes wrong is said on the page, never a blank one.
+    var safe = function () { render().catch(function (e) { show("Couldn't show sign-in", String(e && e.message || e), { bad: true }); }); };
+    window.Clerk.addListener(safe);
+    safe();
   });
 })();
 </script>
