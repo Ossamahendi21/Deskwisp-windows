@@ -42,7 +42,15 @@ export function startServer(cfg: Config, provider: Provider = makeProvider(cfg))
       if (url.pathname === "/health") return send(res, 200, { ok: true, provider: provider.name });
       if (!url.pathname.startsWith("/api/")) throw new HttpError(404, "Not found", "not_found");
       const owner = ownerOf(req);
-      if (!owner) throw new HttpError(401, "Unauthorized", "unauthorized");
+      if (!owner) {
+        // Say why, without the key itself: only its length and last 4 characters, to compare by eye.
+        const sent = /^Bearer\s+(.+)$/i.exec(req.headers.authorization ?? "")?.[1].trim();
+        console.warn(
+          `[dcloud] 401 ${req.method} ${url.pathname}: ` +
+            (sent ? `the key sent (${sent.length} chars, ending …${sent.slice(-4)}) isn't in DESKWISP_API_KEYS` : "no key sent (HORAFIRM_API_KEY is empty in the app)"),
+        );
+        throw new HttpError(401, "Unauthorized", "unauthorized");
+      }
       const parts = url.pathname.slice("/api/".length).split("/").filter(Boolean).map(decodeURIComponent);
       let body: Promise<unknown> | undefined;
       const out = await computers.handle({
@@ -104,7 +112,11 @@ const isMain =
 if (isMain) {
   const cfg = loadConfig();
   const { server } = startServer(cfg);
-  server.on("listening", () => console.log(`Deskwisp Cloud on http://${cfg.host}:${cfg.port} (computers on ${cfg.provider})`));
+  server.on("listening", () => {
+    console.log(`Deskwisp Cloud on http://${cfg.host}:${cfg.port} (computers on ${cfg.provider})`);
+    const keys = [...cfg.apiKeys.keys()].map((k) => `${k.length} chars, ending …${k.slice(-4)}`);
+    console.log(keys.length ? `Keys from DESKWISP_API_KEYS: ${keys.join("; ")}` : "No keys in DESKWISP_API_KEYS: every call will get 401.");
+  });
   server.on("error", (e) => {
     console.error(`Deskwisp Cloud couldn't start: ${e.message}`);
     process.exit(1);
