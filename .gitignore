@@ -59,3 +59,4 @@ next-env.d.ts
 # Deskwisp Cloud
 /dcloud/.env
 .dcloud-data/
+/dcloud-smoke-*.png

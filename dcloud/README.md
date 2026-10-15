@@ -44,6 +44,13 @@ cp dcloud/.env.example dcloud/.env      # then fill in E2B_API_KEY and DESKWISP_
 node --experimental-strip-types --env-file=dcloud/.env dcloud/template/build.ts
 ```
 
+Then check it on real E2B, without the app (one computer, made, paused, woken and deleted: about a
+cent). It saves two screenshots, `dcloud-smoke-1.png` and `dcloud-smoke-2.png`:
+
+```bash
+node --experimental-strip-types --env-file=dcloud/.env dcloud/scripts/smoke-e2b.ts
+```
+
 **3. Start Deskwisp Cloud:**
 
 ```bash
