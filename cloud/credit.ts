@@ -1,0 +1,111 @@
+import { trackCloudEvent } from "./analytics.ts";
+import type pg from "pg";
+import { config } from "./config.ts";
+import { query } from "./db.ts";
+import { HttpError } from "./http.ts";
+import { AI_CREDIT_EMPTY, AI_CREDIT_LOW } from "./protocol.ts";
+
+/**
+ * AI credit: what a user's bots may spend on OpenAI, AgentPhone, Typesafe and texted codes, at what
+ * Horafirm pays for it (pricing.ts), in micro-dollars. The balance lives in horafirm-web's database
+ * (public.deskwisp_ai_credit, with every grant in public.deskwisp_ai_credit_grants), next to Deskwisp' own schema:
+ * horafirm-web grants Pro's and Max's monthly credit when Stripe says an invoice is paid, and the cloud
+ * reads the balance here and takes each use from it (usage.ts). The money math is horafirm-web's three SQL
+ * functions (its migration 20261022_deskwisp_plans.sql); deskwisp_app may use those two tables and nothing
+ * else of horafirm-web's.
+ *
+ * - deskwisp_ai_credit_balance(user): what's left. The first time it's asked about a user it gives them
+ *   Free's one-time $5, once ever (POST /v1/session asks, and so does the gate, whichever is first).
+ * - deskwisp_ai_credit_spend(user, micros): takes a use, from this month's plan credit first (it runs out
+ *   at the month's end), then the rest. The rest may go below 0 by what a use cost past what was
+ *   left: a model's answer already asked for, or an agent turn's last few seconds before the cloud
+ *   stopped it (turn-guard.ts holds running turns to the credit). The next grant covers it.
+ *
+ * Off unless DESKWISP_AI_CREDITS=1: then nothing is taken and nothing is refused (a self-hosted or local
+ * cloud). On, the cloud won't start without access to the two tables (checkCreditAccess).
+ */
+
+export const creditsOn = () => config.aiCredits();
+
+/** What the app is told when the credit is used up (a 402, or a task the cloud stopped: turn-guard.ts). */
+export const OUT_OF_CREDIT = "You're out of AI credit, so your bots have stopped. Upgrade in Settings to keep them going.";
+
+/** What the user has left, in micro-dollars (Free's $5 given first, if they never had it). */
+export async function creditLeft(userId: string): Promise<number> {
+  const r = await query<{ left: string | null }>("SELECT public.deskwisp_ai_credit_balance($1::uuid) AS left", [userId]);
+  return Number(r.rows[0]?.left ?? 0);
+}
+
+/**
+ * Take `micros` from the user's credit, inside the caller's transaction (with the usage row it pays
+ * for). What's left after, and whether this use is the one that ran the credit out (only at the
+ * crossing, never after): the caller reports that once its transaction has committed (creditRanOut).
+ */
+export async function spend(c: pg.PoolClient, userId: string, micros: number): Promise<{ left: number; ranOut: boolean }> {
+  const r = await c.query<{ left: string | null }>("SELECT public.deskwisp_ai_credit_spend($1::uuid, $2::bigint) AS left", [userId, Math.ceil(micros)]);
+  const left = Number(r.rows[0]?.left ?? 0);
+  return { left, ranOut: left <= 0 && left + Math.ceil(micros) > 0 };
+}
+
+/** The credit ran out (usage events), after the spend that did it committed. */
+export const creditRanOut = (userId: string) => trackCloudEvent(userId, "deskwisp_ai_credit_ran_out", {});
+
+/** The 402 a call that would spend gets when the credit's used up: the app shows it with Upgrade. */
+export const outOfCredit = () => new HttpError(402, OUT_OF_CREDIT, { code: AI_CREDIT_EMPTY, upgrade: true });
+
+/**
+ * A task that can't start on what's left, though some is (turn-guard.ts admitTurn): 403, not 402, so
+ * no app takes the credit for used up (every app before 0.0.16 pauses all its bots on any 402). The
+ * body is shaped like OpenAI's errors too, so the OpenAI SDK in the app keeps the code.
+ */
+export function shortOfCredit(): HttpError {
+  const message = "There isn't enough AI credit left to start this task. Upgrade in Settings to keep your bots going.";
+  return new HttpError(403, message, { error: { message, code: AI_CREDIT_LOW }, code: AI_CREDIT_LOW, upgrade: true });
+}
+
+/**
+ * Refuse (402) a call that would spend when the user has nothing left, or less than it costs at the
+ * least (`minCost`: a number's month). Read fresh every time, so an upgrade counts at once. Nothing
+ * when AI credit is off.
+ */
+export async function requireCredit(userId: string, minCost = 0): Promise<void> {
+  if (!creditsOn()) return;
+  const left = await creditLeft(userId);
+  if (left <= 0 || left < minCost) throw outOfCredit();
+}
+
+/** Whether the user has any credit left; true when AI credit is off. */
+export async function hasCredit(userId: string): Promise<boolean> {
+  return !creditsOn() || (await creditLeft(userId)) > 0;
+}
+
+/** Give a new user Free's $5 (once ever; nothing if they've had it). Best effort: the gate gives it too. */
+export async function welcome(userId: string): Promise<void> {
+  if (!creditsOn()) return;
+  await creditLeft(userId).catch((e: Error) => console.warn(`[credit] ${userId}'s first AI credit: ${e.message}`));
+}
+
+/**
+ * With AI credit on, the cloud must be able to read and change the balance (horafirm-web's migration
+ * grants deskwisp_app the two tables; db/provision.sql grants them again for a database set up after it).
+ * Without that every use would go unpaid, so the cloud refuses to start instead.
+ */
+export async function checkCreditAccess(): Promise<void> {
+  if (!creditsOn()) return;
+  // One privilege per check: a list ("SELECT, UPDATE") is true when any one of them is held.
+  const r = await query<{ ok: boolean | null }>(
+    `SELECT has_schema_privilege('public', 'USAGE')
+        AND COALESCE(has_table_privilege(to_regclass('public.deskwisp_ai_credit'), 'SELECT'), false)
+        AND COALESCE(has_table_privilege(to_regclass('public.deskwisp_ai_credit'), 'INSERT'), false)
+        AND COALESCE(has_table_privilege(to_regclass('public.deskwisp_ai_credit'), 'UPDATE'), false)
+        AND COALESCE(has_table_privilege(to_regclass('public.deskwisp_ai_credit_grants'), 'SELECT'), false)
+        AND COALESCE(has_table_privilege(to_regclass('public.deskwisp_ai_credit_grants'), 'INSERT'), false)
+        AND COALESCE(has_sequence_privilege(to_regclass('public.deskwisp_ai_credit_grants_id_seq'), 'USAGE'), false)
+        AND COALESCE(has_function_privilege(to_regprocedure('public.deskwisp_ai_credit_balance(uuid)'), 'EXECUTE'), false)
+        AND COALESCE(has_function_privilege(to_regprocedure('public.deskwisp_ai_credit_spend(uuid, bigint)'), 'EXECUTE'), false) AS ok`,
+  );
+  if (!r.rows[0]?.ok)
+    throw new Error(
+      "DESKWISP_AI_CREDITS=1, but this login can't use public.deskwisp_ai_credit and its functions. Apply horafirm-web's 20261022_deskwisp_plans.sql (and db/provision.sql's grant) first, or turn AI credit off.",
+    );
+}

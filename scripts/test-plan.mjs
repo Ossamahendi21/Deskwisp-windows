@@ -1,0 +1,1408 @@
+// Tests for Deskwisp on Horafirm's plans: reading the user's plan from Horafirm (lib/server/plan.ts) for every plan
+// key, today's and older ones, room or none for another computer and the words for it (lib/horafirm-plans.ts),
+// the size Deskwisp makes computers at so a plan runs out of computers before memory, Horafirm's refusals (a
+// custom deal's too), the first task's copy of the main bot's computer falling back to the main bot's
+// when the plan has no room, computers made one at a time, the plan read again after Deskwisp makes or
+// deletes a computer, and setting a computer up (lib/server/sessions.ts): a broken one replaced, and
+// nothing done in another user's state. A computer deleted on Horafirm's site: whatever finds out (a screen's
+// stream or screenshot, the computer view, its set-up button, the check every 10 minutes), the bot moves
+// once onto the free Deskwisp computer or a new one, and deleting one that's gone just forgets it. Horafirm is a fake fetch on a made-up origin and the state a
+// throwaway file store in a temporary folder: nothing reaches Horafirm, and no key is read from the Keychain.
+// Usage: node --conditions=react-server scripts/test-plan.mjs
+import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { registerHooks } from "node:module";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+// The state in a throwaway file store, as a self-hosted install keeps it (the Mac app keeps it in Deskwisp Cloud, per user: test-profiles.mjs).
+process.env.DESKWISP_SELF_HOSTED = "1";
+// Horafirm is the fake below, on its own origin; the state goes to a throwaway file store, with mail, OpenAI and the tailnet off.
+// WebRTC is on by default (lib/server/horafirm.ts webrtcWanted), so a new computer's is turned on.
+for (const k of ["HORAFIRM_API_KEY", "DESKWISP_HORAFIRM_WORKSPACE", "DESKWISP_HORAFIRM_TEMPLATE", "DESKWISP_DATABASE_URL", "AGENTMAIL_API_KEY", "DESKWISP_MAIL_DOMAIN", "OPENAI_API_KEY", "TAILSCALE_AUTH_KEY", "DESKWISP_WEBRTC"])
+  delete process.env[k];
+process.env.DESKWISP_HORAFIRM_ORIGIN = "https://horafirm.test";
+const root = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
+// Modules that would start processes when loaded (the Mac check, the relay's agent) or that Node can't load (the
+// desktop look draws the mascot's JSX, mirror.ts has parameter properties) are stand-ins here: each of
+// their exports does nothing. The computer setup tested below only calls them in passing.
+const STAND_INS = new Set(["mac", "relay", "desktop", "mirror"]);
+// The server modules import "@/lib/…" and "./store" (no extension), the way Next resolves them.
+registerHooks({
+  resolve(specifier, context, next) {
+    if (specifier.startsWith("@/")) specifier = pathToFileURL(`${root}/${specifier.slice(2)}`).href;
+    try {
+      return next(specifier, context);
+    } catch (e) {
+      if (/^(\.{1,2}\/|\/|file:)/.test(specifier))
+        for (const ext of [".ts", ".tsx"])
+          try {
+            return next(specifier + ext, context);
+          } catch {}
+      throw e;
+    }
+  },
+  load(url, context, next) {
+    const name = url.match(/\/lib\/server\/([a-z-]+)\.ts$/)?.[1];
+    if (!name || !STAND_INS.has(name)) return next(url, context);
+    const names = [...readFileSync(new URL(url), "utf8").matchAll(/^export (?:async )?(?:function\*? |const |let |class )([A-Za-z_$][\w$]*)/gm)].map((m) => m[1]);
+    return { format: "module", shortCircuit: true, source: names.map((n) => `export const ${n} = function () { return Promise.resolve(); };`).join("\n") };
+  },
+});
+// The file store writes to .data/ under the working folder: a temporary one, removed at the end.
+const scratch = mkdtempSync(join(tmpdir(), "deskwisp-test-plan-"));
+process.chdir(scratch);
+// Signed in already: the key is in memory, so the Keychain is never asked (lib/server/horafirm-auth.ts).
+globalThis.deskwispHorafirmKey = "sk_test_one";
+
+/* ---------------- A fake Horafirm ---------------- */
+
+const calls = [];
+/** Horafirm's answers by "METHOD /path", then `route` for paths with an id in them; anything else is a 404. */
+let replies = {};
+globalThis.fetch = async (input, init = {}) => {
+  const url = new URL(String(input));
+  if (url.origin !== "https://horafirm.test") throw new Error(`not the fake Horafirm: ${url}`);
+  const call = { method: init.method ?? "GET", path: url.pathname, query: url.search, auth: init.headers?.Authorization, body: init.body ? JSON.parse(init.body) : undefined };
+  calls.push(call);
+  const reply = replies[`${call.method} ${call.path}`] ?? replies.route;
+  return (reply && (await reply(call))) ?? json(404, { error: "Not found" });
+};
+const json = (status, obj) => new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json" } });
+const asked = (method, path) => calls.filter((c) => c.method === method && c.path === path).length;
+const WORKSPACES = { "GET /api/workspaces": () => json(200, { workspaces: [{ id: "ws_other", name: "deskwisp", role: "member" }, { id: "ws_deskwisp", name: "Deskwisp", role: "owner" }] }) };
+/** Each plan's memory in GB (horafirm-web lib/subscription-tiers.ts maxRamPerUser), with 8 GB for each computer in use. */
+const POOL = { free: 4, hacker_v2: 8, startup_v2: 32, scale_v2: 128, hacker: 20, developer: 20, team: 80, startup: 200, scale: 200, max: 200, enterprise: 2000 };
+const memoryOf = (tier, inUse) => {
+  const total = POOL[tier];
+  return { total, used: 8 * inUse, newMax: Math.max(0, Math.min(64, total - 8 * inUse)) };
+};
+/** Horafirm's answers for an account on a plan: GET /api/user/subscription's key (and deal), GET /api/billing/compute-limits' counts. */
+const answers = (tier, max, used, over = {}) => {
+  const m = memoryOf(tier, used);
+  return {
+    ...WORKSPACES,
+    "GET /api/user/subscription": () => json(200, { tier, requiresPayment: false, createdAt: null, integrations: false, planLimits: over.deal ?? null }),
+    "GET /api/billing/compute-limits": () =>
+      json(200, { max_cpu: 4, max_ram_gb: m.newMax, max_disk_gb: 40, account_ram_budget_gb: m.total, account_ram_used_gb: m.used, addon_ram_gb: 0, addon_vcpu: 0, max_computers: max, computers_used: used, os_limits: null, os_used: null }),
+    ...over.replies,
+  };
+};
+/** The account is on that plan now: what Deskwisp read about the last one is forgotten. */
+const onPlan = (...plan) => {
+  replies = answers(...plan);
+  L.forgetPlan();
+};
+
+const P = await import(`${root}/lib/horafirm-plans.ts`);
+const T = await import(`${root}/lib/types.ts`);
+const sharesComputerOf = (b) => T.sharesComputer(b);
+const workBotOf = (b) => T.workBot(b, S.getState().bots);
+const L = await import(`${root}/lib/server/plan.ts`);
+const O = await import(`${root}/lib/server/horafirm.ts`);
+const S = await import(`${root}/lib/server/store.ts`);
+const B = await import(`${root}/lib/server/bots.ts`);
+const plain = (x) => JSON.parse(JSON.stringify(x));
+const noDashes = (text) => assert.ok(!/[—–]/.test(text), `no dashes: ${text}`);
+let n;
+
+/* ---------------- Reading the plan, for every plan key ---------------- */
+
+for (const [tier, max, used, name] of [
+  ["hacker_v2", 1, 0, "Hacker"],
+  ["startup_v2", 4, 2, "Startup"],
+  ["scale_v2", 16, 5, "Scale"],
+  ["free", 0, 0, "Free"],
+  // Older plans keep their names (some the same as today's) and their bigger counts.
+  ["hacker", 5, 1, "Hacker"],
+  ["developer", 5, 0, "Developer"],
+  ["team", 10, 3, "Team"],
+  ["startup", 25, 4, "Startup"],
+  ["scale", 25, 9, "Scale"],
+  ["max", 25, 0, "Max"],
+]) {
+  onPlan(tier, max, used);
+  assert.deepEqual(plain(await L.horafirmPlan({ fresh: true })), { tier, name, computers: max, inUse: used, memory: memoryOf(tier, used) }, tier);
+}
+// Asked with the user's own key, about their own "deskwisp" workspace (not one they're a member of).
+assert.equal(calls.at(-1).auth, "Bearer sk_test_one");
+assert.equal(calls.find((c) => c.path === "/api/billing/compute-limits").query, "?workspace_id=ws_deskwisp");
+// Horafirm's count is the one that counts: bought computers on top, an Enterprise deal, an Horafirm admin.
+onPlan("hacker_v2", 3, 1);
+assert.equal((await L.horafirmPlan({ fresh: true })).computers, 3, "Hacker plus 2 bought computers");
+onPlan("enterprise", 2, 2, { deal: { maxDesktops: 2 } });
+assert.deepEqual(plain(await L.horafirmPlan({ fresh: true })), { tier: "enterprise", name: "Enterprise", computers: 2, inUse: 2, memory: memoryOf("enterprise", 2), deal: true });
+onPlan("free", 1_000_000, 4);
+assert.deepEqual(plain(await L.horafirmPlan({ fresh: true })), { computers: 1_000_000, inUse: 4, memory: memoryOf("free", 4) }, "Horafirm says free when it couldn't look the plan up: not Free with computers");
+// No counts from Horafirm (it didn't answer, or it's older than max_computers): the plan's own number, a deal's
+// first, and nothing in use known, so nothing is held back on it.
+for (const [tier, deal, computers] of [["hacker_v2", null, 1], ["hacker", null, 5], ["team", null, 10], ["enterprise", { maxDesktops: 3 }, 3], ["free", null, 0]]) {
+  onPlan(tier, 0, 0, { deal, replies: { "GET /api/billing/compute-limits": () => json(503, { error: "Compute limits are unavailable" }) } });
+  const p = await L.horafirmPlan({ fresh: true });
+  assert.deepEqual(plain(p), { tier, name: P.planName(tier), computers, ...(deal ? { deal: true } : {}) }, tier);
+  assert.equal(P.planShort(p), undefined, `${tier}: unknown in use holds nothing back`);
+}
+onPlan("hacker_v2", 1, 1, { replies: { "GET /api/billing/compute-limits": () => json(200, { max_cpu: 1, max_ram_gb: 8 }) } });
+assert.equal((await L.horafirmPlan({ fresh: true })).inUse, undefined, "an Horafirm without the counts");
+// The plan's key didn't come back: Horafirm's counts still do.
+onPlan("hacker_v2", 1, 1, { replies: { "GET /api/user/subscription": () => json(500, { error: "x" }) } });
+assert.deepEqual(plain(await L.horafirmPlan({ fresh: true })), { computers: 1, inUse: 1, memory: memoryOf("hacker_v2", 1) });
+// Nothing came back, or nobody is signed in: no plan, and no call for the latter.
+onPlan("hacker_v2", 1, 1, { replies: { "GET /api/user/subscription": () => json(500, {}), "GET /api/billing/compute-limits": () => json(500, {}) } });
+assert.equal(await L.horafirmPlan({ fresh: true }), null);
+globalThis.deskwispHorafirmKey = null;
+globalThis.deskwispHorafirmKeyMissAt = Date.now();
+n = calls.length;
+assert.equal(await L.horafirmPlan({ fresh: true }), null);
+assert.equal(calls.length, n, "signed out: Horafirm isn't asked");
+globalThis.deskwispHorafirmKey = "sk_test_one";
+// Read by any workspace the user owns when there's no "deskwisp" one yet, and none is made for it: an account
+// that never used the cloud has nothing new in it.
+onPlan("hacker_v2", 1, 0, { replies: { "GET /api/workspaces": () => json(200, { workspaces: [{ id: "ws_shared", name: "deskwisp", role: "member" }, { id: "ws_mine", name: "Personal", role: "owner" }] }) } });
+await L.horafirmPlan({ fresh: true });
+assert.equal(calls.filter((c) => c.path === "/api/billing/compute-limits").at(-1).query, "?workspace_id=ws_mine");
+onPlan("hacker_v2", 1, 0, { replies: { "GET /api/workspaces": () => json(200, { workspaces: [{ id: "ws_shared", name: "Team", role: "member" }] }) } });
+n = asked("GET", "/api/billing/compute-limits");
+assert.deepEqual(plain(await L.horafirmPlan({ fresh: true })), { tier: "hacker_v2", name: "Hacker", computers: 1 }, "owns no workspace: the plan's own count");
+assert.equal(asked("GET", "/api/billing/compute-limits"), n);
+assert.equal(asked("POST", "/api/workspaces"), 0, "reading the plan never makes a workspace");
+
+/* ---------------- Room or none, and the words for it ---------------- */
+
+const hacker = (inUse) => ({ tier: "hacker_v2", name: "Hacker", computers: 1, inUse });
+const startup = (inUse) => ({ tier: "startup_v2", name: "Startup", computers: 4, inUse });
+assert.equal(P.planShort(null), undefined);
+assert.equal(P.planShort({ computers: 1 }), undefined, "in use unknown");
+assert.equal(P.planShort({ tier: "free", name: "Free", computers: 0, inUse: 0 }), "none");
+assert.equal(P.planShort(hacker(0)), null);
+assert.equal(P.planShort(hacker(1)), "count");
+assert.equal(P.planShort(hacker(0), 2), "count", "a copy, and the main bot's computer first");
+assert.equal(P.planShort(startup(2), 2), null);
+assert.equal(P.planShort(startup(3), 2), "count");
+assert.equal(P.planShort(hacker(2)), "count", "over the plan after a downgrade");
+// With the memory each computer needs: the plan's memory left must hold them, and one computer may have that much.
+const startupGb = (inUse, used, newMax = Math.min(64, 32 - used)) => ({ ...startup(inUse), memory: { total: 32, used, newMax } });
+assert.equal(P.planShort(startupGb(1, 8), 1, 8), null);
+assert.equal(P.planShort(startupGb(2, 32), 1, 8), "memory", "the plan's memory is used up");
+assert.equal(P.planShort(startupGb(2, 24), 1, 16), "memory", "a 16 GB copy, with 8 GB left");
+assert.equal(P.planShort(startupGb(1, 8), 2, 16), "memory", "the main bot's computer and a copy, 16 GB each, in 24 GB");
+assert.equal(P.planShort(startupGb(1, 8), 2, 8), null);
+assert.equal(P.planShort(startupGb(1, 8, 4), 1, 8), "size", "a deal allows 4 GB a computer");
+assert.equal(P.planShort(startupGb(1, 8), 1, 0), "memory", "none of Horafirm's sizes fits");
+assert.equal(P.planShort(startupGb(4, 32), 1, 8), "count", "the count first");
+
+const texts = [
+  // The example: the bots' one computer is the Hacker plan's one.
+  [P.planShortText("count", hacker(1), { deskwisp: 1 }), "Your Horafirm Hacker plan includes 1 computer, and it's in use. Horafirm Startup includes 4."],
+  [P.planShortText("count", hacker(1), { deskwisp: 0 }), "Your Horafirm Hacker plan includes 1 computer, and it's in use outside Deskwisp. Horafirm Startup includes 4."],
+  [P.planShortText("count", hacker(2), { deskwisp: 1 }), "Your Horafirm Hacker plan includes 1 computer, and 2 are in use, 1 of them outside Deskwisp. Horafirm Startup includes 4."],
+  [P.planShortText("count", startup(4), { deskwisp: 1 }), "Your Horafirm Startup plan includes 4 computers, and all 4 are in use, 3 of them outside Deskwisp. Horafirm Scale includes 16."],
+  [P.planShortText("count", startup(4), { deskwisp: 4 }), "Your Horafirm Startup plan includes 4 computers, and all 4 are in use. Horafirm Scale includes 16."],
+  [P.planShortText("count", { tier: "scale_v2", name: "Scale", computers: 16, inUse: 16 }, { deskwisp: 16 }), "Your Horafirm Scale plan includes 16 computers, and all 16 are in use. Delete one, or add computers on Horafirm."],
+  // Older plans: the next plan up is the one with more computers than they have, not the next name.
+  [P.planShortText("count", { tier: "hacker", name: "Hacker", computers: 5, inUse: 5 }, { deskwisp: 5 }), "Your Horafirm Hacker plan includes 5 computers, and all 5 are in use. Horafirm Scale includes 16."],
+  [P.planShortText("count", { tier: "team", name: "Team", computers: 10, inUse: 10 }, { deskwisp: 2 }), "Your Horafirm Team plan includes 10 computers, and all 10 are in use, 8 of them outside Deskwisp. Horafirm Scale includes 16."],
+  // Enterprise is a deal of its own: no plan Horafirm sells is the next one up.
+  [P.planShortText("count", { tier: "enterprise", name: "Enterprise", computers: 2, inUse: 2 }), "Your Horafirm Enterprise plan includes 2 computers, and both are in use. Delete one, or add computers on Horafirm."],
+  // Computers bought on top of Hacker: Startup has more.
+  [P.planShortText("count", { tier: "hacker_v2", name: "Hacker", computers: 2, inUse: 2 }, { deskwisp: 1 }), "Your Horafirm Hacker plan includes 2 computers, and both are in use, 1 of them outside Deskwisp. Horafirm Startup includes 4."],
+  // A custom deal on Hacker: moving up doesn't change it, so Horafirm is asked.
+  [P.planShortText("count", { tier: "hacker_v2", name: "Hacker", computers: 2, inUse: 2, deal: true }, { deskwisp: 1 }), "Your Horafirm Hacker plan includes 2 computers, and both are in use, 1 of them outside Deskwisp. Delete one, or ask Horafirm to change your plan."],
+  [P.planShortText("memory", { tier: "hacker_v2", name: "Hacker", computers: 2, inUse: 1, deal: true }), "Your Horafirm Hacker plan doesn't have the memory left for another computer. Delete a computer, or ask Horafirm to change your plan."],
+  [P.planShortText("count", null), "Every computer your Horafirm plan includes is in use. Delete one, or add computers on Horafirm."],
+  [P.planShortText("none", { tier: "free", name: "Free", computers: 0, inUse: 0 }), "Your Horafirm Free plan doesn't include cloud computers. Horafirm Hacker includes 1."],
+  [P.planShortText("none", null), "Your Horafirm plan doesn't include cloud computers. Horafirm Hacker includes 1."],
+  [P.planShortText("memory", startup(2)), "Your Horafirm Startup plan doesn't have the memory left for another computer. Horafirm Scale has more."],
+  [P.planShortText("size", hacker(1), { main: "Wispy" }), "Your Horafirm Hacker plan doesn't allow another computer as big as Wispy's."],
+  [P.planShortText("disk", startup(1), { main: "Wispy" }), "Your Horafirm Startup plan doesn't allow a computer with as much disk as Wispy's."],
+];
+for (const [got, want] of texts) {
+  assert.equal(got, want);
+  noDashes(got);
+}
+assert.deepEqual(P.planFix("count", hacker(1)), { label: "Upgrade to Horafirm Startup", tab: "plan" });
+assert.deepEqual(P.planFix("none", { name: "Free", computers: 0, inUse: 0 }), { label: "Upgrade to Horafirm Hacker", tab: "plan" });
+assert.deepEqual(P.planFix("count", { name: "Scale", computers: 16, inUse: 16 }), { label: "Add capacity on Horafirm", tab: "usage" });
+assert.deepEqual(P.planFix("count", { ...hacker(1), deal: true }), { label: "See your plan on Horafirm", tab: "usage" });
+assert.deepEqual(P.planFix("size", hacker(1)), { label: "See Horafirm's plans", tab: "plan" });
+assert.deepEqual(P.planFix("disk", startup(1)), { label: "Add capacity on Horafirm", tab: "usage" });
+assert.deepEqual([0, 1, 4, 5, 10, 16, 25].map((c) => P.planUp({ computers: c })?.name), ["Hacker", "Startup", "Scale", "Scale", "Scale", undefined, undefined]);
+assert.equal(P.planUp({ tier: "enterprise", computers: 2 }), undefined);
+assert.equal(P.planUp({ tier: "hacker_v2", computers: 2, deal: true }), undefined, "a deal sets the count, whatever the plan");
+
+// A bot of its own takes one more computer, and the main bot's first when that has none yet.
+const team = (mainComputer, main = {}) => [
+  { id: "wispy", name: "Wispy", isMain: true, computerStatus: "none", ...(mainComputer ? { computerId: "c-main" } : {}), ...main },
+  { id: "nova", name: "Nova", isMain: false, computerStatus: "none", computer: "shared" },
+];
+assert.equal(P.ownComputerShort(hacker(0), team(false), "ws_main").text, "Your Horafirm Hacker plan includes 1 computer, and Wispy's computer needs it. Horafirm Startup includes 4.");
+assert.equal(P.ownComputerShort(hacker(1), team(true), "ws_main").text, "Your Horafirm Hacker plan includes 1 computer, and it's in use. Horafirm Startup includes 4.");
+assert.equal(P.ownComputerShort(startup(1), team(true), "ws_main"), null, "room for a copy");
+assert.equal(P.ownComputerShort(startup(3), team(false), "ws_main").text, "Your Horafirm Startup plan includes 4 computers, and 3 are in use outside Deskwisp, so Wispy's computer needs the last one. Horafirm Scale includes 16.");
+assert.equal(P.ownComputerShort({ computers: 1 }, team(false), "ws_main"), null, "in use unknown: Horafirm decides");
+// A copy is as big as the main bot's computer: a 16 GB one (made before Deskwisp sized them) needs 16 GB left.
+assert.equal(P.ownComputerShort(startupGb(2, 24), team(true, { computerRam: 16 }), "ws_main").text, "Your Horafirm Startup plan doesn't have the memory left for another computer. Horafirm Scale has more.");
+assert.equal(P.ownComputerShort(startupGb(2, 16), team(true, { computerRam: 16 }), "ws_main"), null, "16 GB left: it fits");
+assert.equal(P.ownComputerShort(startupGb(2, 24), team(true, { computerRam: 8 }), "ws_main"), null, "an 8 GB one fits");
+assert.equal(P.mainComputerShort(hacker(0), team(false), "ws_main"), null);
+assert.equal(P.mainComputerShort({ name: "Free", computers: 0, inUse: 0 }, team(false), "ws_main").short, "none");
+assert.equal(P.deskwispComputers([{ computerId: "a" }, { computerId: "a" }, { computerId: "b" }, {}]), 2, "bots that share count once");
+// The Computer tab: a computer made already whose setup didn't finish is set up again, which takes no more
+// room, so its Set up button stays though the plan is full. One not made yet needs the room.
+const halfSetUp = team(true, { computerStatus: "error" });
+assert.equal(P.mainComputerShort(hacker(1), halfSetUp, "ws_main").short, "count", "a new one: no room");
+assert.equal(P.setupShort(hacker(1), halfSetUp, halfSetUp[0]), null, "the one it has: set up again");
+assert.equal(P.setupShort(hacker(1), team(false), team(false)[0]).short, "count");
+const novaHalfSetUp = { ...team(true)[1], computer: "own", computerId: "c-nova", computerStatus: "error" };
+assert.equal(P.setupShort(startup(4), [team(true)[0], novaHalfSetUp], novaHalfSetUp), null);
+assert.equal(P.setupShort(startup(4), team(true), { ...team(true)[1], computer: "own" }).short, "count");
+
+/* ---------------- The size Deskwisp makes computers at ---------------- */
+
+// The plan's memory split across its computers, in Horafirm's sizes: 8 GB on every plan Horafirm sells, so the
+// count runs out first (Startup's 32 GB holds its 4 computers; at the template's 16 GB it would hold 2).
+const fresh = (tier, computers) => ({ tier, computers, inUse: 0, memory: memoryOf(tier, 0) });
+for (const [tier, computers, want] of [
+  ["hacker_v2", 1, 8],
+  ["startup_v2", 4, 8],
+  ["scale_v2", 16, 8],
+  ["hacker", 5, 4],
+  ["developer", 5, 4],
+  ["team", 10, 8],
+  ["startup", 25, 8],
+  ["max", 25, 8],
+  // Enterprise's thousand computers can't all fit its memory at any size: Horafirm sizes it, from the template.
+  ["enterprise", 1000, undefined],
+])
+  assert.equal(P.computerRam(fresh(tier, computers)), want, tier);
+assert.equal(P.computerRam({ tier: "startup_v2", computers: 4, inUse: 0 }), undefined, "memory unknown: Horafirm sizes it");
+assert.equal(P.computerRam({ computers: 4, inUse: 0, memory: { total: 128, used: 0, newMax: 64 } }), 16, "a deal with memory to spare: the template's 16");
+assert.equal(P.computerRam({ computers: 4, inUse: 3, memory: { total: 32, used: 26, newMax: 6 } }), 4, "less when that's all a new computer can have now");
+assert.equal(P.computerRam({ computers: 4, inUse: 0, memory: { total: 32, used: 0, newMax: 4 } }), 4, "a deal's limit per computer");
+assert.equal(P.computerRam({ computers: 4, inUse: 3, memory: { total: 32, used: 30, newMax: 2 } }), 0, "not even the smallest fits");
+assert.equal(P.mainComputerShort({ ...startup(3), memory: { total: 32, used: 30, newMax: 2 } }, team(false), "ws_main").short, "memory");
+
+/* ---------------- Horafirm's refusals ---------------- */
+
+const refused = (status, code, error = "x") => new O.HorafirmError(`Horafirm POST /computers → ${status}: ${error}`, status, code, error);
+for (const [e, want] of [
+  [refused(403, "UPGRADE_REQUIRED", "Creating a computer requires a paid plan. Upgrade to launch your first computer."), "none"],
+  [refused(403, "VM_SLOT_ADDON", "Computer limit reached. Add a slot or delete a computer."), "count"],
+  [refused(403, "PLAN_LIMIT", "Your plan allows 2 computer(s), and you have 2. Delete one, or contact us to change your plan."), "count"],
+  // A custom deal's other limits are PLAN_LIMIT too: its memory, its most for one computer, its computers of one kind.
+  [refused(403, "PLAN_LIMIT", "Your plan allows 32GB of RAM across your computers. They use 32GB, and this 8GB one would need 40GB. Pick a smaller size, delete or shrink a computer, or contact us to change your plan."), "memory"],
+  [refused(403, "PLAN_LIMIT", "This computer asks for 16GB RAM, but your plan allows 8GB per computer. Pick a smaller size, or contact us to change your plan."), "size"],
+  [refused(403, "PLAN_LIMIT", "Your plan allows 1 Linux computer, and you have 1. Delete one, or contact us to change your plan."), "count"],
+  [refused(403, "PLAN_LIMIT", "Your plan doesn't include Windows computers. Contact us to add them to your plan."), "count"],
+  [refused(403, "PLAN_LIMIT", "Your plan doesn't include computers. Contact us to change your plan."), "none"],
+  [refused(403, "CHANGE_PLAN"), "count"],
+  [refused(403, "DESKTOP_LIMIT", "Computer limit reached. You have 5/5. Your grace period lets you keep existing computers, but you can't create new ones until you upgrade or delete some."), "count"],
+  [refused(403, "DESKTOP_LIMIT", "RAM limit exceeded. You are using 20GB/20GB; this 4GB computer would put you at 24GB."), "memory"],
+  [refused(403, undefined, "Computer limit reached. You have 5/5. Your grace period lets you keep existing computers, but you can't create new ones until you upgrade or delete some."), "count"],
+  [refused(403, "RAM_ADDON", "Not enough account RAM: your 2 computers already use 32GB of your 32GB pool, and this 16GB one would need 48GB."), "memory"],
+  [refused(403, "RAM_ADDON", "This computer asks for 16GB RAM, but your plan allows 8GB per computer."), "size"],
+  [refused(403, "VCPU_ADDON"), "size"],
+  [refused(403, "PER_COMPUTER_RAM_CAP"), "size"],
+  [refused(403, "DISK_QUOTA_EXCEEDED"), "disk"],
+  [refused(400, "disk_exceeds_quota"), "disk"],
+  [refused(409, "NOT_FORKABLE"), null],
+  [refused(409, "HOURLY_QUOTE_REQUIRED"), null],
+  [refused(403, "NOT_A_MEMBER"), null],
+  [refused(400, "INVALID_BILLING_MODE"), null],
+  [refused(500, undefined), null],
+  [new Error("Computer limit reached"), null],
+])
+  assert.equal(L.planRefusal(e), want, e.message);
+
+/* ---------------- The main bot's computer ---------------- */
+
+const main = () => S.bot("wispy");
+const URL_PLAN = "https://horafirm.test/account?tab=plan";
+// Free: said plainly, and Horafirm isn't asked to make one.
+onPlan("free", 0, 0);
+await assert.rejects(L.makeMainComputer(main(), "wispy-a"), (e) => {
+  assert.ok(e instanceof L.PlanLimit);
+  assert.equal(e.message, "Your Horafirm Free plan doesn't include cloud computers. Horafirm Hacker includes 1.");
+  assert.deepEqual(e.link, { label: "Upgrade to Horafirm Hacker", url: URL_PLAN });
+  return true;
+});
+assert.equal(asked("POST", "/api/computers"), 0);
+// Hacker with its one computer free: made at the plan's 8 GB; its vCPUs are the template's, as far as the plan allows.
+onPlan("hacker_v2", 1, 0, { replies: { "POST /api/computers": () => json(201, { id: "c-main", name: "wispy-b", status: "creating" }) } });
+assert.deepEqual(plain(await L.makeMainComputer(main(), "wispy-b")), { id: "c-main", name: "wispy-b", status: "creating" });
+assert.deepEqual(calls.at(-1).body, { workspace_id: "ws_deskwisp", name: "wispy-b", template_ref: "system/deskwisp-base@0.1.8", ram: 8 });
+// Startup and Scale too: 8 GB, so their 4 and 16 computers fit their memory.
+for (const [tier, max] of [["startup_v2", 4], ["scale_v2", 16]]) {
+  onPlan(tier, max, 0, { replies: { "POST /api/computers": () => json(201, { id: "c-x", name: "wispy-x", status: "creating" }) } });
+  await L.makeMainComputer(main(), "wispy-x");
+  assert.equal(calls.at(-1).body.ram, 8, tier);
+}
+// The one computer is in use elsewhere in the account: said with the numbers, no POST.
+onPlan("hacker_v2", 1, 1);
+n = asked("POST", "/api/computers");
+await assert.rejects(L.makeMainComputer(main(), "wispy-c"), { message: "Your Horafirm Hacker plan includes 1 computer, and it's in use outside Deskwisp. Horafirm Startup includes 4." });
+assert.equal(asked("POST", "/api/computers"), n);
+// A "no room" read within the minute is checked with Horafirm before it's said: the computer that filled the
+// plan was deleted on Horafirm's site since.
+onPlan("hacker_v2", 1, 1);
+await L.horafirmPlan();
+replies = answers("hacker_v2", 1, 0, { replies: { "POST /api/computers": () => json(201, { id: "c-main", name: "wispy-g", status: "creating" }) } });
+assert.equal((await L.makeMainComputer(main(), "wispy-g")).id, "c-main");
+// The numbers had room, but Horafirm turns it down (another computer was made meanwhile): Horafirm's answer, in plain words.
+let limitsRead = 0;
+onPlan("hacker_v2", 1, 0, {
+  replies: {
+    "GET /api/billing/compute-limits": () => json(200, { max_computers: 1, computers_used: limitsRead++ ? 1 : 0 }),
+    "POST /api/computers": () => json(403, { error: "Computer limit reached. Add a slot or delete a computer.", code: "VM_SLOT_ADDON", canManageCapacity: true }),
+  },
+});
+await assert.rejects(L.makeMainComputer(main(), "wispy-d"), (e) => e instanceof L.PlanLimit && e.message === "Your Horafirm Hacker plan includes 1 computer, and it's in use outside Deskwisp. Horafirm Startup includes 4.");
+assert.equal(limitsRead, 2, "read again after the refusal");
+// Anything else goes up as it was.
+onPlan("hacker_v2", 1, 0, { replies: { "POST /api/computers": () => json(500, { error: "boom" }) } });
+await assert.rejects(L.makeMainComputer(main(), "wispy-e"), (e) => e instanceof O.HorafirmError && !(e instanceof L.PlanLimit) && e.status === 500);
+
+/* ---------------- The first task's computer of its own: the fallback ---------------- */
+
+// The main bot has its computer; Nova is meant to have its own, and has a task waiting for it.
+S.update((s) => {
+  const wispy = s.bots.find((b) => b.id === "wispy");
+  wispy.computerId = "c-main";
+  wispy.computerStatus = "ready";
+  s.bots.push({ id: "nova", name: "Nova", role: "Research", color: "#2EC4B6", isMain: false, computerStatus: "cloning", computer: "own" });
+  s.chats.push({ id: "bot:nova", kind: "bot", botIds: ["nova"], createdAt: Date.now(), typing: [] });
+  s.sessions.push({ id: "ses_1", botId: "nova", chatId: "bot:nova", sentVia: "you", title: "Lisbon flights", goal: "Find flights to Lisbon", host: "horafirm", status: "queued", steps: [], replies: [], createdAt: Date.now(), runsOn: "cloud" });
+});
+const nova = () => S.bot("nova");
+const lastNote = () => S.getState().messages.filter((m) => m.chatId === "bot:nova").at(-1);
+const ownAgain = () => S.update(() => Object.assign(nova(), { computer: "own", computerStatus: "cloning" }));
+const FORK = { "GET /api/computers/c-main": () => json(200, { id: "c-main", instance_details: { id: "inst-main" } }) };
+const copies = () => asked("POST", "/api/computers/inst-main/fork") + asked("POST", "/api/computers/c-main/clone");
+/** What a bot says when it works on Wispy's computer after all: why, the link, and how to give it its own again. */
+const sharing = (why, link) => `I'll work on Wispy's computer instead of one of my own. ${why} ${link} Once your Horafirm plan has room, you can switch me to Its own under Computer in my Details.`;
+
+// No room by the plan's numbers: no copy is asked for, Nova works on Wispy's computer, its chat says why
+// with the link, and its task waits there, still queued, for a screen on Wispy's computer.
+onPlan("hacker_v2", 1, 1, { replies: FORK });
+assert.equal(await L.makeOwnComputer(nova(), main(), "nova-a"), null);
+assert.equal(copies(), 0);
+assert.deepEqual({ computer: nova().computer, status: nova().computerStatus }, { computer: "shared", status: "none" });
+assert.deepEqual({ role: lastNote().role, botId: lastNote().botId }, { role: "bot", botId: "nova" });
+assert.equal(lastNote().text, sharing("Your Horafirm Hacker plan includes 1 computer, and it's in use. Horafirm Startup includes 4.", `[Upgrade to Horafirm Startup](${URL_PLAN})`));
+noDashes(lastNote().text);
+assert.equal(S.session("ses_1").status, "queued", "the task still runs, on Wispy's computer");
+
+// Room by the numbers, but Horafirm turns the fork down for the plan: no clone (it would be turned down too),
+// the plan is read again, and Nova shares.
+ownAgain();
+limitsRead = 0;
+onPlan("startup_v2", 4, 1, {
+  replies: {
+    ...FORK,
+    "GET /api/billing/compute-limits": () => json(200, { max_computers: 4, computers_used: limitsRead++ ? 4 : 1 }),
+    "POST /api/computers/inst-main/fork": () => json(403, { error: "Computer limit reached. Add a slot or delete a computer.", code: "VM_SLOT_ADDON" }),
+  },
+});
+n = copies();
+assert.equal(await L.makeOwnComputer(nova(), main(), "nova-b"), null);
+assert.equal(copies() - n, 1, "one fork, no clone");
+assert.equal(limitsRead, 2);
+assert.equal(nova().computer, "shared");
+assert.equal(lastNote().text, sharing("Your Horafirm Startup plan includes 4 computers, and all 4 are in use, 3 of them outside Deskwisp. Horafirm Scale includes 16.", `[Upgrade to Horafirm Scale](${URL_PLAN})`));
+assert.equal(S.session("ses_1").status, "queued");
+
+// The plan's memory is used up (Horafirm's RAM_ADDON for the pool): the same, in those words.
+ownAgain();
+onPlan("startup_v2", 4, 2, { replies: { ...FORK, "POST /api/computers/inst-main/fork": () => json(403, { error: "Not enough account RAM: your 2 computers already use 32GB of your 32GB pool.", code: "RAM_ADDON" }) } });
+assert.equal(await L.makeOwnComputer(nova(), main(), "nova-c"), null);
+assert.equal(lastNote().text, sharing("Your Horafirm Startup plan doesn't have the memory left for another computer. Horafirm Scale has more.", `[Upgrade to Horafirm Scale](${URL_PLAN})`));
+
+// The main bot's computer is 16 GB (made before Deskwisp sized them) and the plan has 8 GB left: Deskwisp says so
+// without asking Horafirm for a copy it would turn down, and keeps the size for the app to check by.
+ownAgain();
+onPlan("startup_v2", 4, 2, {
+  replies: {
+    "GET /api/computers/c-main": () => json(200, { id: "c-main", status: "running", ram: 16, instance_details: { id: "inst-main" } }),
+    "GET /api/billing/compute-limits": () => json(200, { max_computers: 4, computers_used: 2, account_ram_budget_gb: 32, account_ram_used_gb: 24, max_ram_gb: 8 }),
+  },
+});
+n = copies();
+assert.equal(await L.makeOwnComputer(nova(), main(), "nova-m"), null);
+assert.equal(copies(), n, "no copy asked for");
+assert.equal(main().computerRam, 16);
+assert.equal(nova().computer, "shared");
+assert.equal(lastNote().text, sharing("Your Horafirm Startup plan doesn't have the memory left for another computer. Horafirm Scale has more.", `[Upgrade to Horafirm Scale](${URL_PLAN})`));
+
+// A custom deal's limit the numbers don't show (its Linux computers): Horafirm's own words, and no plan to move up to.
+ownAgain();
+onPlan("enterprise", 10, 2, {
+  deal: { maxDesktops: 10 },
+  replies: { ...FORK, "POST /api/computers/inst-main/fork": () => json(403, { error: "Your plan allows 2 Linux computers, and you have 2. Delete one, or contact us to change your plan.", code: "PLAN_LIMIT", upgradeTier: "enterprise" }) },
+});
+assert.equal(await L.makeOwnComputer(nova(), main(), "nova-os"), null);
+assert.equal(lastNote().text, sharing("Your plan allows 2 Linux computers, and you have 2. Delete one, or ask Horafirm to change your plan.", "[See your plan on Horafirm](https://horafirm.test/account?tab=usage)"));
+noDashes(lastNote().text);
+
+// A fork that can't happen for another reason falls back to a clone, as before; a clone turned down for the plan shares too.
+ownAgain();
+onPlan("startup_v2", 4, 1, {
+  replies: {
+    ...FORK,
+    "POST /api/computers/inst-main/fork": () => json(409, { error: "This computer must be running to fork (a fork copies its live memory).", code: "NOT_FORKABLE" }),
+    "POST /api/computers/c-main/clone": () => json(403, { error: "Computer limit reached. Add a slot or delete a computer.", code: "VM_SLOT_ADDON" }),
+  },
+});
+n = copies();
+assert.equal(await L.makeOwnComputer(nova(), main(), "nova-d"), null);
+assert.equal(copies() - n, 2, "a fork, then a clone");
+assert.equal(nova().computer, "shared");
+
+// A fork that fails for anything else falls back to a clone, which makes the computer; Nova keeps its own.
+ownAgain();
+onPlan("startup_v2", 4, 1, {
+  replies: {
+    ...FORK,
+    "POST /api/computers/inst-main/fork": () => json(500, { error: "insufficient memory on host" }),
+    "POST /api/computers/c-main/clone": () => json(201, { id: "c-nova", name: "nova-e", status: "creating" }),
+  },
+});
+const notes = S.getState().messages.length;
+assert.equal((await L.makeOwnComputer(nova(), main(), "nova-e")).id, "c-nova");
+assert.deepEqual(calls.at(-1).body, { name: "nova-e" });
+assert.equal(nova().computer, "own");
+assert.equal(S.getState().messages.length, notes, "nothing to say");
+// ...and when both fail, the error is Horafirm's, as before (not the plan's).
+onPlan("startup_v2", 4, 1, { replies: { ...FORK, "POST /api/computers/inst-main/fork": () => json(500, { error: "insufficient memory" }), "POST /api/computers/c-main/clone": () => json(500, { error: "boom" }) } });
+await assert.rejects(L.makeOwnComputer(nova(), main(), "nova-f"), { message: "the cloud server it has to share with the main bot's computer is full right now" });
+
+// Horafirm can't be asked about the plan: nothing holds the copy back, and Horafirm decides.
+onPlan("startup_v2", 4, 4, {
+  replies: {
+    ...FORK,
+    "GET /api/user/subscription": () => json(503, {}),
+    "GET /api/billing/compute-limits": () => json(503, {}),
+    "POST /api/computers/inst-main/fork": () => json(201, { id: "c-nova-2", name: "Wispy (fork)", status: "creating" }),
+  },
+});
+assert.equal((await L.makeOwnComputer(nova(), main(), "nova-g")).id, "c-nova-2");
+
+/* ---------------- Its own computer, offered only with room ---------------- */
+
+// Idle on the shared computer (a bot at work can't switch).
+S.patchSession("ses_1", { status: "done" });
+S.update(() => Object.assign(nova(), { computer: "shared", computerStatus: "none", computerId: undefined }));
+S.update(() => (main().computerRam = undefined));
+onPlan("hacker_v2", 1, 1);
+assert.deepEqual(await B.setComputer("nova", "own"), { error: "Your Horafirm Hacker plan includes 1 computer, and it's in use. Horafirm Startup includes 4." });
+assert.equal(nova().computer, "shared", "stays on the shared computer");
+let made = await B.createBot("Iris", "Inbox", undefined, true);
+assert.equal(made.note, "Iris works on Wispy's computer. Your Horafirm Hacker plan includes 1 computer, and it's in use. Horafirm Startup includes 4.");
+assert.equal(S.bot(made.botId).computer, "shared");
+onPlan("startup_v2", 4, 1);
+made = await B.createBot("Rook", "Recruiting", undefined, true);
+assert.equal(made.note, undefined);
+assert.equal(S.bot(made.botId).computer, "own");
+// A new bot shares by default, with no question for Horafirm.
+n = calls.length;
+made = await B.createBot("Penny", "Finance");
+assert.equal(S.bot(made.botId).computer, "shared");
+assert.equal(calls.length, n);
+
+/* ---------------- Kept a minute, read again after Deskwisp makes or deletes a computer ---------------- */
+
+const limitsAsked = () => asked("GET", "/api/billing/compute-limits");
+onPlan("startup_v2", 4, 1, {
+  replies: {
+    "POST /api/computers": () => json(201, { id: "c-new", name: "x", status: "creating" }),
+    "GET /api/computers/c-new": () => json(200, { id: "c-new", workspace_id: "ws_deskwisp", instance_details: { id: "inst-new" } }),
+    "DELETE /api/computers/c-new": () => json(200, { ok: true }),
+    "POST /api/computers/inst-new/fork": () => json(201, { id: "c-fork", name: "x (fork)", status: "creating" }),
+    "POST /api/computers/c-new/clone": () => json(201, { id: "c-clone", name: "y", status: "creating" }),
+  },
+});
+L.forgetPlan();
+n = limitsAsked();
+await Promise.all([L.horafirmPlan(), L.horafirmPlan()]);
+assert.equal(limitsAsked() - n, 1, "two at once share one read");
+await L.horafirmPlan();
+assert.equal(limitsAsked() - n, 1, "kept");
+for (const [what, act] of [
+  ["create", () => O.horafirm.create("x")],
+  ["fork", () => O.horafirm.fork("c-new")],
+  ["clone", () => O.horafirm.clone("c-new", "y")],
+  ["delete", () => O.horafirm.remove("c-new")],
+]) {
+  const before = limitsAsked();
+  await act();
+  await L.horafirmPlan();
+  await L.horafirmPlan();
+  assert.equal(limitsAsked() - before, 1, `read again once after a ${what}`);
+}
+// A minute later, read again.
+const now = Date.now;
+Date.now = () => now() + 61_000;
+n = limitsAsked();
+await L.horafirmPlan();
+assert.equal(limitsAsked() - n, 1, "a minute on");
+Date.now = now;
+// Another Horafirm account signed in: its own plan, on its own key.
+globalThis.deskwispHorafirmKey = "sk_test_two";
+n = limitsAsked();
+await L.horafirmPlan();
+assert.equal(limitsAsked() - n, 1);
+assert.equal(calls.at(-1).auth, "Bearer sk_test_two");
+globalThis.deskwispHorafirmKey = "sk_test_one";
+// A read that got nothing isn't kept: the next look asks again.
+onPlan("startup_v2", 4, 1, { replies: { "GET /api/user/subscription": () => json(503, {}), "GET /api/billing/compute-limits": () => json(503, {}) } });
+assert.equal(await L.horafirmPlan(), null);
+replies = answers("startup_v2", 4, 1);
+assert.equal((await L.horafirmPlan()).inUse, 1, "asked again");
+
+/* ---------------- One at a time, and a plan's computers all fit ---------------- */
+
+/**
+ * An Horafirm account that counts the way Horafirm does: its computers and their memory, and Horafirm's check on a
+ * create, fork or clone. The check counts what's there when the call arrives, and the new computer is
+ * there `slow` ms later, with no lock between (horafirm-web lib/plan-limits.ts).
+ */
+function account(tier, computers, pool, rows = [], slow = 30) {
+  let made = 0;
+  const used = () => rows.reduce((sum, r) => sum + r.ram, 0);
+  const add = async (ram) => {
+    if (rows.length >= computers) return json(403, { error: "Computer limit reached. Add a slot or delete a computer.", code: "VM_SLOT_ADDON" });
+    if (used() + ram > pool) return json(403, { error: `Not enough account RAM: your ${rows.length} computers already use ${used()}GB of your ${pool}GB pool.`, code: "RAM_ADDON" });
+    await new Promise((r) => setTimeout(r, slow));
+    const row = { id: `c-${tier}-${++made}`, ram };
+    rows.push(row);
+    return json(201, { id: row.id, name: row.id, status: "running" });
+  };
+  return {
+    rows,
+    replies: {
+      ...WORKSPACES,
+      "GET /api/user/subscription": () => json(200, { tier, planLimits: null }),
+      "GET /api/billing/compute-limits": () =>
+        json(200, { max_computers: computers, computers_used: rows.length, account_ram_budget_gb: pool, account_ram_used_gb: used(), max_ram_gb: Math.max(0, Math.min(64, pool - used())) }),
+      // Without a size, the template's 16 GB as far as one computer may have (horafirm-web lib/computer-create-gate.ts).
+      "POST /api/computers": (c) => add(c.body.ram ?? Math.min(16, 64, pool)),
+      route: (c) => {
+        const [, id, what] = c.path.match(/^\/api\/computers\/([^/]+)(?:\/(\w+))?$/) ?? [];
+        const row = rows.find((r) => r.id === id || `inst-${r.id}` === id);
+        if (!row) return undefined;
+        if (c.method === "GET" && !what) return json(200, { id: row.id, status: "running", ram: row.ram, workspace_id: "ws_deskwisp", instance_details: { id: `inst-${row.id}` } });
+        // A fork or clone is as big as what it copies.
+        if (c.method === "POST" && (what === "fork" || what === "clone")) return add(row.ram);
+        return undefined;
+      },
+    },
+  };
+}
+const ownBot = (id) => {
+  S.update((s) => s.bots.push({ id, name: id[0].toUpperCase() + id.slice(1), role: "Helper", color: "#5B8CFF", isMain: false, computer: "own", computerStatus: "cloning" }));
+  return S.bot(id);
+};
+const posts = (since) => calls.slice(since).filter((c) => c.method === "POST").length;
+
+// Startup: the main bot's computer and three copies, 8 GB each, fill its 4 computers and its 32 GB
+// together, and a fifth is said to have no room. (At the template's 16 GB, Horafirm turns the third down.)
+let acct = account("startup_v2", 4, 32);
+replies = acct.replies;
+L.forgetPlan();
+S.update(() => Object.assign(main(), { computerId: undefined, computerRam: undefined }));
+const first = await L.makeMainComputer(main(), "wispy-s");
+S.update(() => Object.assign(main(), { computerId: first.id, computerStatus: "ready" }));
+for (const id of ["ana", "ben", "cy"]) {
+  const copy = await L.makeOwnComputer(ownBot(id), main(), `${id}-1`);
+  assert.ok(copy, `${id} gets its own`);
+  S.update(() => (S.bot(id).computerId = copy.id));
+}
+assert.deepEqual(acct.rows.map((r) => r.ram), [8, 8, 8, 8], "4 computers of 8 GB: the plan's 32 GB");
+n = calls.length;
+assert.equal(await L.makeOwnComputer(ownBot("dee"), main(), "dee-1"), null, "a fifth: no room");
+assert.equal(posts(n), 0, "not asked of Horafirm");
+assert.equal(S.bot("dee").computer, "shared");
+assert.match(S.getState().messages.filter((m) => m.chatId === "bot:dee").at(-1)?.text ?? "", /Your Horafirm Startup plan includes 4 computers, and all 4 are in use\. Horafirm Scale includes 16\./);
+const template = account("startup_v2", 4, 32);
+replies = template.replies;
+for (const name of ["t1", "t2", "t3"]) await fetch("https://horafirm.test/api/computers", { method: "POST", body: JSON.stringify({ name }) });
+assert.deepEqual(template.rows.map((r) => r.ram), [16, 16], "the template's size: 2 of Startup's 4");
+
+// Two bots get their own computers in one turn, with room for one more: Deskwisp asks for one copy at a time,
+// so the second sees the plan full rather than slip past Horafirm's count with the first.
+acct = account("startup_v2", 4, 32, [{ id: "c-m", ram: 8 }, { id: "c-o1", ram: 8 }, { id: "c-o2", ram: 8 }], 50);
+replies = acct.replies;
+L.forgetPlan();
+S.update(() => Object.assign(main(), { computerId: "c-m", computerRam: 8 }));
+n = calls.length;
+const both = await Promise.all([L.makeOwnComputer(ownBot("eve"), main(), "eve-1"), L.makeOwnComputer(ownBot("fay"), main(), "fay-1")]);
+assert.equal(posts(n), 1, "one copy asked for");
+assert.equal(acct.rows.length, 4, "the plan's 4, not 5");
+assert.ok(both[0] && both[1] === null);
+assert.equal(S.bot("fay").computer, "shared");
+// Two workspaces' main bots make their first computers at once on Hacker: one is made, the other told why.
+acct = account("hacker_v2", 1, 8, [], 50);
+replies = acct.replies;
+L.forgetPlan();
+const mains = await Promise.allSettled([L.makeMainComputer(main(), "ws1-main"), L.makeMainComputer(main(), "ws2-main")]);
+assert.deepEqual(mains.map((r) => r.status), ["fulfilled", "rejected"]);
+assert.ok(mains[1].reason instanceof L.PlanLimit);
+assert.equal(acct.rows.length, 1, "the plan's 1, not 2");
+
+/* ---------------- Setting a computer up ---------------- */
+
+const X = await import(`${root}/lib/server/sessions.ts`);
+/** Horafirm for these: Hacker with room; Deskwisp' computers by id, with a status, and screens that come up or don't. */
+const upComputers = new Map();
+let upMade = 0;
+let status = "running";
+let screensUp = false;
+replies = {
+  ...answers("hacker_v2", 1, 0),
+  "POST /api/computers": (c) => {
+    const id = `c-up-${++upMade}`;
+    upComputers.set(id, c.body.ram ?? 16);
+    return json(201, { id, name: c.body.name, status: "creating" });
+  },
+  route: (c) => {
+    const [, id, what] = c.path.match(/^\/api\/computers\/([^/]+)(?:\/(\w+))?$/) ?? [];
+    if (!upComputers.has(id)) return undefined;
+    if (c.method === "GET" && !what) return json(200, { id, status, ram: upComputers.get(id), workspace_id: "ws_deskwisp", instance_details: status === "running" ? { id: `inst-${id}` } : null });
+    if (c.method === "DELETE" && !what) return upComputers.delete(id), json(200, { ok: true });
+    if (c.method === "GET" && what === "screens")
+      return screensUp ? json(200, { screens: [99, 100, 101, 102].map((d) => ({ id: `s${d}`, display: `:${d}`, width: 1280, height: 960, default: d === 99 })) }) : json(404, { error: "No screens yet" });
+    if (c.method === "POST" && what === "bash") return json(200, { output: "", exit_code: 0 });
+    // Asleep in storage, it's woken: Horafirm answers at once (202, waking) and it runs a little later.
+    if (c.method === "POST" && what === "resume") return (status = "running"), json(202, { success: true, pending: true, waking: true, expected_seconds: 90 });
+    // Its disk: the plan's default, and at most 50 GB on this plan.
+    if (c.method === "GET" && what === "resize") return json(200, { current_disk_gb: 20, max_disk_gb: 50 });
+    if (c.method === "PATCH" && what === "resize") return json(200, { ok: true });
+    return undefined;
+  },
+};
+L.forgetPlan();
+S.update((s) => {
+  Object.assign(main(), { computerId: undefined, computerRam: undefined, computerStatus: "none" });
+  for (const x of s.sessions) if (x.status === "queued") x.status = "done";
+});
+const task = (id) => S.update((s) => s.sessions.push({ id, botId: "wispy", chatId: "bot:wispy", sentVia: "you", title: `Task ${id}`, goal: "Look something up", host: "horafirm", status: "queued", steps: [], replies: [], createdAt: Date.now(), runsOn: "cloud" }));
+const said = (id) => S.getState().messages.find((m) => m.resultOf === id)?.text;
+
+// Made, but its setup fails the first time: the computer is kept for one more try, and the task says so.
+task("ses_up1");
+await X.ensureComputer("wispy");
+assert.deepEqual({ id: main().computerId, status: main().computerStatus, ram: main().computerRam }, { id: "c-up-1", status: "error", ram: 8 });
+assert.equal(calls.filter((c) => c.method === "POST" && c.path === "/api/computers").at(-1).body.ram, 8);
+assert.equal(asked("DELETE", "/api/computers/c-up-1"), 0);
+assert.equal(S.session("ses_up1").status, "failed");
+assert.equal(said("ses_up1"), "I couldn't start Task ses_up1: Wispy's computer couldn't be set up (Horafirm GET /computers/c-up-1/screens → 404: No screens yet). The next task tries again.");
+assert.equal(main().computerNeverReady, "c-up-1", "made by Deskwisp and never ready: nothing has run on it");
+// Its one more try fails too: deleted, so it stops using up the plan, and the next task makes a new one.
+task("ses_up2");
+n = asked("POST", "/api/computers");
+await X.ensureComputer("wispy");
+assert.equal(asked("POST", "/api/computers"), n, "the same computer tried again, none made");
+assert.equal(asked("DELETE", "/api/computers/c-up-1"), 1);
+assert.deepEqual({ id: main().computerId, status: main().computerStatus }, { id: undefined, status: "error" });
+assert.match(said("ses_up2"), /\(Horafirm GET \/computers\/c-up-1\/screens → 404: No screens yet\)\. Deskwisp deleted it, and the next task makes a new one\.$/);
+// The next one comes up.
+screensUp = true;
+await X.ensureComputer("wispy");
+assert.deepEqual({ id: main().computerId, status: main().computerStatus, ram: main().computerRam }, { id: "c-up-2", status: "ready", ram: 8 });
+assert.equal(main().computerNeverReady, undefined, "ready: from now on it may hold the user's work");
+assert.deepEqual(
+  calls.filter((c) => c.method === "PATCH" && c.path === "/api/computers/c-up-2/resize").map((c) => c.body),
+  [{ disk_size_gb: 50 }],
+  "its disk grows to the plan's most (under Deskwisp' 120 GB)",
+);
+assert.deepEqual(
+  calls.filter((c) => c.method === "POST" && c.path === "/api/computers/c-up-2/webrtc").map((c) => c.body),
+  [{ enabled: true }],
+  "its screen set to stream over UDP (Horafirm's WebRTC)",
+);
+// Horafirm says a new one is stopped: deleted right away, without waiting out the three minutes for it to run.
+S.update(() => Object.assign(main(), { computerId: undefined, computerStatus: "none" }));
+status = "stopped";
+task("ses_up3");
+const t0 = Date.now();
+await X.ensureComputer("wispy");
+assert.ok(Date.now() - t0 < 2500, "no wait");
+assert.equal(asked("DELETE", "/api/computers/c-up-3"), 1);
+assert.equal(main().computerId, undefined);
+assert.equal(said("ses_up3"), "I couldn't start Task ses_up3: Wispy's computer couldn't be set up (Horafirm says it's stopped). Deskwisp deleted it, and the next task makes a new one.");
+status = "running";
+// Deleted on Horafirm's site after its setup failed, with the plan read while it was there: Horafirm is asked
+// again and a new one made, rather than the user told their plan is full.
+S.update(() => Object.assign(main(), { computerId: "c-deleted", computerStatus: "error" }));
+replies["GET /api/billing/compute-limits"] = () => json(200, { max_computers: 1, computers_used: 1, account_ram_budget_gb: 8, account_ram_used_gb: 8, max_ram_gb: 0 });
+L.forgetPlan();
+await L.horafirmPlan();
+replies["GET /api/billing/compute-limits"] = answers("hacker_v2", 1, 0)["GET /api/billing/compute-limits"];
+await X.ensureComputer("wispy");
+assert.deepEqual({ id: main().computerId, status: main().computerStatus }, { id: "c-up-4", status: "ready" });
+
+// A computer the bot already had, or one Deskwisp didn't make here (the user's free one taken up again, one
+// from another Mac), is never deleted for a failed setup, whatever Horafirm says: it may hold the user's work.
+// Horafirm says it's stopped, twice: kept both times, and the task says so.
+upComputers.set("c-had-1", 8);
+S.update(() => Object.assign(main(), { computerId: "c-had-1", computerStatus: "error", computerNeverReady: undefined }));
+status = "stopped";
+task("ses_had1");
+await X.ensureComputer("wispy");
+assert.equal(asked("DELETE", "/api/computers/c-had-1"), 0, "kept");
+assert.deepEqual({ id: main().computerId, status: main().computerStatus }, { id: "c-had-1", status: "error" });
+assert.equal(said("ses_had1"), "I couldn't start Task ses_had1: Wispy's computer couldn't be set up (Horafirm says it's stopped). Deskwisp kept it, so nothing on it is lost. The next task tries again.");
+task("ses_had2");
+await X.ensureComputer("wispy");
+assert.equal(asked("DELETE", "/api/computers/c-had-1"), 0, "its one more try fails too: still kept");
+assert.match(said("ses_had2"), /Deskwisp kept it, so nothing on it is lost\. The next task tries again\.$/);
+// Its screens don't come up, twice (a wake from storage can be slow): kept as well.
+status = "running";
+screensUp = false;
+task("ses_had3");
+await X.ensureComputer("wispy");
+task("ses_had4");
+await X.ensureComputer("wispy");
+assert.equal(asked("DELETE", "/api/computers/c-had-1"), 0, "never deleted for a failed setup");
+assert.equal(main().computerId, "c-had-1");
+screensUp = true;
+// Asleep in storage (Horafirm took it off its server while it slept): the setup wakes it (POST /resume, which
+// answers at once), waits while it comes back, and finishes. Nothing deleted.
+upComputers.set("c-had-2", 8);
+S.update(() => Object.assign(main(), { computerId: "c-had-2", computerStatus: "error" }));
+status = "suspended";
+n = calls.length;
+await X.ensureComputer("wispy");
+assert.equal(asked("POST", "/api/computers/c-had-2/resume", n), 1, "woken once");
+assert.deepEqual({ id: main().computerId, status: main().computerStatus }, { id: "c-had-2", status: "ready" });
+assert.equal(asked("DELETE", "/api/computers/c-had-2"), 0);
+status = "running";
+// Asleep in storage and its wake keeps failing (Horafirm answers 503 wake_failed and it stays asleep): the
+// setup waits until wakeWaitMs after its FIRST ask, asking again within it, and then ends, the tasks
+// told, the computer kept. Asking again never moves the end (it used to, every minute, for ever).
+upComputers.set("c-had-3", 8);
+S.update(() => Object.assign(main(), { computerId: "c-had-3", computerStatus: "error" }));
+const wakeRoute = replies.route;
+replies.route = (c) =>
+  c.method === "POST" && c.path === "/api/computers/c-had-3/resume"
+    ? json(503, { error: "This computer couldn't wake up just now.", code: "wake_failed", retry_after: 1 })
+    : wakeRoute(c);
+Object.assign(X.setupWait, { upMs: 300, wakeAskMs: 100, pollMs: 20 });
+process.env.DESKWISP_WAKE_WAIT_MS = "600";
+status = "suspended";
+screensUp = false; // as horafirm-web: a computer asleep in storage lists no screens
+task("ses_had5");
+n = calls.length;
+const waitStart = Date.now();
+await X.ensureComputer("wispy");
+const took = Date.now() - waitStart;
+assert.ok(took >= 550 && took < 3000, `ended about wakeWaitMs after the first ask (${took} ms)`);
+const asks = asked("POST", "/api/computers/c-had-3/resume", n);
+assert.ok(asks >= 3 && asks <= 8, `asked again within the wait, not past it (${asks})`);
+assert.equal(X.setupWaitUntil(1000, 0), 1300, "no ask: upMs after it began");
+assert.equal(X.setupWaitUntil(1000, 1100), 1700, "the first ask: wakeWaitMs after it");
+assert.equal(asked("DELETE", "/api/computers/c-had-3"), 0, "kept");
+assert.equal(S.session("ses_had5").status, "failed");
+assert.equal(main().computerId, "c-had-3");
+replies.route = wakeRoute;
+screensUp = true;
+Object.assign(X.setupWait, { upMs: 3 * 60_000, wakeAskMs: 60_000, pollMs: 3000 });
+delete process.env.DESKWISP_WAKE_WAIT_MS;
+status = "running";
+
+// Another user's state is swapped in (a hosted server) while Deskwisp waits on Horafirm for this one's computer:
+// nothing about it lands in theirs, though their main bot and its task have the same ids.
+const box = globalThis.__deskwisp2;
+const ours = box.state;
+const swap = (to) => {
+  box.state = to;
+  box.swaps = (box.swaps ?? 0) + 1;
+};
+let theirs;
+S.update(() => Object.assign(main(), { computerId: undefined, computerStatus: "none" }));
+task("ses_up5");
+replies["POST /api/computers"] = () => {
+  swap((theirs = JSON.parse(JSON.stringify(ours))));
+  return json(403, { error: "Computer limit reached. Add a slot or delete a computer.", code: "VM_SLOT_ADDON" });
+};
+await X.ensureComputer("wispy");
+assert.equal(S.getState(), theirs);
+assert.equal(S.session("ses_up5").status, "queued", "their task is left alone");
+assert.equal(S.getState().messages.length, ours.messages.length, "nothing said in their chats");
+// Nor is a copy's "no room" note put in their chat.
+swap(ours);
+S.patchSession("ses_up5", { status: "done" });
+S.update(() => Object.assign(main(), { computerId: "c-main", computerStatus: "ready" }));
+ownAgain();
+replies = {
+  ...answers("hacker_v2", 1, 1),
+  ...FORK,
+  "GET /api/billing/compute-limits": () => {
+    if (S.getState() === ours) swap((theirs = JSON.parse(JSON.stringify(ours))));
+    return answers("hacker_v2", 1, 1)["GET /api/billing/compute-limits"]();
+  },
+};
+L.forgetPlan();
+assert.equal(await L.makeOwnComputer(nova(), main(), "nova-x"), null);
+assert.equal(S.getState().messages.length, ours.messages.length, "no note in their chats");
+swap(ours);
+
+/* ---------------- The free Deskwisp computer ---------------- */
+
+/**
+ * Horafirm with free Deskwisp computers (horafirm-web's deskwisp_free): compute-limits names the user's free one (null
+ * while there's none, and it isn't counted in use), and a create with deskwisp_free makes it when there's
+ * none, at the template's size whatever the plan. Otherwise a create is on the plan as before: none on
+ * Free, and up to the plan's count.
+ */
+function freeHorafirm(tier, computers, { free = null, inUse = 0 } = {}) {
+  const o = { free, inUse, made: 0, alive: new Set(free ? [free] : []) };
+  o.replies = {
+    ...WORKSPACES,
+    "GET /api/user/subscription": () => json(200, { tier, planLimits: null }),
+    "GET /api/billing/compute-limits": () =>
+      json(200, { max_computers: computers, computers_used: o.inUse, account_ram_budget_gb: POOL[tier], account_ram_used_gb: 8 * o.inUse, max_ram_gb: Math.max(0, Math.min(64, POOL[tier] - 8 * o.inUse)), deskwisp_free_computer_id: o.free && o.alive.has(o.free) ? o.free : null }),
+    "POST /api/computers": (c) => {
+      if (c.body.deskwisp_free && !(o.free && o.alive.has(o.free))) {
+        o.free = `c-free-${++o.made}`;
+        o.alive.add(o.free);
+        return json(201, { id: o.free, name: c.body.name, status: "creating" });
+      }
+      if (!computers) return json(403, { error: "Creating a computer requires a paid plan. Upgrade to launch your first computer.", code: "UPGRADE_REQUIRED" });
+      if (o.inUse >= computers) return json(403, { error: "Computer limit reached. Add a slot or delete a computer.", code: "VM_SLOT_ADDON" });
+      o.inUse++;
+      const id = `c-plan-${++o.made}`;
+      o.alive.add(id);
+      return json(201, { id, name: c.body.name, status: "creating" });
+    },
+    route: (c) => {
+      const [, id, what] = c.path.match(/^\/api\/computers\/([^/]+)(?:\/(\w+))?$/) ?? [];
+      if (!o.alive.has(id)) return undefined;
+      if (c.method === "GET" && !what) return json(200, { id, status: "running", ram: id.startsWith("c-free") ? 16 : 8, workspace_id: "ws_deskwisp" });
+      if (c.method === "DELETE" && !what) return o.alive.delete(id), json(200, { ok: true });
+      if (c.method === "GET" && what === "screens") return json(200, { screens: [99, 100, 101, 102].map((d) => ({ id: `s${d}`, display: `:${d}`, width: 1280, height: 960, default: d === 99 })) });
+      if (c.method === "POST" && what === "bash") return json(200, { output: "", exit_code: 0 });
+      // The free one stays at its size: Horafirm says its most is what it has, so Deskwisp never grows it.
+      if (c.method === "GET" && what === "resize") return json(200, id.startsWith("c-free") ? { current_disk_gb: 20, max_disk_gb: 20 } : { current_disk_gb: 20, max_disk_gb: 50 });
+      if (c.method === "PATCH" && what === "resize") return json(200, { ok: true });
+      return undefined;
+    },
+  };
+  replies = o.replies;
+  L.forgetPlan();
+  return o;
+}
+const freePlan = (inUse = 0, freeComputerId = null) => ({ tier: "free", name: "Free", computers: 0, inUse, freeComputerId });
+// A fresh team in the main workspace, and a second workspace with its own main bot (Kai) and a bot (Lu).
+S.update((s) => {
+  s.sessions = s.sessions.filter((x) => !["ses_1", "ses_up5"].includes(x.id));
+  for (const x of s.sessions) if (T.live(x)) x.status = "done";
+  s.bots = s.bots.filter((b) => b.id === "wispy");
+  Object.assign(s.bots[0], { computerId: undefined, computerRam: undefined, computerStatus: "none", freeComputer: undefined });
+  s.workspaces = [{ id: "ws_main", name: "Main", createdAt: 1 }, { id: "ws_two", name: "Two", createdAt: 2 }];
+  s.bots.push({ id: "kai", name: "Kai", role: "Chief of Staff", color: "#0A0A0A", isMain: true, computerStatus: "none", workspaceId: "ws_two" });
+  s.bots.push({ id: "lu", name: "Lu", role: "Research", color: "#2EC4B6", isMain: false, computerStatus: "none", computer: "shared", workspaceId: "ws_two" });
+  s.chats.push({ id: "bot:kai", kind: "bot", botIds: ["kai"], createdAt: Date.now(), typing: [], workspaceId: "ws_two" });
+});
+const kai = () => S.bot("kai");
+
+// Read from Horafirm: the free one's id, null while there's none; missing (as before) from an Horafirm without them.
+freeHorafirm("free", 0, { free: "c-free-0" });
+assert.equal((await L.horafirmPlan({ fresh: true })).freeComputerId, "c-free-0");
+freeHorafirm("free", 0);
+assert.deepEqual(plain(await L.horafirmPlan({ fresh: true })), { tier: "free", name: "Free", computers: 0, inUse: 0, memory: { total: 4, used: 0, newMax: 4 }, freeComputerId: null });
+
+// The words: on Free with a free Deskwisp computer, "none" is about any more than that one. Nothing stands in
+// the main bot's way, and a bot's own copy of it takes one computer, not two.
+assert.equal(P.planShortText("none", freePlan()), "Your Horafirm Free plan doesn't include computers besides your free Deskwisp one. Horafirm Hacker includes 1.");
+noDashes(P.planShortText("none", freePlan()));
+assert.equal(P.mainComputerShort(freePlan(), team(false), "ws_main"), null, "Free: the main bot gets the free one");
+assert.equal(P.setupShort(freePlan(), team(false), team(false)[0]), null);
+assert.equal(P.ownComputerShort(freePlan(), team(false), "ws_main").text, "Your Horafirm Free plan doesn't include computers besides your free Deskwisp one. Horafirm Hacker includes 1.");
+assert.equal(P.ownComputerShort({ ...hacker(0), freeComputerId: null }, team(false), "ws_main"), null, "Hacker: the main bot's is free, so a copy fits its one computer");
+assert.equal(P.ownComputerShort({ ...hacker(0), freeComputerId: "c-f", memory: { total: 8, used: 0, newMax: 8 } }, team(true, { freeComputer: true }), "ws_main").text, "Your Horafirm Hacker plan doesn't have the memory left for another computer. Horafirm Startup has more.", "a copy of the free one is 16 GB");
+assert.equal(P.deskwispComputers([{ computerId: "c-f", freeComputer: true }, { computerId: "c-own" }]), 1, "the free one isn't on the plan");
+
+// Free: the main bot's computer is the free Deskwisp computer, from Horafirm's template, at the template's size.
+let fo = freeHorafirm("free", 0);
+const madeFree = await L.makeMainComputer(main(), "wispy-free");
+assert.deepEqual(plain(madeFree), { id: "c-free-1", free: true });
+assert.deepEqual(calls.filter((c) => c.method === "POST" && c.path === "/api/computers").at(-1).body, { workspace_id: "ws_deskwisp", name: "wispy-free", template_ref: "system/deskwisp-base@0.1.8", deskwisp_free: true });
+assert.deepEqual({ id: main().computerId, free: main().freeComputer }, { id: "c-free-1", free: true });
+// Another workspace's main bot on Free: no second free one (none is asked for), it works on the free one
+// with its team, and its chat says why.
+n = asked("POST", "/api/computers");
+assert.equal(await L.makeMainComputer(kai(), "kai-a"), null);
+assert.equal(asked("POST", "/api/computers"), n);
+assert.deepEqual({ computer: kai().computer, status: kai().computerStatus, shares: sharesComputerOf(kai()) }, { computer: "shared", status: "none", shares: true });
+assert.equal(workBotOf(kai()).id, "wispy");
+assert.equal(workBotOf(S.bot("lu")).id, "wispy", "its team with it");
+const kaiNote = S.getState().messages.filter((m) => m.chatId === "bot:kai").at(-1).text;
+assert.equal(kaiNote, `I'll work on your free Deskwisp computer, which Wispy has, instead of one of my own. Your Horafirm Free plan doesn't include computers besides your free Deskwisp one. Horafirm Hacker includes 1. [Upgrade to Horafirm Hacker](${URL_PLAN}) Once your Horafirm plan has room, you can switch me to Its own under Computer in my Details.`);
+noDashes(kaiNote);
+assert.equal(P.deskwispComputers(S.getState().bots), 0);
+// Its own, offered once the plan has room: refused on Free, and on Hacker it goes (its team with it).
+assert.deepEqual(await B.setComputer("kai", "own"), { error: "Your Horafirm Free plan doesn't include computers besides your free Deskwisp one. Horafirm Hacker includes 1." });
+assert.deepEqual(await B.setComputer("wispy", "shared"), { error: "Wispy runs the team, so the computer is its own" });
+fo = freeHorafirm("hacker_v2", 1, { free: "c-free-1" });
+assert.deepEqual(await B.setComputer("kai", "own"), { ok: true });
+assert.deepEqual({ computer: kai().computer, shares: sharesComputerOf(kai()) }, { computer: undefined, shares: false });
+assert.equal(workBotOf(S.bot("lu")).id, "kai");
+// Then its own is on the plan, at the plan's size: never a second free one.
+const kaiOwn = await L.makeMainComputer(kai(), "kai-b");
+assert.deepEqual([kaiOwn.id, kaiOwn.free], ["c-plan-1", undefined]);
+assert.deepEqual(calls.at(-1).body, { workspace_id: "ws_deskwisp", name: "kai-b", template_ref: "system/deskwisp-base@0.1.8", ram: 8 });
+S.update(() => Object.assign(kai(), { computerId: undefined, computer: undefined }));
+
+// The free one is on Horafirm, but no bot here has it (this Mac's state is new): the main bot takes it up again.
+S.update(() => Object.assign(main(), { computerId: undefined, freeComputer: undefined }));
+fo = freeHorafirm("free", 0, { free: "c-free-7" });
+n = asked("POST", "/api/computers");
+assert.deepEqual(plain(await L.makeMainComputer(main(), "wispy-again")), { id: "c-free-7", free: true });
+assert.equal(asked("POST", "/api/computers"), n);
+assert.equal(main().freeComputer, true);
+// Two main bots at once, with none made yet: one free computer, and the other shares it.
+S.update(() => Object.assign(main(), { computerId: undefined, freeComputer: undefined }));
+fo = freeHorafirm("free", 0);
+const atOnce = await Promise.all([L.makeMainComputer(main(), "wispy-1"), L.makeMainComputer(kai(), "kai-1")]);
+assert.deepEqual(plain(atOnce), [{ id: "c-free-1", free: true }, null]);
+assert.equal(asked("POST", "/api/computers") - n, 1);
+assert.equal(kai().computer, "shared");
+
+// Set up end to end: made free, never grown past its size; deleted on Horafirm's site, Deskwisp makes it again.
+S.update(() => {
+  Object.assign(main(), { computerId: undefined, freeComputer: undefined, computerStatus: "none" });
+  Object.assign(kai(), { computer: undefined, computerStatus: "none" });
+});
+fo = freeHorafirm("free", 0);
+await X.ensureComputer("wispy");
+assert.deepEqual({ id: main().computerId, status: main().computerStatus, free: main().freeComputer, ram: main().computerRam }, { id: "c-free-1", status: "ready", free: true, ram: 16 });
+assert.equal(asked("PATCH", "/api/computers/c-free-1/resize"), 0, "its disk stays as Horafirm has it");
+fo.alive.delete("c-free-1");
+S.update(() => (main().computerStatus = "error"));
+await X.ensureComputer("wispy");
+assert.deepEqual({ id: main().computerId, status: main().computerStatus, free: main().freeComputer }, { id: "c-free-2", status: "ready", free: true });
+assert.equal(fo.inUse, 0, "nothing on the plan");
+// Kai's turn on Free: it shares, and its task's computer is Wispy's.
+await X.ensureComputer("kai");
+assert.equal(kai().computer, "shared");
+assert.equal(workBotOf(kai()).id, "wispy");
+
+/* ---------------- A computer deleted on Horafirm's site: the bot moves on, once ---------------- */
+
+const V = await import(`${root}/app/api/vnc/route.ts`);
+const SR = await import(`${root}/app/api/screen/route.ts`);
+const C = await import(`${root}/app/api/computer/route.ts`);
+const view = (botId, display = 99) => V.GET(new Request(`http://localhost:3210/api/vnc?bot=${botId}&display=${display}`));
+const shot = (botId, display = 100) => SR.GET(new Request(`http://localhost:3210/api/screen?bot=${botId}&display=${display}`));
+const computerView = (botId) => C.GET(new Request(`http://localhost:3210/api/computer?bot=${botId}`));
+const healedSays = (botId) => S.getState().messages.filter((m) => m.chatId === `bot:${botId}` && /^My computer was deleted/.test(m.text)).map((m) => m.text);
+/** Wait for what runs in the background after a view (the fake Horafirm answers at once). */
+const until = async (done) => {
+  for (let i = 0; i < 400 && !done(); i++) await new Promise((r) => setTimeout(r, 5));
+  assert.ok(done(), "done in time");
+};
+const later = () => new Promise((r) => setTimeout(r, 30));
+/** Wispy's computer as the app last knew it: ready, on its own (not the free one), with what its screens showed. */
+const onComputer = (id, extra = {}) =>
+  S.update((s) => {
+    s.host = "horafirm";
+    Object.assign(main(), { computerId: id, computerStatus: "ready", freeComputer: undefined, computerRam: 8, tailnet: undefined, ...extra });
+    Object.assign(kai(), { computer: undefined, computerId: undefined, computerStatus: "none" });
+    s.screens = { "wispy:100": { url: "https://example.com/", title: "Example", sensitive: false, at: 1 } };
+  });
+
+// The owner's case: Wispy is on a computer deleted on Horafirm's site (Horafirm answers 404), and the user's free
+// Deskwisp computer is another one, live, that no bot has. The first look at a screen fails, and Wispy moves
+// onto the free one: nothing made, its old tailnet address and what its screens showed forgotten.
+fo = freeHorafirm("free", 0, { free: "c-free-9" });
+onComputer("c-gone-1", { tailnet: { ip: "100.64.0.9", name: "deskwisp-wispy" } });
+n = asked("POST", "/api/computers");
+let res = await view("wispy");
+assert.equal(res.status, 502);
+assert.match((await res.json()).error, /Horafirm GET \/computers\/c-gone-1 → 404/);
+await until(() => healedSays("wispy").length === 1);
+assert.deepEqual(
+  { id: main().computerId, status: main().computerStatus, free: main().freeComputer, tailnet: main().tailnet, ram: main().computerRam },
+  { id: "c-free-9", status: "ready", free: true, tailnet: undefined, ram: 16 },
+);
+assert.equal(asked("POST", "/api/computers"), n, "nothing made: the free one taken up");
+assert.deepEqual(healedSays("wispy"), ["My computer was deleted, so I've moved to your Deskwisp computer."]);
+noDashes(healedSays("wispy")[0]);
+assert.deepEqual(S.getState().screens, {}, "what its old screens showed is forgotten");
+// The next look streams the free one.
+res = await view("wispy");
+assert.equal(res.status, 200);
+assert.match((await res.json()).vnc, /^wss:\/\/horafirm\.test\/desktops\/c-free-9\/ws\/websockify\?/);
+
+// No free Deskwisp computer (the one deleted was it, and Horafirm frees its place): Horafirm makes it again, a new one.
+// A screenshot is what finds out this time.
+fo = freeHorafirm("free", 0);
+onComputer("c-gone-2", { freeComputer: true });
+n = asked("POST", "/api/computers");
+res = await shot("wispy");
+assert.equal(res.status, 502);
+assert.equal(await res.text(), "screenshot 404");
+await until(() => healedSays("wispy").length === 2);
+assert.deepEqual({ id: main().computerId, status: main().computerStatus, free: main().freeComputer }, { id: "c-free-1", status: "ready", free: true });
+assert.equal(asked("POST", "/api/computers") - n, 1, "one made");
+assert.equal(calls.filter((c) => c.method === "POST" && c.path === "/api/computers").at(-1).body.deskwisp_free, true);
+assert.equal(healedSays("wispy").at(-1), "My computer was deleted, so I've made a new one.");
+noDashes(healedSays("wispy").at(-1));
+
+// Many views at once (the boot screen twice, another screen, two screenshots, the computer view) all find
+// it gone: Horafirm is asked about it once more, and Wispy moves once.
+fo = freeHorafirm("free", 0, { free: "c-free-8" });
+onComputer("c-gone-3");
+n = asked("POST", "/api/computers");
+let before = healedSays("wispy").length;
+const limits = asked("GET", "/api/billing/compute-limits");
+const views = await Promise.all([view("wispy"), view("wispy", 100), view("wispy"), shot("wispy", 100), shot("wispy", 101), computerView("wispy")]);
+assert.deepEqual(views.map((r) => r.status), [502, 502, 502, 502, 502, 502]);
+await until(() => healedSays("wispy").length > before);
+await later();
+assert.equal(healedSays("wispy").length - before, 1, "said once");
+assert.equal(main().computerId, "c-free-8");
+assert.equal(asked("POST", "/api/computers"), n);
+assert.equal(asked("GET", "/api/computers/c-gone-3"), 5, "three streams and the computer view asked, then one check");
+assert.equal(asked("GET", "/api/billing/compute-limits") - limits, 1, "the plan read once, for one move");
+
+// A screen that's missing on a computer that's there isn't a computer that's gone: Horafirm is asked once
+// whether it's there, then not again for a minute, and Wispy stays.
+n = asked("GET", "/api/computers/c-free-8");
+assert.equal((await shot("wispy", 101)).status, 502);
+await later();
+assert.equal((await shot("wispy", 102)).status, 502);
+await later();
+assert.equal(asked("GET", "/api/computers/c-free-8") - n, 1);
+assert.equal(main().computerId, "c-free-8");
+assert.equal(healedSays("wispy").length - before, 1);
+
+// Set up again (the computer view's button) while ready, but deleted since: Wispy moves on too.
+fo = freeHorafirm("free", 0, { free: "c-free-5" });
+onComputer("c-gone-4");
+before = healedSays("wispy").length;
+res = await C.POST(new Request("http://localhost:3210/api/computer", { method: "POST", body: JSON.stringify({ botId: "wispy" }) }));
+assert.equal(res.status, 200);
+await until(() => healedSays("wispy").length > before);
+await later();
+assert.deepEqual({ id: main().computerId, status: main().computerStatus, free: main().freeComputer }, { id: "c-free-5", status: "ready", free: true });
+assert.equal(healedSays("wispy").length - before, 1);
+
+// When the app opens, and every 10 minutes: one read for each bot's computer. One that's gone is healed
+// without asking Horafirm again; one that's there is left alone.
+fo = freeHorafirm("free", 0, { free: "c-free-6" });
+onComputer("c-gone-5");
+fo.alive.add("c-kai");
+S.update(() => Object.assign(kai(), { computerId: "c-kai", computerStatus: "ready" }));
+const kaiReads = asked("GET", "/api/computers/c-kai");
+await X.checkComputers();
+assert.deepEqual({ id: main().computerId, status: main().computerStatus }, { id: "c-free-6", status: "ready" });
+assert.equal(asked("GET", "/api/computers/c-gone-5"), 1, "one read");
+assert.equal(asked("GET", "/api/computers/c-kai") - kaiReads, 1, "one read");
+assert.deepEqual({ id: kai().computerId, status: kai().computerStatus }, { id: "c-kai", status: "ready" });
+assert.equal(healedSays("wispy").at(-1), "My computer was deleted, so I've moved to your Deskwisp computer.");
+assert.deepEqual(healedSays("kai"), []);
+
+// Deleting a computer Horafirm no longer has (404), or that's out of this account's reach (403): nothing to
+// delete, so the state is cleared and the user told it worked, rather than an error and no change.
+onComputer("c-gone-6", { freeComputer: true });
+res = await C.DELETE(new Request("http://localhost:3210/api/computer?bot=wispy", { method: "DELETE" }));
+assert.equal(res.status, 200);
+assert.deepEqual(
+  { id: main().computerId, status: main().computerStatus, free: main().freeComputer, tailnet: main().tailnet },
+  { id: undefined, status: "none", free: undefined, tailnet: undefined },
+);
+assert.equal(asked("DELETE", "/api/computers/c-gone-6"), 0, "nothing deleted");
+const away = fo.replies.route;
+fo.replies.route = (c) => (c.path.startsWith("/api/computers/c-away") ? json(403, { error: "You don't have access to this computer" }) : away(c));
+onComputer("c-away");
+await X.resetComputer("wispy");
+assert.deepEqual({ id: main().computerId, status: main().computerStatus }, { id: undefined, status: "none" });
+// Anything else Horafirm says still stops it, and the computer stays.
+fo.replies.route = (c) => (c.path === "/api/computers/c-busy" ? json(409, { error: "Computer is busy" }) : away(c));
+onComputer("c-busy");
+await assert.rejects(X.resetComputer("wispy"), /409: Computer is busy/);
+assert.deepEqual({ id: main().computerId, status: main().computerStatus }, { id: "c-busy", status: "ready" });
+fo.replies.route = away;
+
+/* ---------------- The free Deskwisp computer, found again after a sign-in ---------------- */
+
+// The owner's case: signed in as A, then B, then A again. Their bots' computers were let go at the switch
+// (adoptComputers), so Wispy has none, while A's free Deskwisp computer is still running on Horafirm. After the
+// sign-in (and when a signed-in user's state loads) Wispy takes it up again: nothing is made.
+const signedInAs = (id) => S.update((s) => (s.account = { user: { id }, signedInAt: 1 }));
+const unlinked = () =>
+  S.update((s) => {
+    s.host = "horafirm";
+    s.screens = {};
+    Object.assign(main(), { computerId: undefined, freeComputer: undefined, computerRam: undefined, computerStatus: "none", computer: undefined, tailnet: undefined });
+    Object.assign(kai(), { computerId: undefined, freeComputer: undefined, computerRam: undefined, computerStatus: "none", computer: undefined, tailnet: undefined });
+  });
+const setUpCalls = (id, since) => calls.slice(since).filter((c) => c.path.startsWith(`/api/computers/${id}/`)).length;
+signedInAs("user_a");
+
+// 1. Wispy has no computer, and the free one is on Horafirm with no bot on it: Wispy has it again, set up
+// (its screens and the rest), and nothing is made. Kai, another workspace's main bot with none, is left alone.
+fo = freeHorafirm("free", 0, { free: "c-free-r" });
+unlinked();
+n = calls.length;
+const creates = asked("POST", "/api/computers");
+await X.reattachFreeComputer("user_a");
+assert.deepEqual(
+  { id: main().computerId, free: main().freeComputer, status: main().computerStatus, ram: main().computerRam },
+  { id: "c-free-r", free: true, status: "ready", ram: 16 },
+);
+assert.equal(asked("POST", "/api/computers"), creates, "nothing made");
+assert.equal(fo.inUse, 0, "nothing on the plan");
+assert.ok(calls.slice(n).some((c) => c.method === "GET" && c.path === "/api/computers/c-free-r/screens"), "its screens set up again");
+assert.deepEqual({ id: kai().computerId, status: kai().computerStatus }, { id: undefined, status: "none" });
+// Two looks at once (the sign-in and the state loading) are one: one read of the plan.
+unlinked();
+n = asked("GET", "/api/billing/compute-limits");
+const looks = [X.reattachFreeComputer("user_a"), X.reattachFreeComputer("user_a")];
+assert.equal(looks[0], looks[1], "one look at a time per user");
+await Promise.all(looks);
+assert.equal(asked("GET", "/api/billing/compute-limits") - n, 1);
+assert.equal(main().computerId, "c-free-r");
+
+// 2. Another bot has the free one: nothing changes, and nothing is asked of Horafirm beyond the plan.
+unlinked();
+S.update(() => Object.assign(kai(), { computerId: "c-free-r", freeComputer: true, computerStatus: "ready" }));
+let bots = JSON.stringify(S.getState().bots);
+n = calls.length;
+await X.reattachFreeComputer("user_a");
+assert.equal(JSON.stringify(S.getState().bots), bots, "nothing changed");
+assert.equal(posts(n), 0);
+assert.equal(setUpCalls("c-free-r", n), 0, "nothing set up");
+
+// 3. No free Deskwisp computer: nothing made, though the plan has room for one (or Horafirm says nothing about free ones).
+for (const horafirmNow of [() => freeHorafirm("free", 0), () => freeHorafirm("hacker_v2", 1), () => onPlan("hacker_v2", 1, 0)]) {
+  horafirmNow();
+  unlinked();
+  bots = JSON.stringify(S.getState().bots);
+  n = calls.length;
+  await X.reattachFreeComputer("user_a");
+  assert.equal(posts(n), 0, "nothing made");
+  assert.equal(JSON.stringify(S.getState().bots), bots, "nothing changed");
+}
+
+// 4. The account changes while Horafirm is asked about the plan: nothing is written, into either state.
+// Another user's state swapped in (a hosted server; their bots have the same ids)...
+fo = freeHorafirm("free", 0, { free: "c-free-r" });
+unlinked();
+const mine = S.getState();
+let other;
+const limitsNow = fo.replies["GET /api/billing/compute-limits"];
+fo.replies["GET /api/billing/compute-limits"] = (c) => {
+  if (S.getState() === mine) swap((other = JSON.parse(JSON.stringify(mine))));
+  return limitsNow(c);
+};
+n = calls.length;
+await X.reattachFreeComputer("user_a");
+assert.equal(S.getState(), other);
+assert.deepEqual([other, mine].map((st) => st.bots.find((b) => b.id === "wispy").computerId), [undefined, undefined]);
+assert.equal(setUpCalls("c-free-r", n), 0, "nothing set up");
+swap(mine);
+// ...or a sign-out, and someone else signed in, on this Mac.
+fo.replies["GET /api/billing/compute-limits"] = (c) => {
+  signedInAs("user_b");
+  return limitsNow(c);
+};
+bots = JSON.stringify(S.getState().bots);
+n = calls.length;
+await X.reattachFreeComputer("user_a");
+assert.equal(JSON.stringify(S.getState().bots), bots, "nothing written");
+assert.equal(setUpCalls("c-free-r", n), 0);
+// Nor is Horafirm asked at all for a user who isn't the one signed in.
+n = calls.length;
+await X.reattachFreeComputer("user_a");
+assert.equal(calls.length, n);
+S.update((s) => (s.account = undefined));
+
+/* ---------------- Max's Deskwisp computers ---------------- */
+
+/**
+ * Where Deskwisp Cloud holds plans to what they include (CloudSession.plan.limits) and Horafirm counts Deskwisp
+ * computers (compute-limits' deskwisp_computers_limit and deskwisp_max_computer_ids), a bot's own computer is a
+ * Deskwisp computer made fresh from the Deskwisp template (deskwisp_free), never a copy on the Horafirm plan: Max has
+ * up to 5, the free one included; Free and Pro the free one only, and say so in the plan's words.
+ */
+const PI = await import(`${root}/lib/plan-includes.ts`);
+// The plan Deskwisp Cloud says counts only where the app works through it (cloud.ts cloudOn): the Mac app,
+// not a self-hosted install. So it's the Mac app's here, with the state still in the test's file store.
+delete process.env.DESKWISP_SELF_HOSTED;
+const cloudBox = globalThis.deskwispCloud;
+const onDeskwispPlan = (tier) => (cloudBox.session = { key: "sk_test_one", value: { userId: "u1", plan: { tier, limits: true } } });
+function deskwispHorafirm(limit, { extras = [], refuse = false } = {}) {
+  const o = { extras: [...extras], made: 0 };
+  o.replies = {
+    ...WORKSPACES,
+    "GET /api/user/subscription": () => json(200, { tier: "free", planLimits: null }),
+    "GET /api/billing/compute-limits": () =>
+      json(200, { max_computers: 0, computers_used: 0, account_ram_budget_gb: 4, account_ram_used_gb: 0, max_ram_gb: 4, deskwisp_free_computer_id: "c-free-b", deskwisp_max_computer_ids: o.extras, deskwisp_computers_limit: limit }),
+    "POST /api/computers": (c) => {
+      if (!c.body.deskwisp_free) return json(403, { error: "Creating a computer requires a paid plan.", code: "UPGRADE_REQUIRED" });
+      if (refuse || 1 + o.extras.length >= limit)
+        return json(403, { error: limit > 1 ? "Max includes up to 3 Deskwisp computers, and you have 3." : "Pro includes 1 Deskwisp computer. Max includes up to 3.", code: "DESKWISP_COMPUTER_LIMIT" });
+      const id = `c-max-${++o.made}`;
+      o.extras.push(id);
+      return json(201, { id, name: c.body.name, status: "creating" });
+    },
+  };
+  replies = o.replies;
+  L.forgetPlan();
+  return o;
+}
+const novaNote = () => S.getState().messages.filter((m) => m.chatId === "bot:nova").at(-1)?.text ?? "";
+S.update((st) => {
+  if (!st.bots.some((b) => b.id === "nova")) {
+    st.bots.push({ id: "nova", name: "Nova", role: "Research", color: "#2EC4B6", isMain: false, computerStatus: "none" });
+    st.chats.push({ id: "bot:nova", kind: "bot", botIds: ["nova"], createdAt: Date.now(), typing: [] });
+  }
+  Object.assign(st.bots.find((b) => b.id === "wispy"), { computerId: "c-free-b", freeComputer: true, computerStatus: "ready", workspaceId: undefined });
+  Object.assign(st.bots.find((b) => b.id === "nova"), { computerId: undefined, computer: "own", computerStatus: "cloning" });
+});
+const novaWs = T.workspaceOf(nova());
+
+// Max with room: Nova gets a Deskwisp computer of its own, made from the template, not a copy.
+onDeskwispPlan("max_deskwisp");
+deskwispHorafirm(5, { extras: ["c-max-a"] });
+let p = await L.horafirmPlan({ fresh: true });
+assert.deepEqual(plain(p.deskwisp), { tier: "max_deskwisp", limit: 5, extras: ["c-max-a"] });
+assert.equal(P.ownComputerShort(p, S.getState().bots, novaWs), null);
+n = calls.length;
+const madeMax = await L.makeOwnComputer(nova(), main(), "nova-max");
+assert.equal(madeMax?.id, "c-max-1");
+const create = calls.slice(n).find((c) => c.method === "POST" && c.path === "/api/computers");
+assert.equal(create.body.deskwisp_free, true, "made as a Deskwisp computer");
+assert.equal(create.body.ram, undefined, "at the template's size");
+assert.equal(calls.slice(n).filter((c) => /\/(fork|clone)$/.test(c.path)).length, 0, "not a copy");
+
+// Max with all 5: it shares Wispy's, in Max's words, with nothing to buy and no Horafirm link.
+deskwispHorafirm(5, { extras: ["a", "b", "c", "d"] });
+p = await L.horafirmPlan({ fresh: true });
+assert.equal(P.ownComputerShort(p, S.getState().bots, novaWs)?.text, "Max includes up to 3 Deskwisp computers, and you have 3.");
+ownAgain();
+n = calls.length;
+assert.equal(await L.makeOwnComputer(nova(), main(), "nova-max-6"), null);
+assert.equal(asked("POST", "/api/computers") - calls.slice(0, n).filter((c) => c.method === "POST" && c.path === "/api/computers").length, 0, "nothing made");
+assert.equal(nova().computer, "shared");
+assert.equal(novaNote(), "I'll work on Wispy's computer instead of one of my own. Max includes up to 3 Deskwisp computers, and you have 3. Once your plan has room, you can switch me to Its own under Computer in my Details.");
+
+// Pro (and Free): one computer, the free one, shared by the bots. Why not, and the plan that has room.
+for (const [tier, name] of [["pro_deskwisp", "Pro"], ["free_deskwisp", "Free"]]) {
+  onDeskwispPlan(tier);
+  deskwispHorafirm(1);
+  p = await L.horafirmPlan({ fresh: true });
+  const why = `${name} includes 1 Deskwisp computer. Max includes up to 3.`;
+  assert.deepEqual(plain(P.ownComputerShort(p, S.getState().bots, novaWs)), { short: "deskwisp", text: why, upgrade: "max" });
+  assert.equal(await L.noOwnComputer(novaWs), why);
+  ownAgain();
+  n = calls.length;
+  assert.equal(await L.makeOwnComputer(nova(), main(), `nova-${tier}`), null);
+  assert.equal(calls.slice(n).filter((c) => c.method === "POST").length, 0, `${tier}: nothing asked of Horafirm`);
+  assert.equal(novaNote(), `I'll work on Wispy's computer instead of one of my own. ${why} Upgrade to Max in Settings. Once your plan has room, you can switch me to Its own under Computer in my Details.`);
+  noDashes(novaNote());
+}
+
+// Horafirm's word is the last: a plan read with room, turned down at the create, shares in Horafirm's words.
+onDeskwispPlan("max_deskwisp");
+deskwispHorafirm(5, { refuse: true });
+ownAgain();
+assert.equal(await L.makeOwnComputer(nova(), main(), "nova-raced"), null);
+assert.equal(nova().computer, "shared");
+assert.ok(novaNote().includes("Max includes up to 3 Deskwisp computers, and you have 3."), novaNote());
+
+// Without the cloud's limits (self-hosted, or before plans), the Horafirm plan decides as before.
+cloudBox.session = { key: "sk_test_one", value: { userId: "u1", plan: { tier: "max_deskwisp", limits: false } } };
+deskwispHorafirm(5);
+assert.equal((await L.horafirmPlan({ fresh: true })).deskwisp, undefined);
+cloudBox.session = undefined;
+
+// The words for numbers, emails and computers, and the cards: every plan, no dashes.
+assert.deepEqual(PI.numberShort("free_deskwisp", 0, { isPlanBot: true }), { text: "Free doesn't include a phone number. Pro includes 1, and Max up to 5.", upgrade: "plan" });
+assert.equal(PI.numberShort("pro_deskwisp", 0, { isPlanBot: true }), null, "Pro's one is the main bot's");
+assert.deepEqual(PI.numberShort("pro_deskwisp", 1, { isPlanBot: false }), { text: "Pro includes 1 phone number. Max includes up to 5.", upgrade: "max" });
+assert.equal(PI.numberShort("max_deskwisp", 4, { isPlanBot: false }), null);
+assert.deepEqual(PI.numberShort("max_deskwisp", 5, { isPlanBot: false }), { text: "Max includes up to 5 phone numbers, and you have 5.", upgrade: null });
+assert.deepEqual(PI.emailShort("free_deskwisp", 0, { isPlanBot: true }), { text: "Free doesn't include an email. Pro includes 1, and Max up to 5.", upgrade: "plan" });
+assert.equal(PI.emailShort("pro_deskwisp", 1, { isPlanBot: true }), null);
+assert.deepEqual(PI.emailShort("pro_deskwisp", 1, { isPlanBot: false }), { text: "Pro includes 1 email. Max includes up to 5.", upgrade: "max" });
+assert.equal(PI.emailShort("max_deskwisp", 4, { isPlanBot: false }), null);
+assert.deepEqual(PI.emailShort("max_deskwisp", 5, { isPlanBot: false }), { text: "Max includes up to 5 emails, and you have 5.", upgrade: null });
+assert.equal(PI.computerShort("max_deskwisp", 1, 2), null, "Max: the free one, then a bot's own and its main bot's");
+assert.equal(PI.upgradeLabel("plan"), "Purchase a plan");
+assert.equal(PI.upgradeLabel("max"), "Upgrade to Max");
+assert.deepEqual(
+  PI.PLAN_CARDS.map((c) => [c.name, c.price, `${c.computers.title}: ${c.computers.detail}`, ...c.lines.map((l) => (l.no ? `- ${l.text}` : l.text))]),
+  [
+    ["Free", "$0", "1 computer included: 10 hours a month, 4 cores, 16 GB RAM, multi-screen", "$5 of AI credit, once", "As many bots as you like, sharing it", "- No phone number or email", "- No sharing with other people"],
+    [
+      "Pro",
+      "$20",
+      "1 computer included: Always on, 4 cores, 16 GB RAM, templates, multi-screen",
+      "$20 of AI credit every month",
+      "As many bots as you like, sharing it",
+      "1 phone number and 1 email",
+      "Share your bots' computers with 2 people",
+      "- No extra computers",
+    ],
+    [
+      "Max",
+      "$200",
+      "Up to 3 computers: Always on, 4 cores, 16 GB RAM each",
+      "$200 of AI credit every month",
+      "As many bots as you like, on any of them",
+      "Up to 5 phone numbers and 5 emails",
+      "Share your bots' computers with up to 5 people",
+    ],
+  ],
+);
+for (const c of PI.PLAN_CARDS) for (const text of [c.computers.title, c.computers.detail, ...c.lines.map((l) => l.text)]) noDashes(text);
+
+// Emails: each plan's, held by the app (the Mac makes inboxes in its own pod). The plan's main bot's is
+// counted from the start on a paid plan; another bot's comes only when the user asks, on Max, up to 5.
+const M = await import(`${root}/lib/server/mail.ts`);
+const R = await import(`${root}/lib/server/plan-room.ts`);
+for (const [tier, error, upgrade] of [
+  ["free_deskwisp", "Free doesn't include an email. Pro includes 1, and Max up to 5.", "plan"],
+  ["pro_deskwisp", "Pro includes 1 email. Max includes up to 5.", "max"],
+]) {
+  onDeskwispPlan(tier);
+  assert.deepEqual(await M.requestInbox("nova"), { error, upgrade });
+  assert.equal(nova().mailWanted, undefined, `${tier}: nothing asked for`);
+}
+onDeskwispPlan("max_deskwisp");
+S.update((st) => {
+  for (const [i, id] of ["x1", "x2", "x3", "x4"].entries())
+    st.bots.push({ id, name: `X${i}`, role: "Research", color: "#2EC4B6", isMain: false, computerStatus: "none", mail: { inboxId: `${id}@acme.deskwisp.bot`, podId: "pod" } });
+});
+assert.deepEqual(R.planRoom(), { tier: "max_deskwisp", numbers: R.numbersHeld(), emails: 5 }, "4 bots and the plan's main bot");
+assert.deepEqual(await M.requestInbox("nova"), { error: "Max includes up to 5 emails, and you have 5.", upgrade: null });
+S.update((st) => (st.bots = st.bots.filter((b) => !["x2", "x3", "x4"].includes(b.id))));
+// With room: asked for, and made when mail is on (it's off here, so it's on its way).
+assert.deepEqual(await M.requestInbox("nova"), { error: "Nova's inbox is being set up. It shows up here in a moment.", upgrade: null });
+assert.equal(nova().mailWanted, true);
+cloudBox.session = undefined;
+S.update((st) => (st.bots = st.bots.filter((b) => b.id !== "x1")));
+process.env.DESKWISP_SELF_HOSTED = "1";
+
+/* ---------------- A self-hosted install's file: saved now, in order ---------------- */
+
+// Saving now (Restart Deskwisp, a sign-out) waits for a background save under way, and lands last: the
+// older state that save holds never lands after it (lib/server/persist.ts fileStore).
+const onDisk = () => JSON.parse(readFileSync(join(scratch, ".data/state.json"), "utf8"));
+const save = globalThis.__deskwispSave;
+S.update((s) => (s.owner.about = "saved in the background"));
+for (const end = Date.now() + 2000; !save.writing && Date.now() < end; ) await new Promise((r) => setImmediate(r));
+assert.ok(save.writing, "a background save under way");
+S.update((s) => (s.owner.about = "saved now"));
+assert.equal(await S.flushState(), true);
+assert.equal(onDisk().owner.about, "saved now");
+await new Promise((r) => setTimeout(r, 600));
+assert.equal(onDisk().owner.about, "saved now", "nothing older lands after it");
+
+console.log(`all plan tests passed (${calls.length} fake Horafirm calls, none to the network)`);
+// Gone before the store's next save could make the folder again.
+rmSync(scratch, { recursive: true, force: true });
+process.exit(0);

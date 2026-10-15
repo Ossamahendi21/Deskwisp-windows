@@ -1,0 +1,7 @@
+[Unit]
+Description=Copy Caddy's certificate for the relay name to horafirm-relay, then restart it if it changed
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/horafirm-relay/env
+ExecStart=/usr/local/sbin/horafirm-relay-cert-sync

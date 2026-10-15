@@ -1,0 +1,128 @@
+# Deskwisp database (hosted Deskwisp)
+
+Hosted Deskwisp keeps its data in Postgres: Deskwisp Cloud (`cloud/`, see cloud/README.md) for every user's
+cloud setup, webhooks, pending texts and calls, and each user's app state: the Mac app keeps none of
+its own, it loads the signed-in user's from here and writes every change back. The state is
+`deskwisp.app_state` (one row per Horafirm user: the app state as JSONB, without its messages) and
+`deskwisp.chat_messages` (one row per chat message; `db/migrations/0010_chat_messages.sql`). A
+self-hosted install (`DESKWISP_SELF_HOSTED=1`) needs none of this: it keeps a file per user,
+`.data/users/<id>/state.json`.
+
+At Horafirm it lives in horafirm-web's production database (`horafirm`), in its own schema (`deskwisp`), under its
+own login (`deskwisp_app`). That login owns its schema and has no grants on horafirm-web's, so it can't read
+or change horafirm-web's tables; it shares the database's backups and its `max_connections`. A
+self-hoster can put it in any database the same way.
+
+One exception: AI credit. Each user's balance is in horafirm-web's schema (`public.deskwisp_ai_credit`, with
+every grant in `public.deskwisp_ai_credit_grants`), because horafirm-web's Stripe webhook adds Pro's and Max's
+monthly credit and Deskwisp Cloud takes each use from it (`cloud/credit.ts`). horafirm-web's migration
+`20261022_deskwisp_plans.sql` makes the two tables and their three functions and grants `deskwisp_app`
+SELECT, INSERT and UPDATE on those two tables (and the grants' id sequence), nothing else;
+`provision.sql` grants the same again for a database set up the other way round. `deskwisp_app` still
+can't read `profiles` or anything else of horafirm-web's. Deskwisp Cloud uses them only with
+`DESKWISP_AI_CREDITS=1`, and then refuses to start without them.
+
+## Set it up (once per database)
+
+1. Pick the password and keep it in the secrets file (below), then make the login and the schema as
+   a superuser, connected to the database Deskwisp goes in. An application role (horafirm-web's `horafirm_v2`
+   included) can't create roles.
+
+   ```bash
+   psql "<superuser url to that database>" -v ON_ERROR_STOP=1 -v deskwisp_app_password="$DESKWISP_APP_PASSWORD" -f db/provision.sql
+   ```
+
+   It ends by listing the SECURITY DEFINER functions anyone may run (they run as their owner, so
+   `deskwisp_app` could reach through them). Look at each before Deskwisp Cloud goes live there.
+
+2. Let Deskwisp Cloud's address reach Postgres: the database box's firewall, and `pg_hba.conf` if it
+   names users (`hostssl horafirm deskwisp_app <deskwisp cloud address>/32 scram-sha-256`).
+
+3. The tables: Deskwisp Cloud applies `db/migrations/*.sql` itself when it starts (`cloud/db.ts`), as
+   `deskwisp_app`. By hand:
+
+   ```bash
+   for f in db/migrations/*.sql; do psql "$DESKWISP_DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
+   ```
+
+   Migrations are plain SQL, numbered, and safe to run again; `deskwisp.schema_migrations` records which
+   ran. They never create anything outside schema `deskwisp`.
+
+## The connection string
+
+```
+DESKWISP_DATABASE_URL=postgres://deskwisp_app:<password>@<host>:5432/horafirm?sslmode=no-verify
+```
+
+(`no-verify`: encrypted, without checking the server's self-signed certificate.) It lives in Horafirm's
+encrypted secrets (`prod/deskwisp-secrets.env`, sops), and Deskwisp Cloud gets it from there at deploy
+time. Never put it in `.env.example`, a commit or a log.
+
+The older single-user hosted server (`lib/server/persist-pg.ts`) reads the same `deskwisp.app_state`.
+Optional for it: `DESKWISP_HORAFIRM_USER_ID` pins a server to one user, whose state it loads before taking
+requests, and refuses a sign-in by anyone else. Start it with `NEXT_MANUAL_SIG_HANDLE=true`, so it
+saves before it exits on SIGTERM.
+
+## How many connections
+
+`db/provision.sql` gives `deskwisp_app` a limit of 50 connections. A Deskwisp Cloud process keeps a pool of
+at most 10 (`cloud/db.ts`), and a single-user hosted server holds one. Raising the limit takes from
+the `max_connections` horafirm-web shares, so check that first; past it, put PgBouncer in front, in
+transaction mode.
+
+## How the server uses it
+
+- Before the first request (`instrumentation.ts`) a pinned server loads the user's row; any other
+  server loads it at sign-in. A sign-in fails if the row can't be read. If the database doesn't
+  answer within 15 seconds, the server starts anyway and writes nothing until it has read the row,
+  so a fresh state can never overwrite a saved one.
+- Changes are written behind, at most every 2 seconds. Each write names the row version it last
+  saw; if another server saved in between, that save stands and this server reloads it (its own
+  unsaved changes are dropped, and logged).
+- If the database goes away, the server keeps working from memory and retries with backoff (up to
+  30 seconds), logging the first failure and then every tenth.
+- `deskwisp.usage_events` is a view over each user's usage ledger, for reporting across users.
+- `deskwisp.owner_phones` (0002) holds each user's own mobile numbers once they've proved them with a
+  texted code (Settings → Phone; `lib/server/verify.ts`): when they agreed to texts, when it was
+  verified, and the verification's id. A unique index on the number, over verified rows only, means
+  one verified mobile belongs to exactly one Deskwisp user: a second account trying to verify it is
+  refused (before a code is sent, and again at the check, where the index settles a race). That's
+  also what will let a hosted server route a text from a user's mobile to the right user. The row is
+  written when the code checks out and deleted when the user removes the number or starts over; the
+  state row keeps its own copy (`state.ownerPhones`), which is what the server reads for "is this
+  the user". `DESKWISP_OWNER_PHONES` skips all of this: never set it on a hosted server.
+  For now a hosted server refuses to add or remove these numbers (`/api/phone/verify/*` and
+  `remove-owner` are for the app on a Mac only): it has no per-request sign-in yet, so anyone who
+  reaches it could verify their own phone as its user. The table and the code that writes it are
+  ready for when a request can prove which Horafirm user sent it; the send limits in
+  `lib/server/verify.ts` are per process then, and a cap shared across servers belongs here.
+  Deskwisp Cloud also adds a number here when it claims one of the user's lines (below), with
+  `verification_ref` `claim:call` or `claim:text`.
+- `deskwisp.phone_lines` (0006, Deskwisp Cloud's `cloud/lines.ts`): one row per bot number, with its owner's
+  own phone. The first phone to call or text a new number in its 15 minutes becomes the owner (one
+  conditional UPDATE, so only one wins); a number verified by code links lines with no owner. Deskwisp
+  Cloud checks every call and text to a line against it, never against the state row.
+- `deskwisp.cloud_usage.cost_micros` and `deskwisp.cloud_objects.model` (0007, `0007_ai_credit.sql`, Deskwisp
+  Cloud's `cloud/usage.ts` and `cloud/credit.ts`): what each use cost Horafirm, taken from the user's AI
+  credit, and the model an agent session runs on, to price its turns.
+- `deskwisp.cloud_objects.bot_id`, `used_at`, `checked_at`, `settled_at` (0009, `0009_usage.sql`, Deskwisp
+  Cloud's `cloud/reconcile.ts`): the bot an agent session works for, and when its turns were last
+  read back from OpenAI; `cloud_usage_ref`, the index that finds a use by its ref.
+- `deskwisp.chat_messages`, `deskwisp.chat_seq`, `deskwisp.app_state.protocol` and `writer` (0010,
+  `0010_chat_messages.sql`, Deskwisp Cloud's `cloud/state.ts`): each chat message its own row, moved out
+  of the state blobs, with a seq bumped on every write; which build last wrote a user's state, and
+  from which Mac (cloud/README.md, "The app's state").
+- `deskwisp.cloud_accounts.ios_version` and `ios_seen_at`, `deskwisp.app_policy.ios_block_below`, the
+  `chat_messages_answers` index and `deskwisp.app_state.swept_seq` (0013, `0013_ios_client.sql`, Deskwisp
+  Cloud's `cloud/app-version.ts`, `cloud/agent.ts` and `cloud/state.ts`): Deskwisp for iPhone's own
+  version, kept apart from the Mac's, and the oldest one the cloud serves; the index that finds the
+  cloud's answer to a message sent from the phone, so a message sent twice is answered once; and each
+  user's highest seq of removed messages swept for good, so a phone whose cursor is older loads its
+  chat again (cloud/README.md, "The main bot's chat from the phone").
+
+## Test against a throwaway database
+
+```bash
+createdb deskwisp_test
+DESKWISP_TEST_DATABASE_URL=postgres://localhost/deskwisp_test node scripts/test-persist-pg.mjs
+```
