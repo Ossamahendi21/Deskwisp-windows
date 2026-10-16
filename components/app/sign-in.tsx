@@ -119,6 +119,9 @@ const problemOf = (error: unknown): Problem => (error === "horafirm" || error ==
 const keepsKey = (step: Step) => step.kind === "problem" && (step.problem === "keychain" || step.problem === "cloud");
 type Step =
   | { kind: "idle" }
+  /** Continue with email, in the app: typing the address, then the code Clerk emailed. */
+  | { kind: "email"; email?: string; busy?: boolean; error?: string }
+  | { kind: "code"; email: string; mode: "sign_in" | "sign_up"; busy?: boolean; error?: string; resent?: boolean; tries?: number }
   | { kind: "starting" }
   | { kind: "saving" }
   | { kind: "waiting"; code: Code; total: number }
@@ -177,6 +180,35 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
     setStep({ kind: "idle" });
   };
 
+  // Continue with email, all here: the address, then the code (app/api/auth/email). `resend`: the same address again.
+  const sendCode = async (email: string, resend = false) => {
+    setWay("email");
+    setStep(resend ? { kind: "code", email, mode: "sign_in", busy: true } : { kind: "email", email, busy: true });
+    try {
+      const res = await fetch("/api/auth/email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
+      const body = (await res.json().catch(() => ({}))) as { mode?: "sign_in" | "sign_up"; error?: string; message?: string };
+      if (body.error === "email") return setStep({ kind: "email", email, error: body.message });
+      if (!res.ok) return setStep({ kind: "problem", problem: problemOf(body.error) });
+      setStep({ kind: "code", email, mode: body.mode ?? "sign_in", resent: resend });
+    } catch {
+      setStep({ kind: "problem", problem: "offline" });
+    }
+  };
+
+  const checkCode = async (email: string, mode: "sign_in" | "sign_up", code: string, tries: number) => {
+    setStep({ kind: "code", email, mode, busy: true, tries });
+    try {
+      const res = await fetch("/api/auth/email/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+      const body = (await res.json().catch(() => ({}))) as { status?: string; user?: AuthStatus["user"]; error?: string; message?: string };
+      // A wrong code: said so, and a fresh field for the next try (CodeForm is keyed by the tries).
+      if (body.error === "email") return setStep({ kind: "code", email, mode, error: body.message, tries: tries + 1 });
+      if (!res.ok) return setStep({ kind: "problem", problem: problemOf(body.error) });
+      setStep({ kind: "approved", who: body.user?.name || body.user?.email || email });
+    } catch {
+      setStep({ kind: "problem", problem: "offline" });
+    }
+  };
+
   // Ask the server on Horafirm's interval; it collects the key and signs in when the code is approved.
   const code = step.kind === "waiting" ? step.code : null;
   useEffect(() => {
@@ -224,15 +256,25 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
       <div className="h-11 shrink-0 [-webkit-app-region:drag]" />
       <div className="flex flex-1 flex-col items-center justify-center px-6 pb-16">
         <div className="flex w-[400px] animate-[call-in_220ms_ease-out] flex-col items-center rounded-[22px] bg-white px-8 pb-7 pt-9 shadow-[0_0_0_1px_#0000000F,0_30px_70px_-28px_#00000038]">
-          <span className={step.kind === "waiting" || step.kind === "starting" || step.kind === "saving" ? "animate-[bob_2.4s_ease-in-out_infinite]" : ""}>
+          <span className={step.kind === "waiting" || step.kind === "starting" || step.kind === "saving" || ((step.kind === "email" || step.kind === "code") && step.busy) ? "animate-[bob_2.4s_ease-in-out_infinite]" : ""}>
             <Mascot botId="wispy" color="#16132B" size={56} />
           </span>
           {step.kind === "waiting" ? (
             <Waiting step={step} way={way} onReopen={() => openInBrowser(step.code.verificationUrl)} onCancel={cancel} />
           ) : step.kind === "approved" ? (
             <Approved who={step.who} />
+          ) : step.kind === "email" ? (
+            <EmailForm step={step} onSend={(email) => void sendCode(email)} onBack={() => setStep({ kind: "idle" })} />
+          ) : step.kind === "code" ? (
+            <CodeForm
+              key={step.tries ?? 0}
+              step={step}
+              onCheck={(code) => void checkCode(step.email, step.mode, code, step.tries ?? 0)}
+              onResend={() => void sendCode(step.email, true)}
+              onOtherEmail={() => setStep({ kind: "email", email: step.email })}
+            />
           ) : step.kind === "idle" || step.kind === "starting" ? (
-            <Welcome starting={step.kind === "starting" ? way : null} onStart={(w) => void start(w)} />
+            <Welcome starting={step.kind === "starting" ? way : null} onStart={(w) => (w === "email" ? setStep({ kind: "email" }) : void start(w))} />
           ) : step.kind === "saving" ? (
             // Saving the key again stays on the keychain screen, busy: no new code, no way to pick.
             <Retry step={{ kind: "problem", problem: "keychain" }} busy onRetry={() => {}} onBack={() => {}} />
@@ -286,6 +328,107 @@ function Welcome({ starting, onStart }: { starting: Way | null; onStart: (way: W
         <button disabled={busy} onClick={() => onStart("email")} className={secondary}>
           {starting === "email" ? <Spinner size={13} /> : <MailMark />}
           Continue with email
+        </button>
+      </div>
+    </>
+  );
+}
+
+const field =
+  "h-10 w-full rounded-[12px] bg-white px-3.5 text-[14px] text-ink outline-none shadow-[0_0_0_1px_#E6E6E3] placeholder:text-pencil focus:shadow-[0_0_0_2px_#7C5CFF] disabled:opacity-60";
+const quiet = "h-8 text-[12.5px] font-medium text-pencil hover:text-ink disabled:opacity-50";
+
+/** Continue with email: the address. Clerk emails a code to it (a new account if there's none yet). */
+function EmailForm({ step, onSend, onBack }: { step: Extract<Step, { kind: "email" }>; onSend: (email: string) => void; onBack: () => void }) {
+  const [email, setEmail] = useState(step.email ?? "");
+  const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  return (
+    <>
+      <Heading title="Continue with email" line="We'll email you a 6-digit code. New here? This makes your account." />
+      <form
+        className="flex w-full flex-col gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (ok && !step.busy) onSend(email.trim());
+        }}
+      >
+        <input
+          type="email"
+          autoFocus
+          autoComplete="email"
+          placeholder="you@company.com"
+          value={email}
+          disabled={step.busy}
+          onChange={(e) => setEmail(e.target.value)}
+          className={field}
+        />
+        {step.error && <span className="px-1 text-left text-[12.5px] leading-4 text-[#B42318]">{step.error}</span>}
+        <button type="submit" disabled={!ok || step.busy} className={`${primary} mt-1`}>
+          {step.busy && <Spinner size={13} color="#FFFFFF" />}
+          Send code
+        </button>
+      </form>
+      <button onClick={onBack} disabled={step.busy} className={`${quiet} mt-1.5`}>
+        Choose another way
+      </button>
+    </>
+  );
+}
+
+/** The code from the email: six digits, checked as soon as they're in. */
+function CodeForm({
+  step,
+  onCheck,
+  onResend,
+  onOtherEmail,
+}: {
+  step: Extract<Step, { kind: "code" }>;
+  onCheck: (code: string) => void;
+  onResend: () => void;
+  onOtherEmail: () => void;
+}) {
+  const [code, setCode] = useState("");
+  const take = (v: string) => {
+    const digits = v.replace(/\D/g, "").slice(0, 6);
+    setCode(digits);
+    if (digits.length === 6 && !step.busy) onCheck(digits);
+  };
+  return (
+    <>
+      <Heading
+        title="Check your email"
+        line={`Enter the 6-digit code we sent to ${step.email}${step.mode === "sign_up" ? " to make your account" : ""}.${step.resent ? " A new one is on its way." : ""}`}
+      />
+      <form
+        className="flex w-full flex-col gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (code.length === 6 && !step.busy) onCheck(code);
+        }}
+      >
+        <input
+          autoFocus
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          placeholder="000000"
+          value={code}
+          disabled={step.busy}
+          onChange={(e) => take(e.target.value)}
+          className={`${field} text-center font-mono text-[20px] tracking-[0.4em]`}
+        />
+        {step.error && <span className="px-1 text-center text-[12.5px] leading-4 text-[#B42318]">{step.error}</span>}
+        <button type="submit" disabled={code.length !== 6 || step.busy} className={`${primary} mt-1`}>
+          {step.busy && <Spinner size={13} color="#FFFFFF" />}
+          Continue
+        </button>
+      </form>
+      <div className="mt-1.5 flex items-center gap-3">
+        <button onClick={onResend} disabled={step.busy} className={quiet}>
+          Send a new code
+        </button>
+        <span className="text-[12px] text-pencil">·</span>
+        <button onClick={onOtherEmail} disabled={step.busy} className={quiet}>
+          Use another email
         </button>
       </div>
     </>

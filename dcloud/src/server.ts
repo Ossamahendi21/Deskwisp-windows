@@ -39,11 +39,11 @@ export function makeVerifier(cfg: Config): Verifier | null {
 
 export async function startServer(
   cfg: Config,
-  opts: { provider?: Provider; store?: Store; verifier?: Verifier | null } = {},
+  opts: { provider?: Provider; store?: Store; verifier?: Verifier | null; accounts?: ConstructorParameters<typeof Accounts>[3] } = {},
 ) {
   const provider = opts.provider ?? makeProvider(cfg);
   const store = opts.store ?? (await openStore(cfg));
-  const accounts = new Accounts(cfg, store, opts.verifier !== undefined ? opts.verifier : makeVerifier(cfg));
+  const accounts = new Accounts(cfg, store, opts.verifier !== undefined ? opts.verifier : makeVerifier(cfg), opts.accounts);
   const computers = new Computers(cfg, store, provider);
 
   const send = (res: ServerResponse, status: number, body: unknown) => {

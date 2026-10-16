@@ -2,8 +2,9 @@ import { randomBytes, randomInt, randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { HttpError } from "./computers.ts";
 import type { Config } from "./config.ts";
-import { frontendApi, NotSignedIn, type Verifier } from "./clerk.ts";
-import { approvePage } from "./pages.ts";
+import { clerkUser, frontendApi, NotSignedIn, revokeSession, type ClerkPerson, type Verifier } from "./clerk.ts";
+import { EmailSignIn, EmailSignInError } from "./email-sign-in.ts";
+import { approvePage, ssoCallbackPage } from "./pages.ts";
 import { hashKey, newAppKey, type Store } from "./store.ts";
 
 /**
@@ -55,10 +56,33 @@ export class Accounts {
   private readonly starts = new Limiter(10);
   private readonly approvals = new Limiter(30);
 
-  constructor(cfg: Config, store: Store, verify: Verifier | null) {
+  /** Signing in with an email code inside the app (email-sign-in.ts), and who a Clerk user is. */
+  private readonly email: EmailSignIn | null;
+  private readonly person: (clerkId: string) => Promise<ClerkPerson>;
+  private readonly endSession: (sessionId: string) => Promise<void>;
+  private readonly emails = new Limiter(10);
+
+  constructor(
+    cfg: Config,
+    store: Store,
+    verify: Verifier | null,
+    opts: { email?: EmailSignIn | null; person?: (clerkId: string) => Promise<ClerkPerson>; endSession?: (sessionId: string) => Promise<void> } = {},
+  ) {
     this.cfg = cfg;
     this.store = store;
     this.verify = verify;
+    const host = cfg.clerkPublishableKey ? frontendApi(cfg.clerkPublishableKey) : null;
+    const secretKey = cfg.clerkSecretKey;
+    this.email = opts.email !== undefined ? opts.email : host && secretKey ? new EmailSignIn({ host }) : null;
+    this.person = opts.person ?? ((id) => clerkUser({ secretKey: secretKey ?? "" }, id));
+    this.endSession = opts.endSession ?? ((id) => revokeSession({ secretKey: secretKey ?? "" }, id));
+  }
+
+  /** A new key for the app, kept by its hash, named for the PC it's on. */
+  private async mintKey(userId: string, hostname: string) {
+    const key = newAppKey();
+    await this.store.addKey(userId, hashKey(key), `Deskwisp on ${hostname || "a PC"}`);
+    return key;
   }
 
   /** Whose request this is: a key from DESKWISP_API_KEYS (development), or an app's key from a sign-in. */
@@ -81,15 +105,16 @@ export class Accounts {
     const method = (req.method ?? "GET").toUpperCase();
     const path = url.pathname;
 
-    if (path === "/cli/approve" && method === "GET") {
+    if ((path === "/cli/approve" || path === "/cli/sso-callback") && method === "GET") {
       const pk = this.cfg.clerkPublishableKey;
+      const page = path === "/cli/approve" ? approvePage : ssoCallbackPage;
       res.writeHead(200, {
         "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "no-store",
         "Referrer-Policy": "no-referrer",
         "X-Frame-Options": "DENY",
       });
-      res.end(approvePage({ publishableKey: pk ?? null, frontendApi: pk ? frontendApi(pk) : null }));
+      res.end(page({ publishableKey: pk ?? null, frontendApi: pk ? frontendApi(pk) : null }));
       return true;
     }
 
@@ -142,10 +167,32 @@ export class Accounts {
         send(200, { status: "expired" });
         return true;
       }
-      const key = newAppKey();
-      await this.store.addKey(user.id, hashKey(key), `Deskwisp on ${d.hostname || "a PC"}`);
+      const key = await this.mintKey(user.id, d.hostname);
       send(200, { status: "approved", api_key: key, user: { id: user.id, email: user.email } });
       return true;
+    }
+
+    // ---- Signing in with an email code in the app itself (no browser, no Clerk form).
+    if ((path === "/api/auth/email/start" || path === "/api/auth/email/verify") && method === "POST") {
+      if (!this.email) throw new HttpError(503, "Email sign-in isn't set up on this server (CLERK_SECRET_KEY, CLERK_PUBLISHABLE_KEY)", "sign_in_off");
+      if (!this.emails.ok(addressOf(req))) throw new HttpError(429, "Too many tries. Wait a minute.", "rate_limited");
+      const body = (await readBody()) as { email?: unknown; hostname?: unknown; flow?: unknown; code?: unknown };
+      try {
+        if (path.endsWith("/start")) {
+          send(200, await this.email.start(String(body?.email ?? ""), String(body?.hostname ?? "").slice(0, 80)));
+          return true;
+        }
+        const done = await this.email.verify(String(body?.flow ?? ""), String(body?.code ?? ""));
+        if (done.sessionId) void this.endSession(done.sessionId);
+        const person = await this.person(done.clerkId).catch(() => ({ clerkId: done.clerkId, email: done.email, name: null }));
+        const user = await this.store.upsertUser({ clerkId: person.clerkId, email: person.email ?? done.email, name: person.name });
+        const key = await this.mintKey(user.id, done.hostname);
+        send(200, { status: "approved", api_key: key, user: { id: user.id, email: user.email, name: user.name } });
+        return true;
+      } catch (e) {
+        if (e instanceof EmailSignInError) throw new HttpError(e.status, e.message, e.code);
+        throw e;
+      }
     }
 
     // What the approve page shows about a code before it's approved: the PC's name and where it stands.

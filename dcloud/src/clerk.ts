@@ -57,20 +57,37 @@ export function clerkVerifier(opts: { secretKey: string; authorizedParties: stri
     if (claims.azp && !opts.authorizedParties.includes(claims.azp)) throw new NotSignedIn(`made for another site (${claims.azp})`);
     if (!claims.sub) throw new NotSignedIn("no user in the token");
 
-    const res = await fetchImpl(`${API}/users/${encodeURIComponent(claims.sub)}`, { headers: auth, signal: AbortSignal.timeout(10_000) });
-    if (!res.ok) throw new Error(`Clerk's user ${claims.sub}: ${res.status}`);
-    const u = (await res.json()) as {
-      id: string;
-      first_name?: string | null;
-      last_name?: string | null;
-      primary_email_address_id?: string | null;
-      email_addresses?: { id: string; email_address: string }[];
-    };
-    const emails = u.email_addresses ?? [];
-    const email = (emails.find((e) => e.id === u.primary_email_address_id) ?? emails[0])?.email_address ?? null;
-    const name = [u.first_name, u.last_name].filter(Boolean).join(" ").trim() || null;
-    return { clerkId: u.id, email, name };
+    return clerkUser({ secretKey: opts.secretKey, fetchImpl }, claims.sub);
   };
+}
+
+/** A Clerk user's email and name (Backend API, GET /v1/users/{id}). */
+export async function clerkUser(opts: { secretKey: string; fetchImpl?: typeof fetch }, clerkId: string): Promise<ClerkPerson> {
+  const res = await (opts.fetchImpl ?? fetch)(`${API}/users/${encodeURIComponent(clerkId)}`, {
+    headers: { Authorization: `Bearer ${opts.secretKey}` },
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!res.ok) throw new Error(`Clerk's user ${clerkId}: ${res.status}`);
+  const u = (await res.json()) as {
+    id: string;
+    first_name?: string | null;
+    last_name?: string | null;
+    primary_email_address_id?: string | null;
+    email_addresses?: { id: string; email_address: string }[];
+  };
+  const emails = u.email_addresses ?? [];
+  const email = (emails.find((e) => e.id === u.primary_email_address_id) ?? emails[0])?.email_address ?? null;
+  const name = [u.first_name, u.last_name].filter(Boolean).join(" ").trim() || null;
+  return { clerkId: u.id, email, name };
+}
+
+/** End a Clerk session (Backend API): the in-app email sign-in needs none once it knows who. */
+export async function revokeSession(opts: { secretKey: string; fetchImpl?: typeof fetch }, sessionId: string) {
+  await (opts.fetchImpl ?? fetch)(`${API}/sessions/${encodeURIComponent(sessionId)}/revoke`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${opts.secretKey}` },
+    signal: AbortSignal.timeout(10_000),
+  }).catch(() => {});
 }
 
 /** The Frontend API host a publishable key names (pk_test_<base64 of "host$">), where Clerk's browser script is served. */

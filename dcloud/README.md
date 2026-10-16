@@ -22,6 +22,20 @@ The app signs in the way it did with Horafirm, a device-code flow, so it needed 
 3. The app polls `POST /api/cli/auth/poll` and gets its key once (`dw_…`). From then on every call
    carries it (`Authorization: Bearer`); `GET /api/user/profile` says whose it is.
 
+**Continue with Google** skips Clerk's form: the page sends the browser straight to Google
+(`authenticateWithRedirect`), and Google comes back through `/cli/sso-callback` to the Allow step.
+
+**Continue with email** never leaves the app: the app asks Deskwisp Cloud to send a code
+(`POST /api/auth/email/start`), Clerk emails it (an account is made when the email is new), the user
+types it in the app (`POST /api/auth/email/verify`) and the key comes back at once. Deskwisp Cloud
+does Clerk's steps itself, as a native client of Clerk's Frontend API (`src/email-sign-in.ts`).
+
+In the Clerk dashboard this needs, under **Configure**:
+- **Email, phone, username**: Email address on; sign in and verify with **Email verification code**;
+  no password, no username, no name required.
+- **SSO connections**: Google on.
+- **Attack protection**: Bot sign-up protection off (the app can't show Clerk's captcha).
+
 Users, keys (only their SHA-256), sign-ins under way, workspaces and computers are in Postgres
 (`DATABASE_URL`, Neon; `src/store-pg.ts`, migrations in `db/`, applied at start). Without
 `DATABASE_URL` they're in a JSON file, for development.

@@ -92,9 +92,27 @@ ${clerkScript}
   if (!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(code)) return show("No code here", "Start signing in from the Deskwisp app: it opens this page with its code.", { bad: true });
 
   var mounted = false;
+  var redirecting = false;
   async function render() {
     var Clerk = window.Clerk;
+    if (redirecting) return;
     if (!Clerk.user) {
+      // Continue with Google in the app: straight to Google, once (if it comes back without a user,
+      // Clerk's own form is the way on). The SSO callback page brings the browser back here.
+      var tried = "dw-google-" + code;
+      var wantsGoogle = new URLSearchParams(location.search).get("provider") === "google";
+      var triedGoogle = false;
+      try { triedGoogle = sessionStorage.getItem(tried) === "1"; sessionStorage.setItem(tried, "1"); } catch (e) {}
+      if (wantsGoogle && !triedGoogle) {
+        redirecting = true;
+        show("Opening Google…", "");
+        await Clerk.client.signIn.authenticateWithRedirect({
+          strategy: "oauth_google",
+          redirectUrl: location.origin + "/cli/sso-callback?next=" + encodeURIComponent(location.pathname + location.search),
+          redirectUrlComplete: location.href
+        });
+        return;
+      }
       $("card").hidden = true;
       $("sign-in").hidden = false;
       if (!mounted) {
@@ -161,6 +179,60 @@ ${clerkScript}
     safe();
   });
 })();
+</script>
+</body>
+</html>`;
+}
+
+/**
+ * Where Google sends the browser back to (through Clerk): Clerk finishes the sign-in, or makes the
+ * account for a new Google user, then the browser goes on to `next`, the approve page it came from.
+ */
+export function ssoCallbackPage(opts: { publishableKey: string | null; frontendApi: string | null }) {
+  const clerkScript =
+    opts.publishableKey && opts.frontendApi
+      ? `<script async crossorigin="anonymous" data-clerk-publishable-key="${opts.publishableKey.replace(/"/g, "")}" src="https://${opts.frontendApi}/npm/@clerk/clerk-js@5/dist/clerk.browser.js"></script>`
+      : "";
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signing in to Deskwisp</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+         font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #16132B; background: #F3F0FF; }
+  .logo svg { width: 48px; height: 48px; display: block; }
+  p { margin: 0; color: #6B6880; }
+</style>
+</head>
+<body>
+<div class="logo" aria-hidden="true">${LOGO}</div>
+<p id="line">Signing you in…</p>
+${clerkScript}
+<script>
+window.addEventListener("load", async function () {
+  var line = document.getElementById("line");
+  // Only back to this server's own approve page.
+  var next = new URLSearchParams(location.search).get("next") || "";
+  if (!/^\/cli\/approve\?/.test(next)) next = "/cli/approve";
+  if (!window.Clerk) { line.textContent = "Couldn't load sign-in. Check your connection, then try again from the app."; return; }
+  try {
+    await window.Clerk.load();
+    await window.Clerk.handleRedirectCallback({
+      signInForceRedirectUrl: next,
+      signUpForceRedirectUrl: next,
+      signInFallbackRedirectUrl: next,
+      signUpFallbackRedirectUrl: next,
+      continueSignUpUrl: next,
+      firstFactorUrl: next,
+      secondFactorUrl: next
+    });
+  } catch (e) {
+    line.textContent = "That didn't work: " + (e && e.message || e) + ". Going back…";
+    setTimeout(function () { location.replace(next); }, 2500);
+  }
+});
 </script>
 </body>
 </html>`;

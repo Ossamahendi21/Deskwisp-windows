@@ -136,6 +136,64 @@ export async function startSignIn(provider?: SignInProvider): Promise<SignInStar
   return { userCode: pending.userCode, verificationUrl: pending.verificationUrl, expiresAt: pending.expiresAt, interval: pending.interval };
 }
 
+/**
+ * Signing in with an email code in the app itself (Deskwisp Cloud's /api/auth/email, dcloud/src/
+ * email-sign-in.ts): the user types their email here, Clerk emails a code, they type it here, and the
+ * key comes back at once. No browser, no form of Clerk's. A new email gets an account the same way.
+ */
+export class EmailSignInProblem extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+const ge = globalThis as unknown as { deskwispEmailFlow?: { flow: string; email: string } | null };
+
+async function cloudPost<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${horafirmOrigin()}${path}`, {
+    method: "POST",
+    headers: { ...horafirmHeaders(), Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+    signal: AbortSignal.timeout(30_000),
+  }).catch((e: Error) => {
+    throw new SignInError("offline", `${path}: ${e.message}`);
+  });
+  const json = (await res.json().catch(() => ({}))) as T & { error?: string; code?: string };
+  // Deskwisp Cloud's own words for what's wrong (a wrong code, a bad address): the app shows them.
+  if (res.status >= 400 && res.status < 500) throw new EmailSignInProblem(json.code ?? "refused", json.error ?? `Deskwisp Cloud answered ${res.status}`);
+  if (!res.ok) throw new SignInError("horafirm", `${path}: ${res.status} ${json.error ?? ""}`.trim());
+  return json;
+}
+
+/** Send a code to `email`: "sign_in" for an account that exists, "sign_up" when it's a new one. */
+export async function startEmailSignIn(email: string): Promise<{ mode: "sign_in" | "sign_up" }> {
+  const r = await cloudPost<{ flow?: string; mode?: string }>("/api/auth/email/start", { email, hostname: await macName() });
+  if (!r.flow) throw new SignInError("horafirm", "/api/auth/email/start: no flow in the answer");
+  ge.deskwispEmailFlow = { flow: r.flow, email };
+  return { mode: r.mode === "sign_up" ? "sign_up" : "sign_in" };
+}
+
+/** Check the code from the email: signed in on success, like an approved code. */
+export async function verifyEmailSignIn(code: string): Promise<SignInPoll> {
+  const f = ge.deskwispEmailFlow;
+  if (!f) throw new EmailSignInProblem("expired", "That code expired. Send a new one.");
+  const r = await cloudPost<{ status?: string; api_key?: string; user?: { id?: string; email?: string | null; name?: string | null } }>("/api/auth/email/verify", {
+    flow: f.flow,
+    code,
+  });
+  if (r.status !== "approved" || !r.api_key || !r.user?.id) throw new SignInError("horafirm", "/api/auth/email/verify: no key in the answer");
+  ge.deskwispEmailFlow = null;
+  const user: HorafirmUser = { id: r.user.id, email: r.user.email ?? undefined, name: r.user.name ?? undefined };
+  // Held like a collected device-code sign-in, so a keychain or cloud problem can be retried without a new code.
+  const p: Pending = { deviceCode: "", userCode: "", verificationUrl: "", expiresAt: Date.now() + 10 * 60_000, interval: 1, polledAt: 0, provider: "email", collected: { apiKey: r.api_key, user } };
+  g.deskwispSignIn = p;
+  return finish(p, r.api_key, user);
+}
+
 /** Forget a sign-in that's waiting (the user pressed Cancel, or signed out). */
 export const cancelSignIn = () => void (g.deskwispSignIn = null);
 
