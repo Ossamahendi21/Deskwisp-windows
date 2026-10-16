@@ -8,9 +8,10 @@ import { bot, getState, update } from "./store";
  * The bots' screens. Each bot has screens of its own (Bot.screens: 1, up to the plan's per bot: Free 1,
  * Pro 2, Max 4) and works only on them, never on another bot's. A screen isn't open until it's needed:
  * its bot opens it when a task starts there, or the user starts it from the bot's computer view. Then
- * it's on one of its computer's displays (state.slots), and a little after its work ends it closes
- * again, so only screens at work hold the computer's memory. A screen the user started stays open
- * until they close it.
+ * it's on one of its computer's displays (state.slots), and two minutes after nothing's going on
+ * there (no task, nobody driving it, no watch) it closes again, so only screens at work hold the
+ * computer's memory. The user can close one sooner (×), and from a closed screen continue the last
+ * thread that ran there, or start a new one there (sessions.ts startScreenTask).
  *
  * A computer has four displays, so at most four screens are open on it at once, whichever bots' they
  * are: a task waits for a display when all four are at work. A screen opens on the display it was on
@@ -20,8 +21,8 @@ import { bot, getState, update } from "./store";
 /** Displays in the order screens open on them: the boot screen first (it's always up), then the others. */
 const ORDER = [99, ...DISPLAYS.filter((d) => d !== 99)];
 
-/** How long a bot's screen stays open after its work ends: a follow-up task picks it up as it was. */
-export const CLOSE_AFTER_MS = 3 * 60_000;
+/** How long a screen stays open with nothing going on there (its bot's, or one the user started): then it closes. */
+export const CLOSE_AFTER_MS = 2 * 60_000;
 
 /** Displays in use on a bot's computer, whoever's: tasks and their helpers, the user driving one, watches, and open screens. */
 export function displaysTaken(botId: string) {
@@ -77,6 +78,15 @@ export function slotFor(b: Bot, prefer?: number): { n: number; display: number; 
   return { n: closed[0].n, display: free[0], opens: true };
 }
 
+/** Where a task can work on one given screen of its bot: that screen, open and free, or closed with a free display to open it on. */
+export function slotForN(b: Bot, n: number): { n: number; display: number; opens: boolean } | null {
+  const x = botSlots(getState(), b).find((y) => y.n === n);
+  if (!x) return null;
+  if (x.display !== undefined) return displayBusy(b.id, x.display) ? null : { n, display: x.display, opens: false };
+  const display = freeDisplayFor(b, n);
+  return display === null ? null : { n, display, opens: true };
+}
+
 /** A free display for one of a bot's screens: the one it was on last when that's free. Null when all four are at work. */
 export function freeDisplayFor(b: Bot, n: number) {
   const taken = displaysTaken(b.id);
@@ -100,11 +110,11 @@ export function openSlot(botId: string, n: number, display: number, by: ScreenSl
   });
 }
 
-/** A task's work on a display ended (or the user let go of it): its screen closes in a while, unless it's the user's. */
+/** A task's work on a display ended (or the user let go of it): its screen closes in a while. */
 export function slotIdle(botId: string, display: number) {
   update((st) => {
     const x = st.slots?.find((y) => y.display === display && sameComputer(y.botId, botId));
-    if (x && x.by === "bot" && !x.idleSince) x.idleSince = Date.now();
+    if (x && !x.idleSince) x.idleSince = Date.now();
   });
 }
 
@@ -136,8 +146,8 @@ export async function sweepSlots(now = Date.now()) {
       if (x.idleSince) update(() => (x.idleSince = undefined));
       continue;
     }
-    if (x.by === "bot" && !x.idleSince) update(() => (x.idleSince = now));
-    else if (x.by === "bot" && x.idleSince && now - x.idleSince >= CLOSE_AFTER_MS) await closeSlot(x.botId, x.n);
+    if (!x.idleSince) update(() => (x.idleSince = now));
+    else if (now - x.idleSince >= CLOSE_AFTER_MS) await closeSlot(x.botId, x.n);
   }
 }
 

@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { AI_CREDIT_EMPTY, AI_CREDIT_LOW } from "@/cloud/protocol";
 import { BLOCKER_LABEL, botChatId, botSlots, DISPLAYS, screenCount, live, MAIN_WORKSPACE, MAX_SCREENS, workBot, workspaceOf, type Bot, type Effort, type Session, type ThreadReply } from "@/lib/types";
-import { closeSlot, displayBusy, freeDisplayFor, openSlot, slotFor, slotIdle, sweepSlots } from "./slots";
+import { closeSlot, displayBusy, freeDisplayFor, openSlot, slotFor, slotForN, slotIdle, sweepSlots } from "./slots";
 import { CloudError, creditsOut, executorKey, noteOutOfCredit, OUT_OF_CREDIT, outOfCreditError, shortOfCredit } from "./cloud";
 import { appsMcp, appsSocket, browserMcp, cdpPort, cuaDriverHere, currentUrl, ensureChrome, MAC_BROWSER_TOOLS, MAC_UI_TOOLS, macTaskPort, macUiMcp, navigate, startExecutor, stopExecutor, taskDir, taskSockets } from "./local";
 import { relayNewComputer } from "./relay";
@@ -92,6 +92,8 @@ const steerers = new Map<string, () => void>();
 type StartOptions = {
   botId: string;
   goal: string;
+  /** Started by the user on one of its bot's screens (by number): it runs there, in the cloud. */
+  screenN?: number;
   title?: string;
   chatId?: string;
   sentVia?: Session["sentVia"];
@@ -186,7 +188,7 @@ function foldInto(s: Session, goal: string, where: "mac" | "cloud" | "auto", opt
   return s;
 }
 
-export function startSession({ botId, goal, title, chatId, sentVia = "you", onWatch, where: asked = "auto", thenOnMac, fresh, outside, ownerAsked, movedFrom }: StartOptions): Session {
+export function startSession({ botId, goal, title, chatId, sentVia = "you", onWatch, screenN, where: asked = "auto", thenOnMac, fresh, outside, ownerAsked, movedFrom }: StartOptions): Session {
   // Someone else's words (an email or a text from outside) never put work on the user's PC (StartOptions.outside).
   const where = outside && asked === "mac" ? "auto" : asked;
   // One job, one thread: asking for a job that's already running (or waiting on the user) adds to it.
@@ -205,8 +207,9 @@ export function startSession({ botId, goal, title, chatId, sentVia = "you", onWa
     replies: [],
     createdAt: Date.now(),
     onWatch,
-    // A watched screen's thread runs on that screen, in the cloud; everything else is decided first.
-    ...(onWatch ? { runsOn: "cloud" as const } : { routing: true }),
+    ...(screenN ? { screenN } : {}),
+    // A watched screen's thread runs on that screen, in the cloud, and so does one started on a screen; everything else is decided first.
+    ...(onWatch || screenN ? { runsOn: "cloud" as const } : { routing: true }),
     thenOnMac: (!outside && thenOnMac?.trim()) || undefined,
     ...(outside ? { fromOutside: true as const } : {}),
     ...(movedFrom ? { movedFrom } : {}),
@@ -614,9 +617,13 @@ async function pump() {
       // that screen's Chrome): on another, Deskwisp would watch, claim and show one screen while the bot
       // works on the other, and the vault would never see its sign-in pages.
       const own = s.agentSessionId ? s.env?.display : undefined;
-      let pick = slotFor(b, own);
+      // Continued on (or started by the user on) one of its bot's screens: there, and nowhere else.
+      const pinned = s.screenN !== undefined && s.screenN <= screenCount(getState(), b) ? s.screenN : undefined;
+      let pick = pinned !== undefined ? slotForN(b, pinned) : slotFor(b, own);
       if (!pick) continue;
-      if (own === undefined) {
+      // Its agent drives one display's Chrome: its screen has to open there again.
+      if (own !== undefined && pick.display !== own) continue;
+      if (own === undefined && pinned === undefined) {
         // Its bot's open screens: one already on the task's site first (or wait a little for it), else
         // where it worked last, else any free one, else a closed one opened.
         const open = botSlots(getState(), b).filter((x): x is typeof x & { display: number } => x.display !== undefined);
@@ -637,6 +644,7 @@ async function pump() {
         }
       }
       if (pick.opens) openSlot(b.id, pick.n, pick.display, "bot");
+      patchSession(s.id, { screenN: pick.n });
       start(pick.display);
     }
   } finally {
@@ -1169,6 +1177,32 @@ export async function startScreen(botId: string, n: number): Promise<{ display: 
     throw e;
   }
   return { display };
+}
+
+/**
+ * From one of a bot's closed screens, the thread that ran there last carries on, on that screen (it
+ * opens again). Null when there's none to continue (or it's still going).
+ */
+export function continueOnScreen(botId: string, n: number) {
+  const b = bot(botId);
+  if (!b) throw new Error("no such bot");
+  const last = [...getState().sessions].reverse().find((x) => x.botId === botId && x.screenN === n && x.runsOn !== "mac");
+  if (!last) return null;
+  if (live(last)) return { sessionId: last.id };
+  replyToSession(last.id, `Carry on where you left off. Screen ${n} was closed and is open again: look at it as it is now before you act.`, "You continued it on its screen");
+  return { sessionId: last.id };
+}
+
+/** The user starts a new thread on one of a bot's screens: it runs there (in the cloud), and its chat says so. */
+export function startScreenTask(botId: string, n: number, goal: string) {
+  const b = bot(botId);
+  if (!b) throw new Error("no such bot");
+  const what = goal.trim().slice(0, 4000);
+  if (!what) throw new Error("Say what to do on this screen");
+  if (!Number.isInteger(n) || n < 1 || n > screenCount(getState(), b)) throw new Error(`That isn't one of ${b.name}'s screens`);
+  const s = startSession({ botId, goal: what, sentVia: "you", screenN: n, fresh: true });
+  addMessage({ chatId: botChatId(botId), role: "system", text: `You started a task on ${b.name}'s screen ${n}`, sessionIds: [s.id] });
+  return { sessionId: s.id };
 }
 
 /** The user closes one of a bot's screens: not while something's going on there (a task, their own control, a watch). */

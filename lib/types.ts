@@ -379,6 +379,8 @@ export type Session = {
   helperOrder?: number[];
   /** Set on a thread started from a watched screen: it runs on that screen, on that site. */
   onWatch?: string;
+  /** Which of its bot's screens it runs (or ran) on, by number (lib/server/slots.ts): continued there, or started there by the user. */
+  screenN?: number;
   /** Where it runs: the bot's cloud computer (also when unset, as older threads are), or a Chrome of its own on the user's PC. */
   runsOn?: "cloud" | "mac";
   /** Deskwisp is still deciding where it runs. */
@@ -490,8 +492,8 @@ export type AppState = {
   deskwispPlan?: { tier: DeskwispTier; screens: number };
   /**
    * The bots' screens open right now (ScreenSlot): each on one of its computer's displays. A screen
-   * opens when its bot starts working on it, or when the user starts it, and closes a little after
-   * its work ends (lib/server/slots.ts), so only screens at work are open.
+   * opens when its bot starts working on it, or when the user starts it, and closes two minutes after
+   * nothing's going on there (lib/server/slots.ts), so only screens at work are open.
    */
   slots?: ScreenSlot[];
   bots: Bot[];
@@ -813,7 +815,7 @@ export type ScreenSlot = {
   botId: BotId;
   n: number;
   display: number;
-  /** Who opened it: the bot for a task, or the user (Start). The user's stays open until they close it. */
+  /** Who opened it: the bot for a task, or the user (Start). Either closes two minutes after nothing's going on there. */
   by: "bot" | "user";
   since: number;
   /** When its work ended: it closes a little after (unless work starts on it again). */

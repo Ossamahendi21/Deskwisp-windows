@@ -91,8 +91,11 @@ const onComputerOf = (state: AppState, c: Bot) => (botId: string) => {
 export function defaultDisplay(state: AppState, botId: string, picked?: number) {
   const b = state.bots.find((x) => x.id === botId);
   if (state.host === "mac" || !b) return picked ?? DISPLAYS[0];
-  const open = botSlots(state, b).flatMap((x) => (x.display !== undefined ? [x.display] : []));
+  const slots = botSlots(state, b);
+  const open = slots.flatMap((x) => (x.display !== undefined ? [x.display] : []));
   if (picked !== undefined && open.includes(picked)) return picked;
+  // A closed screen you picked (-n): it stays on show, to start, continue or give a task, until it opens.
+  if (picked !== undefined && picked < 0 && slots.some((x) => x.n === -picked && x.display === undefined)) return picked;
   if (state.takeover?.botId === botId && state.takeover.display !== undefined) return state.takeover.display;
   const held = state.sessions.filter((s) => s.botId === botId && s.display !== undefined && open.includes(s.display));
   if (held.length) return held[held.length - 1].display!;
@@ -213,7 +216,7 @@ export function ComputerView({
   const perBot = Math.min(MAX_SCREENS, Math.max(1, state.deskwispPlan?.screens ?? MAX_SCREENS));
   /** The screen on show isn't one of its open screens: the frame offers to start one. */
   const closedHere = !mac && !open.includes(display);
-  const firstClosed = mySlots.find((x) => x.display === undefined)?.n ?? 1;
+  const firstClosed = display < 0 && mySlots.some((x) => x.n === -display) ? -display : (mySlots.find((x) => x.display === undefined)?.n ?? 1);
   const [adding, setAdding] = useState(false);
   const addScreen = async () => {
     if (mySlots.length >= perBot) return setPaywall(true);
@@ -406,7 +409,7 @@ export function ComputerView({
   const mirrored = view === "page";
   const desktop = view === "desktop";
   /** In the side panel, the computer is a button: clicking in opens it full size and takes control. */
-  const clickable = !takeover && mode === "panel";
+  const clickable = !takeover && !closedHere && mode === "panel";
   const shownTabs = tabs.key === viewKey ? tabs.tabs : [];
   // A sign-in or code the bot is stuck on gets a native card over the page (until the user says "not now").
   const [dismissed, setDismissed] = useState<string | null>(null);
@@ -517,7 +520,7 @@ export function ComputerView({
   const screen = asleep ? (
     <AsleepScreen bot={b} host={c} waking={inUse} hoursOut={hoursOut && time ? freeHoursOutLine(time) : undefined} />
   ) : closedHere ? (
-    <StartScreen bot={b} n={firstClosed} onOpen={onDisplay} />
+    <StartScreen state={state} bot={b} n={firstClosed} onOpen={onDisplay} />
   ) : takeover ? (
     real(true)
   ) : showingReal ? (
@@ -667,7 +670,7 @@ export function ComputerView({
               </div>
             )}
             {/* Pointing at the screen brings up its controls, like a video player's: watch it, take control, reset it. */}
-            {!grid && !takeover && sheet !== display && (
+            {!grid && !takeover && !closedHere && sheet !== display && (
               <div
                 onClick={(e) => e.stopPropagation()}
                 className="absolute bottom-3 left-1/2 z-40 flex -translate-x-1/2 translate-y-1 items-center gap-1 rounded-full bg-white/95 p-1 opacity-0 shadow-[0_0_0_1px_#0000000F,0_10px_24px_-10px_#00000066] backdrop-blur transition duration-200 group-hover/screen:translate-y-0 group-hover/screen:opacity-100 has-[[data-open=true]]:translate-y-0 has-[[data-open=true]]:opacity-100"
@@ -848,7 +851,7 @@ export function ComputerView({
       {mode === "panel" && (
         <div className="flex gap-2.5">
           {mySlots.map(({ n, display: d }) => {
-            if (d === undefined) return <ClosedTile key={`closed-${n}`} bot={b} n={n} onOpen={onDisplay} />;
+            if (d === undefined) return <ClosedTile key={`closed-${n}`} n={n} on={closedHere && firstClosed === n} onPick={() => onDisplay(-n)} />;
             const s = holding.get(d);
             const inView = d === display && !grid;
             const w = watchOn(d);
@@ -1283,57 +1286,115 @@ function useStartScreen(b: Bot, n: number, onOpen: (display: number) => void) {
 }
 
 /**
- * One of the bot's screens that isn't open, in the frame: it opens when the bot starts working on it,
- * or now, for you to use (Start).
+ * One of the bot's screens that isn't open, in the frame. It opens when the bot starts working on it;
+ * from here the thread that ran there last can carry on there, a new one can start there, or it can
+ * just open for you to use.
  */
-function StartScreen({ bot: b, n, onOpen }: { bot: Bot; n: number; onOpen: (display: number) => void }) {
+function StartScreen({ state, bot: b, n, onOpen }: { state: AppState; bot: Bot; n: number; onOpen: (display: number) => void }) {
   const { busy, note, start } = useStartScreen(b, n, onOpen);
+  const last = [...state.sessions].reverse().find((x) => x.botId === b.id && x.screenN === n && x.runsOn !== "mac");
+  const [asking, setAsking] = useState(false);
+  const [goal, setGoal] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const act = async (body: Record<string, unknown>) => {
+    setSending(true);
+    setError(null);
+    const res = await post("/api/computer/screen", { botId: b.id, n, ...body }).catch(() => null);
+    const j = ((await res?.json().catch(() => null)) ?? {}) as { error?: string };
+    setSending(false);
+    if (!res?.ok) setError(j.error ?? "That didn't work. Try again.");
+    else {
+      setAsking(false);
+      setGoal("");
+    }
+  };
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  const ghost = "rounded-full px-4 py-2 text-[13px] font-semibold leading-4 text-ink shadow-[0_0_0_1px_#E2E2DF] hover:bg-white disabled:opacity-60";
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[#FBFAFF] px-6 text-center">
-      <Mascot botId={b.id} color={b.color} size={52} />
+    // The frame around it opens the computer full size: nothing in here does.
+    <div onClick={stop} className="flex h-full w-full cursor-default flex-col items-center justify-center gap-3 bg-[#FBFAFF] px-6 text-center">
+      <Mascot botId={b.id} color={b.color} size={48} />
       <div className="flex flex-col gap-1">
         <span className="text-[15px] font-semibold leading-5">Screen {n} is off</span>
-        <span className="max-w-[300px] text-[12.5px] leading-[17px] text-[#6B6B6B]">
-          It opens when {b.name} starts working on it, and closes a few minutes after. Start it now to use it yourself.
+        <span className="max-w-[320px] text-[12.5px] leading-[17px] text-[#6B6B6B]">
+          It opens when {b.name} works on it, and closes two minutes after nothing&apos;s going on there.
         </span>
       </div>
-      <button
-        onClick={(e) => {
-          // The frame around it opens the computer full size: this only starts the screen.
-          e.stopPropagation();
-          void start();
-        }}
-        disabled={busy}
-        className="rounded-full bg-ink px-4 py-2 text-[13px] font-semibold leading-4 text-white disabled:opacity-60"
-      >
-        {busy ? "Starting…" : "Start screen"}
-      </button>
-      {note && <span className="max-w-[300px] text-[12px] leading-4 text-[#B42318]">{note}</span>}
+      {last && !live(last) && (
+        <span className="max-w-[320px] truncate rounded-full bg-white px-3 py-1 text-[12px] leading-4 text-[#3A3A38] shadow-[0_0_0_1px_#ECECEA]">Last here: {last.title}</span>
+      )}
+      {asking ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (goal.trim()) void act({ action: "task", goal });
+          }}
+          className="flex w-full max-w-[360px] flex-col gap-2"
+        >
+          <textarea
+            autoFocus
+            rows={2}
+            value={goal}
+            onChange={(e) => setGoal(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (goal.trim()) void act({ action: "task", goal });
+              }
+              if (e.key === "Escape") setAsking(false);
+            }}
+            placeholder={`What should ${b.name} do on screen ${n}?`}
+            className="w-full resize-none rounded-xl bg-white px-3 py-2 text-[13px] leading-[18px] outline-none shadow-[0_0_0_1px_#E2E2DF] focus:shadow-[0_0_0_1.5px_#16132B]"
+          />
+          <div className="flex justify-center gap-2">
+            <button type="button" onClick={() => setAsking(false)} className={ghost}>
+              Cancel
+            </button>
+            <button disabled={sending || !goal.trim()} className="rounded-full bg-ink px-4 py-2 text-[13px] font-semibold leading-4 text-white disabled:opacity-40">
+              {sending ? "Starting…" : "Start task"}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="flex flex-wrap justify-center gap-2">
+          {last && !live(last) && (
+            <button onClick={() => void act({ action: "continue" })} disabled={sending} title={`${b.name} carries on with "${last.title}" on this screen`} className="rounded-full bg-ink px-4 py-2 text-[13px] font-semibold leading-4 text-white disabled:opacity-60">
+              {sending ? "Continuing…" : "Continue"}
+            </button>
+          )}
+          <button onClick={() => setAsking(true)} className={last && !live(last) ? ghost : "rounded-full bg-ink px-4 py-2 text-[13px] font-semibold leading-4 text-white"}>
+            New task
+          </button>
+          <button onClick={() => void start()} disabled={busy} title="Open it for you to use" className={ghost}>
+            {busy ? "Opening…" : "Just open it"}
+          </button>
+        </div>
+      )}
+      {(error ?? note) && <span className="max-w-[320px] text-[12px] leading-4 text-[#B42318]">{error ?? note}</span>}
     </div>
   );
 }
 
-/** A screen of the bot's that isn't open, among the thumbnails: Start opens it. */
-function ClosedTile({ bot: b, n, onOpen }: { bot: Bot; n: number; onOpen: (display: number) => void }) {
-  const { busy, note, start } = useStartScreen(b, n, onOpen);
+/** A screen of the bot's that isn't open, among the thumbnails: picking it shows it in the frame, to continue, give a task or open. */
+function ClosedTile({ n, on, onPick }: { n: number; on: boolean; onPick: () => void }) {
   return (
     <button
-      onClick={() => void start()}
-      disabled={busy}
-      title={note ?? `Start screen ${n} to use it yourself (it also opens when ${b.name} works on it)`}
-      className="group/thumb relative flex min-w-0 flex-1 basis-0 flex-col gap-1.5 rounded-xl p-1.5 text-left shadow-[inset_0_0_0_1.5px_#E2E2DF] hover:bg-[#F7F7F6]"
+      onClick={onPick}
+      title={`Screen ${n} is off: continue its last task, give it a new one, or open it`}
+      className={`group/thumb relative flex min-w-0 flex-1 basis-0 flex-col gap-1.5 rounded-xl p-1.5 text-left ${on ? "bg-white shadow-[0_0_0_2px_#16132B]" : "shadow-[inset_0_0_0_1.5px_#E2E2DF] hover:bg-[#F7F7F6]"}`}
     >
       <div className="relative flex h-[52px] shrink-0 items-center justify-center rounded-[7px] bg-[#F4F4F2]">
         <span className="flex items-center gap-1 rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold leading-[14px] text-white">
           <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden>
             <path d="M2.5 1.5v7l6-3.5z" fill="currentColor" />
           </svg>
-          {busy ? "Starting…" : "Start"}
+          Start
         </span>
       </div>
       <div className="flex min-w-0 items-center gap-[5px] text-[11px] leading-[14px]">
         <span className="shrink-0 font-semibold text-[#6B6B6B]">Screen {n}</span>
-        <span className={`truncate ${note ? "text-[#B42318]" : "text-[#9A9A98]"}`}>{note ?? "Off"}</span>
+        <span className="truncate text-[#9A9A98]">Off</span>
       </div>
     </button>
   );
