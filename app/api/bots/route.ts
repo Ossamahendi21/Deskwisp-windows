@@ -1,8 +1,10 @@
 import { createBot, renameBot, setComputer } from "@/lib/server/bots";
 import { deleteBot } from "@/lib/server/remove";
 import { requestInbox } from "@/lib/server/mail";
-import { ROLE_MAX, type AppLevel, type Effort } from "@/lib/types";
-import { bot, update } from "@/lib/server/store";
+import { MAX_SCREENS, ROLE_MAX, type AppLevel, type Effort } from "@/lib/types";
+import { bot, getState, update } from "@/lib/server/store";
+import { sweepSlots } from "@/lib/server/slots";
+import { screenPlan } from "@/lib/server/plan";
 import { notReady } from "@/lib/server/ready";
 import { fromDeskwispWindow } from "@/lib/server/ui-token";
 
@@ -55,6 +57,8 @@ export async function PATCH(request: Request) {
     role?: string;
     /** Put it away (out of the sidebar, no screen of its own) or bring it back. Not the main bot. */
     archived?: boolean;
+    /** How many screens of its own (1 up to the plan's per bot; lib/server/slots.ts). */
+    screens?: number;
   };
   const b = body.botId ? bot(body.botId) : undefined;
   if (!b) return Response.json({ error: "no such bot" }, { status: 404 });
@@ -74,6 +78,21 @@ export async function PATCH(request: Request) {
     const role = body.role.replace(/\s+/g, " ").trim().slice(0, ROLE_MAX);
     if (!role) return Response.json({ error: "Say what it does" }, { status: 400 });
     if (!b.isMain) update(() => (b.role = role));
+  }
+  if (body.screens !== undefined) {
+    const want = Math.floor(Number(body.screens));
+    await screenPlan().catch(() => null);
+    const plan = getState().deskwispPlan;
+    const most = Math.min(MAX_SCREENS, Math.max(1, plan?.screens ?? MAX_SCREENS));
+    if (!Number.isFinite(want) || want < 1 || want > MAX_SCREENS) return Response.json({ error: "A bot has 1 to 4 screens" }, { status: 400 });
+    if (want > most)
+      return Response.json(
+        { error: `Your plan gives each bot ${most} screen${most === 1 ? "" : "s"}`, code: "SCREEN_LIMIT", upgrade: plan?.tier === "pro_deskwisp" ? "max" : "plan" },
+        { status: 402 },
+      );
+    update(() => (b.screens = want));
+    // Screens past the new count close once nothing's using them.
+    void sweepSlots().catch(() => {});
   }
   if (typeof body.archived === "boolean") {
     if (b.isMain) return Response.json({ error: "The main bot runs the team, so it can't be archived." }, { status: 400 });

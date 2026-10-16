@@ -190,7 +190,7 @@ function Card({
   return (
     <div className="flex flex-col rounded-[14px] bg-white p-3.5 shadow-[0_0_0_1px_#E6E6E3]">
       <div className="flex items-center gap-3">
-        <span className={`flex size-9 shrink-0 items-center justify-center rounded-[11px] ${tone === "ok" ? "bg-ink text-highlighter" : "bg-[#F2F2F0] text-ink"}`}>{icon}</span>
+        <span className={`flex size-9 shrink-0 items-center justify-center rounded-[11px] ${tone === "ok" ? "bg-ink text-white" : "bg-[#F2F2F0] text-ink"}`}>{icon}</span>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex items-center gap-1.5">
             <span className="text-[13.5px] font-semibold leading-[18px]">{title}</span>

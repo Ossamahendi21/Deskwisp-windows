@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BLOCKER_LABEL, computerAsleep, computerCheckMs, computerInUse, DISPLAYS, live, MAX_SCREENS, botScreens, ownScreen, planDisplays, streamsLive, workBot, workspaceOf, type AppState, type Bot, type Session } from "@/lib/types";
+import { BLOCKER_LABEL, botSlots, computerAsleep, computerCheckMs, computerInUse, DISPLAYS, live, MAX_SCREENS, screenCount, streamsLive, workBot, workspaceOf, type AppState, type Bot, type Session } from "@/lib/types";
 import { DESKWISP_TIERS, type DeskwispTier } from "@/cloud/protocol";
 import { freeComputerOpen, setupShort } from "@/lib/horafirm-plans";
 import { BotCursor } from "./bot-cursor";
@@ -83,15 +83,20 @@ const onComputerOf = (state: AppState, c: Bot) => (botId: string) => {
   return !!x && workBot(x, state.bots).id === c.id;
 };
 
-/** Which screen to show: the one you picked, else where the newest work is, else screen 1. */
+/**
+ * Which screen to show: the one you picked (while it's still one of its open screens), else where the
+ * newest work is, else its first open screen. -1 when none of its screens is open (the frame offers to
+ * start one).
+ */
 export function defaultDisplay(state: AppState, botId: string, picked?: number) {
-  if (picked !== undefined) return picked;
-  if (state.takeover?.botId === botId && state.takeover.display !== undefined) return state.takeover.display;
-  const held = state.sessions.filter((s) => s.botId === botId && s.display !== undefined);
-  if (held.length) return held[held.length - 1].display!;
-  // Its own screen (one per bot), else the first.
   const b = state.bots.find((x) => x.id === botId);
-  return (b && state.host !== "mac" ? ownScreen(state, b) : undefined) ?? DISPLAYS[0];
+  if (state.host === "mac" || !b) return picked ?? DISPLAYS[0];
+  const open = botSlots(state, b).flatMap((x) => (x.display !== undefined ? [x.display] : []));
+  if (picked !== undefined && open.includes(picked)) return picked;
+  if (state.takeover?.botId === botId && state.takeover.display !== undefined) return state.takeover.display;
+  const held = state.sessions.filter((s) => s.botId === botId && s.display !== undefined && open.includes(s.display));
+  if (held.length) return held[held.length - 1].display!;
+  return open[0] ?? -1;
 }
 
 /** Following the action: whether the panel picks the screen for you, and how it switches. */
@@ -131,10 +136,12 @@ export function ComputerView({
   // The computer it works on: its own, or the main bot's when it shares. Its screens show every
   // bot's work there, since a screen another bot is using isn't free for this one either.
   const c = mac ? b : workBot(b, state.bots);
-  const here = (botId: string) => botId === b.id || (!mac && workBot(state.bots.find((x) => x.id === botId) ?? b, state.bots).id === c.id);
+  const onComputer = (botId: string) => botId === b.id || (!mac && workBot(state.bots.find((x) => x.id === botId) ?? b, state.bots).id === c.id);
+  // Its own screens only (each bot has screens of its own; lib/server/slots.ts): another bot's work isn't shown here.
+  const here = mac ? onComputer : (botId: string) => botId === b.id;
   const hasComputer = mac || (!!c.computerId && c.computerStatus === "ready");
   // A task or the user on it wakes it, when it's asleep: nothing streams or reads its screens till then.
-  const inUse = !mac && computerInUse(state, here);
+  const inUse = !mac && computerInUse(state, onComputer);
   const { info, recheck } = useComputer(b.id, mac ? undefined : c.computerId, inUse);
   const asleep = !mac && computerAsleep(info?.computer?.status);
   // Free's computer with its hours used (10 a month): nothing wakes it till they start over.
@@ -199,9 +206,21 @@ export function ComputerView({
     }
   };
   // The screens the plan includes (Free 1, Pro 2, Max all four); the others show as a (+) to get more.
-  const open = mac ? DISPLAYS : planDisplays(state.deskwispPlan?.screens);
-  // Whose each screen is (one per bot): shown under its thumbnail when nobody's working on it.
-  const owners = new Map(mac ? [] : [...botScreens(state, c).entries()].map(([id, d]) => [d, state.bots.find((x) => x.id === id)!] as const));
+  // Its screens (1 to the plan's per bot): those open, each on a display of its computer, and those
+  // closed, which open when it starts working there or you start one. On this PC, its four Chromes.
+  const mySlots = mac ? DISPLAYS.map((d, i) => ({ n: i + 1, display: d as number | undefined })) : botSlots(state, b);
+  const open = mySlots.flatMap((x) => (x.display !== undefined ? [x.display] : []));
+  const perBot = Math.min(MAX_SCREENS, Math.max(1, state.deskwispPlan?.screens ?? MAX_SCREENS));
+  /** The screen on show isn't one of its open screens: the frame offers to start one. */
+  const closedHere = !mac && !open.includes(display);
+  const firstClosed = mySlots.find((x) => x.display === undefined)?.n ?? 1;
+  const [adding, setAdding] = useState(false);
+  const addScreen = async () => {
+    if (mySlots.length >= perBot) return setPaywall(true);
+    setAdding(true);
+    await post("/api/bots", { botId: b.id, screens: mySlots.length + 1 }, "PATCH").catch(() => null);
+    setAdding(false);
+  };
   const [paywall, setPaywall] = useState(false);
   const [stopping, setStopping] = useState<{ busy: boolean; error?: string }>({ busy: false });
   const stopComputer = async () => {
@@ -495,7 +514,17 @@ export function ComputerView({
     );
   // A real desktop is the computer itself, so it always shows; elsewhere a free screen shows the bot's home screen.
   const showingReal = view === "desktop" || view === "reader" || !!takeover || busy || showReal || !!read?.blocker || card === "email";
-  const screen = asleep ? <AsleepScreen bot={b} host={c} waking={inUse} hoursOut={hoursOut && time ? freeHoursOutLine(time) : undefined} /> : takeover ? real(true) : showingReal ? real(false) : <HomeScreen state={state} bot={b} />;
+  const screen = asleep ? (
+    <AsleepScreen bot={b} host={c} waking={inUse} hoursOut={hoursOut && time ? freeHoursOutLine(time) : undefined} />
+  ) : closedHere ? (
+    <StartScreen bot={b} n={firstClosed} onOpen={onDisplay} />
+  ) : takeover ? (
+    real(true)
+  ) : showingReal ? (
+    real(false)
+  ) : (
+    <HomeScreen state={state} bot={b} />
+  );
 
   return (
     <div
@@ -818,7 +847,8 @@ export function ComputerView({
 
       {mode === "panel" && (
         <div className="flex gap-2.5">
-          {open.map((d) => {
+          {mySlots.map(({ n, display: d }) => {
+            if (d === undefined) return <ClosedTile key={`closed-${n}`} bot={b} n={n} onOpen={onDisplay} />;
             const s = holding.get(d);
             const inView = d === display && !grid;
             const w = watchOn(d);
@@ -899,11 +929,11 @@ export function ComputerView({
                       <span className="shrink-0 font-semibold">{w.site}</span>
                       {alert && <span className="truncate rounded-[4px] bg-highlighter px-1 text-ink">{w.alert!.text}</span>}
                     </>
-                  ) : owners.get(d) ? (
+                  ) : !mac ? (
                     <>
-                      <Mascot botId={owners.get(d)!.id} color={owners.get(d)!.color} size={14} antenna={false} />
-                      <span className="shrink-0 font-semibold">{owners.get(d)!.name}</span>
+                      <span className="shrink-0 font-semibold">Screen {n}</span>
                       <span className="truncate text-[#9A9A98]">{pageOn(d)}</span>
+                      {!s && !yours(d) && !w && <CloseScreen bot={b} n={n} />}
                     </>
                   ) : (
                     <span className="truncate pl-0.5 text-[#9A9A98]">{pageOn(d)}</span>
@@ -912,11 +942,12 @@ export function ComputerView({
               </button>
             );
           })}
-          {!mac && open.length < MAX_SCREENS && (
-            // More screens come with a bigger plan: the (+) says what each gives.
+          {!mac && mySlots.length < MAX_SCREENS && (
+            // Another screen of its own, so it can do more at once: up to the plan's per bot, then the (+) says what more plans give.
             <button
-              onClick={() => setPaywall(true)}
-              title="More screens, so your bots can do more at once"
+              onClick={() => void addScreen()}
+              disabled={adding}
+              title={mySlots.length < perBot ? `Give ${b.name} another screen, so it can do more at once` : "More screens per bot come with a bigger plan"}
               className="flex w-[64px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl text-[#6B6B6B] shadow-[inset_0_0_0_1.5px_#E2E2DF] hover:bg-[#F7F7F6] hover:text-ink"
             >
               <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
@@ -1009,7 +1040,7 @@ function MoreScreens({ tier, onClose }: { tier: DeskwispTier; onClose: () => voi
           <div className="flex flex-col gap-1">
             <span className="text-[17px] font-semibold leading-6">More screens, more done at once</span>
             <span className="text-[13px] leading-[18px] text-[#6B6B6B]">
-              {`${now.name} gives your bots ${screens(now.screens)} on your Deskwisp computer. Each screen is one more thing they work on at the same time.`}
+              {`${now.name} gives each bot ${screens(now.screens)} of its own. Each screen is one more thing it works on at the same time.`}
             </span>
           </div>
           <button onClick={onClose} aria-label="Close" className="flex size-8 shrink-0 items-center justify-center rounded-full hover:bg-[#F2F2F0]">
@@ -1031,7 +1062,7 @@ function MoreScreens({ tier, onClose }: { tier: DeskwispTier; onClose: () => voi
                     <span className="text-[12px] text-[#6B6B6B]">/month</span>
                   </span>
                 </div>
-                <span className="rounded-[10px] bg-[#F3F0FF] px-2.5 py-2 text-[12.5px] font-medium leading-4 text-ink">{`${screens(p.screens)} on your computer`}</span>
+                <span className="rounded-[10px] bg-[#F3F0FF] px-2.5 py-2 text-[12.5px] font-medium leading-4 text-ink">{`${screens(p.screens)} per bot`}</span>
                 <button
                   onClick={() => void upgrade(t)}
                   disabled={busy !== null}
@@ -1232,6 +1263,109 @@ function AsleepScreen({ bot: b, host, waking, hoursOut }: { bot: Bot; /** The bo
 }
 
 /** The bot's own home screen, shown on a free screen instead of a blank browser. */
+/** "1 screen", "3 screens". */
+export const screenWord = (n: number) => `${n} screen${n === 1 ? "" : "s"}`;
+
+/** Start one of a bot's screens (it opens on a free display of its computer); says why when it can't. */
+function useStartScreen(b: Bot, n: number, onOpen: (display: number) => void) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const start = async () => {
+    setBusy(true);
+    setNote(null);
+    const res = await post("/api/computer/screen", { botId: b.id, n, action: "start" }).catch(() => null);
+    const j = ((await res?.json().catch(() => null)) ?? {}) as { display?: number; waiting?: boolean; error?: string };
+    setBusy(false);
+    if (res?.ok && typeof j.display === "number") onOpen(j.display);
+    else setNote(j.waiting ? "The computer is being set up. Try again in a minute." : (j.error ?? "Couldn't start it. Try again."));
+  };
+  return { busy, note, start };
+}
+
+/**
+ * One of the bot's screens that isn't open, in the frame: it opens when the bot starts working on it,
+ * or now, for you to use (Start).
+ */
+function StartScreen({ bot: b, n, onOpen }: { bot: Bot; n: number; onOpen: (display: number) => void }) {
+  const { busy, note, start } = useStartScreen(b, n, onOpen);
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[#FBFAFF] px-6 text-center">
+      <Mascot botId={b.id} color={b.color} size={52} />
+      <div className="flex flex-col gap-1">
+        <span className="text-[15px] font-semibold leading-5">Screen {n} is off</span>
+        <span className="max-w-[300px] text-[12.5px] leading-[17px] text-[#6B6B6B]">
+          It opens when {b.name} starts working on it, and closes a few minutes after. Start it now to use it yourself.
+        </span>
+      </div>
+      <button
+        onClick={(e) => {
+          // The frame around it opens the computer full size: this only starts the screen.
+          e.stopPropagation();
+          void start();
+        }}
+        disabled={busy}
+        className="rounded-full bg-ink px-4 py-2 text-[13px] font-semibold leading-4 text-white disabled:opacity-60"
+      >
+        {busy ? "Starting…" : "Start screen"}
+      </button>
+      {note && <span className="max-w-[300px] text-[12px] leading-4 text-[#B42318]">{note}</span>}
+    </div>
+  );
+}
+
+/** A screen of the bot's that isn't open, among the thumbnails: Start opens it. */
+function ClosedTile({ bot: b, n, onOpen }: { bot: Bot; n: number; onOpen: (display: number) => void }) {
+  const { busy, note, start } = useStartScreen(b, n, onOpen);
+  return (
+    <button
+      onClick={() => void start()}
+      disabled={busy}
+      title={note ?? `Start screen ${n} to use it yourself (it also opens when ${b.name} works on it)`}
+      className="group/thumb relative flex min-w-0 flex-1 basis-0 flex-col gap-1.5 rounded-xl p-1.5 text-left shadow-[inset_0_0_0_1.5px_#E2E2DF] hover:bg-[#F7F7F6]"
+    >
+      <div className="relative flex h-[52px] shrink-0 items-center justify-center rounded-[7px] bg-[#F4F4F2]">
+        <span className="flex items-center gap-1 rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold leading-[14px] text-white">
+          <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden>
+            <path d="M2.5 1.5v7l6-3.5z" fill="currentColor" />
+          </svg>
+          {busy ? "Starting…" : "Start"}
+        </span>
+      </div>
+      <div className="flex min-w-0 items-center gap-[5px] text-[11px] leading-[14px]">
+        <span className="shrink-0 font-semibold text-[#6B6B6B]">Screen {n}</span>
+        <span className={`truncate ${note ? "text-[#B42318]" : "text-[#9A9A98]"}`}>{note ?? "Off"}</span>
+      </div>
+    </button>
+  );
+}
+
+/** Close an open screen nothing's using (its display goes, freeing the computer's memory). */
+function CloseScreen({ bot: b, n }: { bot: Bot; n: number }) {
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      title={`Close screen ${n}`}
+      aria-label={`Close screen ${n}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        void post("/api/computer/screen", { botId: b.id, n, action: "close" });
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        e.stopPropagation();
+        void post("/api/computer/screen", { botId: b.id, n, action: "close" });
+      }}
+      className="ml-auto flex size-4 shrink-0 items-center justify-center rounded text-[#9A9A98] opacity-0 hover:bg-black/[0.06] hover:text-[#B42318] group-hover/thumb:opacity-100"
+    >
+      <svg width="8" height="8" viewBox="0 0 12 12" aria-hidden>
+        <path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    </span>
+  );
+}
+
 function HomeScreen({ state, bot: b }: { state: AppState; bot: Bot }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -1336,9 +1470,7 @@ export function ComputerSummary({ state, bot: b, className = "", onOpen }: { sta
             : b.isMain
               ? `${b.name}'s cloud computer`
               : c.id !== b.id
-                ? ownScreen(state, b) !== undefined
-                  ? `Its own screen on ${c.name}'s cloud computer`
-                  : `Borrows a free screen on ${c.name}'s cloud computer`
+                ? `${screenWord(screenCount(state, b))} of its own on ${c.name}'s cloud computer`
                 : b.computerId
                   ? "Its own cloud computer, set up like the main bot's"
                   : "Its own, set up on its first task"}

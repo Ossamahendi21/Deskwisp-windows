@@ -980,7 +980,7 @@ export function CrmView({
   return (
     <Frame mode={mode} drop={drop}>
       <div className="flex items-start gap-3.5">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-ink text-highlighter">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-ink text-white">
           <CrmBarsIcon size={18} />
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">

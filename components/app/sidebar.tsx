@@ -243,7 +243,7 @@ function YouMenu({ state, onAccount, onSettings, onSetup }: { state: AppState; o
       <button
         onClick={() => setOpen(!open)}
         title={user ? `${user.name ?? user.email ?? "Your account"}: account and settings` : "Account and settings"}
-        className={`flex size-10 items-center justify-center rounded-full text-[13px] font-semibold ${open ? "bg-ink text-highlighter" : "bg-[#EEEEEC] text-[#6B6B6B] hover:bg-[#E6E6E3]"}`}
+        className={`flex size-10 items-center justify-center rounded-full text-[13px] font-semibold ${open ? "bg-ink text-white" : "bg-[#EEEEEC] text-[#6B6B6B] hover:bg-[#E6E6E3]"}`}
       >
         {initialsOf(state)}
       </button>

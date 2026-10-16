@@ -68,7 +68,7 @@ export function WatchOverlay({ watch: w, small = false, rounded = "rounded-[22px
           }`}
         >
           <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full text-white" style={{ background: w.alert ? "#16132B" : away ? "#9A9A98" : WATCH }}>
-            <WatchEye size={13} blink={!w.alert && !away} color={w.alert ? "#C9BDFF" : "#FFFFFF"} />
+            <WatchEye size={13} blink={!w.alert && !away} color="#FFFFFF" />
           </span>
           <span className="min-w-0 truncate text-[12px] leading-4 text-ink">
             <PillText watch={w} away={away} ago={ago} />

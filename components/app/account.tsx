@@ -108,7 +108,7 @@ export function Account({ state, onClose, onThisMac }: { state: AppState; onClos
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-[2px]" onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} className="flex max-h-[90vh] w-[760px] flex-col overflow-y-auto rounded-[22px] bg-white shadow-[0_0_0_1px_#0000000F,0_30px_70px_-28px_#00000038]">
         <div className="flex items-center gap-3.5 border-b border-[#F0F0EE] px-[22px] py-[18px]">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-ink text-[16px] font-semibold tracking-[0.02em] text-highlighter">{initialsOf(state)}</span>
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-ink text-[16px] font-semibold tracking-[0.02em] text-white">{initialsOf(state)}</span>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="truncate text-[18px] font-semibold leading-[22px]">{name}</span>
             <span className="truncate text-[13px] leading-[17px] text-[#6B6B6B]">

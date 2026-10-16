@@ -39,6 +39,8 @@ vnc() {
     { setsid nohup x11vnc -display ":$n" -rfbport $((5900 + n)) -passwdfile "read:$STATE/vncpasswd" -forever -shared -noxdamage -quiet -o "$LOG/vnc-$n.log" </dev/null >/dev/null 2>&1 & }
   pgrep -f "[w]ebsockify.* $((5981 + n)) " >/dev/null 2>&1 ||
     { setsid nohup websockify $((5981 + n)) "127.0.0.1:$((5900 + n))" </dev/null >"$LOG/ws-$n.log" 2>&1 & }
+  # Back once the VNC server takes connections (a few seconds at most), so a view opened next connects.
+  for _ in $(seq 1 30); do (exec 3<>"/dev/tcp/127.0.0.1/$((5900 + n))") 2>/dev/null && break; sleep 0.1; done
 }
 
 up() {

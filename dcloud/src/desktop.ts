@@ -60,10 +60,11 @@ export async function screens(box: Box): Promise<Screen[]> {
   }
 }
 
-/** The next screen not running yet, started. Null when all four are up. */
-export async function addScreen(box: Box, width = SCREEN.width, height = SCREEN.height): Promise<Screen | null> {
+/** A screen started: the display asked for (when it's one and not up yet), else the next not running. Null when all four are up. */
+export async function addScreen(box: Box, width = SCREEN.width, height = SCREEN.height, want?: number): Promise<Screen | null> {
   const up = new Set((await screens(box)).map((s) => s.display));
-  const n = DISPLAYS.find((d) => !up.has(d));
+  const asked = want !== undefined && (DISPLAYS as readonly number[]).includes(want) && !up.has(want) ? want : undefined;
+  const n = asked ?? DISPLAYS.find((d) => !up.has(d));
   if (n === undefined) return null;
   const r = await run(box, `deskwisp-display up ${n} ${width}x${height}`, 60);
   if (r.exitCode !== 0) throw new Error(`screen :${n} didn't start: ${r.output.trim().slice(-200)}`);

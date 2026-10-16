@@ -33,7 +33,7 @@ export function MacSettings({ state }: { state: AppState }) {
     <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6 pb-7 pt-6">
       <div className="flex w-full flex-col gap-6">
         <div className="flex items-start gap-3.5 pr-8">
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-ink text-highlighter">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-ink text-white">
             <MacIcon size={20} />
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1">

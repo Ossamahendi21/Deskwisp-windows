@@ -520,7 +520,7 @@ function AccessPicker({ value, onChange, fullAccess, disabled }: { value: Member
 /** A person's initials on a circle: the user's in ink and highlighter, as on Account. */
 function Face({ label, you }: { label: string; you?: boolean }) {
   return (
-    <span className={`flex size-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${you ? "bg-ink text-highlighter" : "bg-[#EEEEEC] text-[#6B6B6B]"}`}>
+    <span className={`flex size-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${you ? "bg-ink text-white" : "bg-[#EEEEEC] text-[#6B6B6B]"}`}>
       {initialsFrom(label)}
     </span>
   );

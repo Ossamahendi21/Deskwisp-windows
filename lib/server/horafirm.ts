@@ -495,7 +495,9 @@ export const horafirm = {
    * Start another screen. Deskwisp computers are 4:3 (see DESKWISP_SCREEN); we pass the size because Horafirm
    * still records a template computer's boot screen as 1280x720 and would size new screens to that.
    */
-  createScreen: (computerId: string) => call<HorafirmScreen>("POST", `/computers/${computerId}/screens`, DESKWISP_SCREEN),
+  /** A new screen; `display` asks Deskwisp Cloud for that one (Horafirm makes the next free one). */
+  createScreen: (computerId: string, display?: number) =>
+    call<HorafirmScreen>("POST", `/computers/${computerId}/screens`, display === undefined ? DESKWISP_SCREEN : { ...DESKWISP_SCREEN, display }),
   /** Close a created screen (never the boot screen): one the plan no longer includes. */
   deleteScreen: (computerId: string, screen: string) => call<{ ok?: boolean }>("DELETE", `/computers/${computerId}/screens/${encodeURIComponent(screen)}`),
 

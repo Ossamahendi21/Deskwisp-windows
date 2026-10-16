@@ -11,7 +11,7 @@ import { openaiClient } from "./openai-client";
 import { contactLine, createBot } from "./bots";
 import { creditsOut, noteOutOfCredit, OUT_OF_CREDIT } from "./cloud";
 import { noOwnComputer } from "./plan";
-import { botChatId, live, pairChatId, roleIsTitle, TAPBACK_EMOJI, TAPBACKS, workspaceOf, type Bot, type Message, type Schedule, type Session, type Tapback } from "@/lib/types";
+import { botChatId, live, pairChatId, roleIsTitle, screenCount, TAPBACK_EMOJI, TAPBACKS, workspaceOf, type Bot, type Message, type Schedule, type Session, type Tapback } from "@/lib/types";
 import { computerBriefing, teamBriefing } from "./briefing";
 import { ABOUT_DESKWISP, ASKING, tidyAnswer, WRITING } from "./style";
 import { savePage } from "./pages";
@@ -109,7 +109,7 @@ function persona(b: Bot, others: Bot[]) {
     ABOUT_DESKWISP,
     `When ${owner} says "explain in HTML" (or asks for a page), call make_page with a single-file interactive HTML explanation, then reply in one sentence.`,
     `When ${owner} asks for a picture (draw, design, a logo, a mockup, change this photo), call make_image: you make it yourself, right here, without a computer.`,
-    `You have your own cloud computer with a browser and can run up to 4 long tasks at once. Each task is a thread ${owner} can open.`,
+    `You have screens of your own on a cloud computer, with a browser, and can run up to ${screenCount(getState(), b)} long task${screenCount(getState(), b) === 1 ? "" : "s"} at once (one per screen; ${owner} can give you more). Each task is a thread ${owner} can open.`,
     `You're told the time, what's running and a briefing of your computer as of now. Use them to answer questions about what you're doing, what's open, or what's waiting on ${owner}. Talk about the work, not screen numbers, unless ${owner} asks about a screen.`,
     getState().mac?.ready
       ? fullAccessOn()

@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { botChatId, live, ownScreen, sharesComputer, workBot, type AppState, type Host, type Session, type Watch } from "@/lib/types";
+import { botChatId, live, screenCount, sharesComputer, workBot, type AppState, type Host, type Session, type Watch } from "@/lib/types";
 import { Account } from "./account";
 import { Members } from "./members";
 import { BotPanel, type Section } from "./bot-panel";
 import { CallBar } from "./call-bar";
 import { ChatView, ThreadSheet, ToPicker } from "./chat-view";
-import { ComputerPeek, ComputerView, defaultDisplay } from "./computer";
+import { ComputerPeek, ComputerView, defaultDisplay, screenWord } from "./computer";
 import { crmOpen } from "@/lib/crm-access";
 import { categoriesOpen } from "@/lib/memory-categories";
 import { CrmView, OpenCrm } from "./crm";
@@ -1126,7 +1126,7 @@ const tabId = () => `tab_${Date.now().toString(36)}${Math.random().toString(36).
 /** A bot's computer, in plain words. A bot that shares says whose computer it works on. */
 const computerNow = (state: AppState, b: AppState["bots"][number]) => {
   const c = workBot(b, state.bots);
-  if (state.host !== "mac" && c.id !== b.id) return ownScreen(state, b) !== undefined ? `Its own screen on ${c.name}'s computer` : `Borrows a screen on ${c.name}'s computer`;
+  if (state.host !== "mac" && c.id !== b.id) return `${screenWord(screenCount(state, b))} of its own on ${c.name}'s computer`;
   return state.host === "mac" ? "Uses this PC" : b.computerStatus === "ready" ? "Ready" : b.computerStatus === "cloning" ? "Setting up" : b.computerStatus === "none" ? "Set up on its first task" : "Couldn't be set up yet";
 };
 

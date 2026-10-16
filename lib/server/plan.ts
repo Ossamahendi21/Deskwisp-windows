@@ -7,7 +7,7 @@ import { deskwispComputerShort, deskwispComputers, computerRam, mainOwnShort, ow
 import { horafirmHeaders } from "./app-version";
 import { cloudOn, cloudSessionNow } from "./cloud";
 import { callHorafirm, computerChanges, horafirm, HorafirmError, ownedWorkspace } from "./horafirm";
-import { loadHorafirmKey, horafirmOrigin } from "./horafirm-auth";
+import { loadHorafirmKey, horafirmOrigin, onDeskwispCloud } from "./horafirm-auth";
 import { addMessage, getState, stateEpoch, update } from "./store";
 
 /**
@@ -248,7 +248,8 @@ const g = globalThis as unknown as { deskwispHorafirmPlan?: { key: string; chang
 
 /** The user's plan (null when nobody is signed in, or Horafirm didn't answer). `fresh` asks Horafirm again even within the minute. */
 export async function horafirmPlan({ fresh = false } = {}): Promise<HorafirmPlan | null> {
-  const key = await loadHorafirmKey();
+  // On Deskwisp Cloud, a key of the user's own for it (HORAFIRM_API_KEY, self-hosting) has a plan too.
+  const key = (await loadHorafirmKey()) ?? (onDeskwispCloud() ? process.env.HORAFIRM_API_KEY || null : null);
   if (!key) return null;
   const kept = g.deskwispHorafirmPlan;
   // Another user's key, or a computer made or deleted since: read again.

@@ -572,7 +572,7 @@ function Blocked({ why }: { why: "app" | "loading" | "permission" | "nothing" })
         : ["Nothing to show yet", "Deskwisp can't find a display to show."];
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-8 text-center">
-      <span className="flex size-11 items-center justify-center rounded-2xl bg-ink text-highlighter">
+      <span className="flex size-11 items-center justify-center rounded-2xl bg-ink text-white">
         <MacIcon size={20} />
       </span>
       <span className="text-[15px] font-semibold leading-5 text-ink">{title}</span>

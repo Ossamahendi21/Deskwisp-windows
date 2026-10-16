@@ -38,6 +38,10 @@ export type Bot = {
   computerStatus: "none" | "cloning" | "ready" | "error";
   /** Put away by the user (right-click → Archive): out of the sidebar until brought back, and given no screen. */
   archived?: boolean;
+  /** How many screens of its own it has (1 to the plan's per-bot screens; the user adds them with +). Unset: 1. */
+  screens?: number;
+  /** The display each of its screens was on last (by screen number), so it opens there again when it can: its Chrome is there. */
+  screenHomes?: Record<number, number>;
   /**
    * Its computer's id while Deskwisp has made it and never had it ready: nothing has run on it, so a setup
    * that fails may delete it (ensureComputer). Cleared once it's ready. A computer Deskwisp didn't make (the
@@ -481,9 +485,15 @@ export type AppState = {
   owner?: Owner;
   /**
    * The Deskwisp plan as the computers' server says it (GET /api/user/subscription): its tier and how
-   * many of the computer's screens the bots may use (Free 1, Pro 2, Max 4). Unknown: all four.
+   * many screens each bot may have (Free 1, Pro 2, Max 4). Unknown: all four.
    */
   deskwispPlan?: { tier: DeskwispTier; screens: number };
+  /**
+   * The bots' screens open right now (ScreenSlot): each on one of its computer's displays. A screen
+   * opens when its bot starts working on it, or when the user starts it, and closes a little after
+   * its work ends (lib/server/slots.ts), so only screens at work are open.
+   */
+  slots?: ScreenSlot[];
   bots: Bot[];
   chats: Chat[];
   messages: Message[];
@@ -798,27 +808,37 @@ export const MAX_SCREENS = 4;
 /** Created screens first; the boot screen (with Horafirm's own desktop) last. */
 export const DISPLAYS = [100, 101, 102, 99];
 
-/**
- * The screens a plan lets the bots use (`screens` of them, all four when it isn't known): the boot
- * screen always, since it's there from the start, and the created ones before it in order.
- */
-/**
- * Each bot's own screen on the computer it works on, so bots never share one: the main bot has the
- * boot screen, the others the created ones in the order they were made, as many as the plan's screens.
- * A bot past them (or archived) has none of its own and borrows a free one when it needs to.
- */
-export function botScreens(state: Pick<AppState, "bots" | "deskwispPlan">, computerBot: Bot): Map<BotId, number> {
-  const open = planDisplays(state.deskwispPlan?.screens);
-  const order = [99, ...open.filter((d) => d !== 99)];
-  const on = state.bots.filter((x) => !x.archived && workBot(x, state.bots).id === computerBot.id).sort((a, b) => Number(b.isMain) - Number(a.isMain));
-  return new Map(on.slice(0, order.length).map((x, i) => [x.id, order[i]] as const));
+/** A bot's screen that's open: its number among the bot's screens (1-4), and the display it's on. */
+export type ScreenSlot = {
+  botId: BotId;
+  n: number;
+  display: number;
+  /** Who opened it: the bot for a task, or the user (Start). The user's stays open until they close it. */
+  by: "bot" | "user";
+  since: number;
+  /** When its work ended: it closes a little after (unless work starts on it again). */
+  idleSince?: number;
+};
+
+/** How many screens a bot has: its own count, at least 1, at most the plan's per bot (and 4). */
+export function screenCount(state: Pick<AppState, "deskwispPlan">, b: Pick<Bot, "screens">) {
+  const plan = Math.min(MAX_SCREENS, Math.max(1, state.deskwispPlan?.screens ?? MAX_SCREENS));
+  return Math.min(plan, Math.max(1, Math.floor(b.screens ?? 1)));
 }
 
-/** A bot's own screen (botScreens), if it has one. */
-export const ownScreen = (state: Pick<AppState, "bots" | "deskwispPlan">, b: Bot) => botScreens(state, workBot(b, state.bots)).get(b.id);
+/** A bot's screens, 1 to screenCount: each with the display it's open on, or none while it's closed. */
+export function botSlots(state: Pick<AppState, "deskwispPlan" | "slots">, b: Pick<Bot, "id" | "screens">) {
+  const count = screenCount(state, b);
+  return Array.from({ length: count }, (_, i) => {
+    const n = i + 1;
+    const open = state.slots?.find((x) => x.botId === b.id && x.n === n);
+    return { n, display: open?.display, slot: open };
+  });
+}
 
-export const planDisplays = (screens?: number): number[] =>
-  !screens || screens >= MAX_SCREENS ? [...DISPLAYS] : [...DISPLAYS.slice(0, Math.max(0, Math.floor(screens) - 1)), 99];
+/** The bot whose screen a display shows right now, and which of its screens it is. */
+export const slotOn = (state: Pick<AppState, "slots">, sameComputerAs: (botId: string) => boolean, display: number) =>
+  state.slots?.find((x) => x.display === display && sameComputerAs(x.botId));
 
 /**
  * The screen Horafirm streams by default: its WebRTC video reaches the boot screen only, and so does its

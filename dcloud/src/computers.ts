@@ -320,12 +320,11 @@ export class Computers {
       case "screens": {
         if (!d && method === "GET") return { screens: await this.screenList(comp) };
         if (!d && method === "POST") {
-          const body = (await ctx.body()) as { width?: number; height?: number };
+          // A computer runs at most its four displays at once, on every plan: the plan sets how many
+          // screens each bot has (the app opens them as they're needed, and asks for which display).
+          const body = (await ctx.body()) as { width?: number; height?: number; display?: number };
           const box = await this.box(comp, true);
-          const p = await this.limits(owner);
-          if ((await desk.screens(box)).length >= p.screens)
-            throw new HttpError(403, `${p.name} includes ${p.screens} screen${p.screens === 1 ? "" : "s"} on your computer`, "SCREEN_LIMIT");
-          const s = await desk.addScreen(box, body?.width || desk.SCREEN.width, body?.height || desk.SCREEN.height);
+          const s = await desk.addScreen(box, body?.width || desk.SCREEN.width, body?.height || desk.SCREEN.height, Number(body?.display) || undefined);
           if (!s) throw new HttpError(409, "All four screens are in use", "screen_limit");
           return { id: desk.screenIdOf(s.display), display: `:${s.display}`, width: s.width, height: s.height, default: false, vnc_port: 5900 + s.display, ws_port: 5981 + s.display };
         }

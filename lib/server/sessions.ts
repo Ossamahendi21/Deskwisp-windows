@@ -7,7 +7,8 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { AI_CREDIT_EMPTY, AI_CREDIT_LOW } from "@/cloud/protocol";
-import { BLOCKER_LABEL, botChatId, DISPLAYS, botScreens, live, MAIN_WORKSPACE, MAX_SCREENS, ownScreen, planDisplays, workBot, workspaceOf, type Bot, type Effort, type Session, type ThreadReply } from "@/lib/types";
+import { BLOCKER_LABEL, botChatId, botSlots, DISPLAYS, screenCount, live, MAIN_WORKSPACE, MAX_SCREENS, workBot, workspaceOf, type Bot, type Effort, type Session, type ThreadReply } from "@/lib/types";
+import { closeSlot, displayBusy, freeDisplayFor, openSlot, slotFor, slotIdle, sweepSlots } from "./slots";
 import { CloudError, creditsOut, executorKey, noteOutOfCredit, OUT_OF_CREDIT, outOfCreditError, shortOfCredit } from "./cloud";
 import { appsMcp, appsSocket, browserMcp, cdpPort, cuaDriverHere, currentUrl, ensureChrome, MAC_BROWSER_TOOLS, MAC_UI_TOOLS, macTaskPort, macUiMcp, navigate, startExecutor, stopExecutor, taskDir, taskSockets } from "./local";
 import { relayNewComputer } from "./relay";
@@ -523,7 +524,7 @@ function pickBySite(s: Session, slots: { at: number; free: boolean; page: { url:
   return (slots.find((x) => x.free && !(x.page && onASite(x.page.url))) ?? slots.find((x) => x.free))?.at;
 }
 
-/** Give queued sessions a screen, oldest first. A bot holds at most 4 screens. */
+/** Give queued sessions a screen of their bot's own, oldest first (lib/server/slots.ts). */
 let pumping = false;
 /** Asked to pump while it was pumping (it reads screens, which takes a moment): go round again. */
 let pumpAgain = false;
@@ -584,69 +585,59 @@ async function pump() {
         }
         if (c.computerStatus !== "ready") continue;
       }
-      // A screen is busy if a thread runs there or one of its helpers is using it, whichever bot's
-      // thread it is: bots that share a computer share its four screens.
-      const { held: using, watched } = screensInUse(b.id);
+      // The screen it runs on: one of its bot's own (lib/server/slots.ts), never another bot's. A
+      // closed one of them opens on a free display of its computer; with all its screens at work, or
+      // all the computer's displays, it waits.
+      const { watched } = screensInUse(b.id);
       const mine = s.onWatch ? watched.find((w) => w.id === s.onWatch) : undefined;
       if (s.onWatch && !mine) {
         patchSession(s.id, { status: "failed", error: "That screen isn't being watched anymore", endedAt: Date.now() });
         taskEnded(s, "not_started");
         continue;
       }
-      if (mine && using.includes(mine.display)) continue;
-      // Watched screens stay on their site; only a thread started from one runs there.
-      let held = withLocked([...using, ...watched.filter((w) => w !== mine).map((w) => w.display)]);
-      if (!mine && held.length >= MAX_SCREENS) continue;
-      // A thread picked up again waits for the screen its agent was set up for (its browser tools drive
-      // that screen's Chrome): on another, Deskwisp would watch, claim and show one screen while the bot
-      // works on the other, and the vault would never see its sign-in pages. Not for a watched screen,
-      // which stays on its site: then it starts over on another (run: a fresh agent session).
-      const own = s.agentSessionId ? s.env?.display : undefined;
-      if (own !== undefined && !mine && held.includes(own) && !watched.some((w) => w.display === own)) continue;
-      // A bot with a screen of its own (botScreens: one per bot, as many as the plan's screens) works
-      // there and nowhere else, so bots never share one; it waits while that screen is busy. One without
-      // a screen of its own borrows a free one that isn't another bot's.
-      const myScreen = !mine && own === undefined ? ownScreen(getState(), b) : undefined;
-      if (myScreen !== undefined) {
-        if (held.includes(myScreen)) continue;
+      const start = (display: number) => {
         siteWait.delete(s.id);
-        patchSession(s.id, { status: "starting", display: myScreen, lastDisplay: myScreen, startedAt: s.startedAt ?? Date.now() });
+        patchSession(s.id, { status: "starting", display, lastDisplay: display, startedAt: s.startedAt ?? Date.now() });
         void run(s.id).finally(() => {
           patchSession(s.id, { display: undefined });
+          slotIdle(b.id, display);
           void pump();
         });
+      };
+      // A thread started from a watched screen runs there (the watch keeps that screen on its site).
+      if (mine) {
+        if (screensInUse(b.id).held.includes(mine.display)) continue;
+        start(mine.display);
         continue;
       }
-      if (!mine && own === undefined) held = [...new Set([...held, ...othersScreens(b)])];
-      if (!mine && held.length >= MAX_SCREENS) continue;
-      // Pick up where it left off when that screen is free.
-      let display = mine
-        ? mine.display
-        : own !== undefined && !held.includes(own)
-          ? own
-          : s.lastDisplay !== undefined && !held.includes(s.lastDisplay)
-            ? s.lastDisplay
-            : DISPLAYS.find((d) => !held.includes(d))!;
-      // A new task: the screen already on its site, if there is one (never a watched screen: those stay on theirs).
-      if (!mine && own === undefined && s.lastDisplay === undefined) {
-        const pages = await screenPages(b);
-        // Reading took a moment: what's in use now.
-        const now = screensInUse(b.id);
-        held = [...new Set([...withLocked([...now.held, ...now.watched.map((w) => w.display)]), ...othersScreens(b)])];
-        if (held.length >= MAX_SCREENS || session(s.id)?.status !== "queued") continue;
-        const pick = pickBySite(
-          s,
-          DISPLAYS.map((d, i) => ({ at: d, free: !held.includes(d), page: now.watched.some((w) => w.display === d) ? null : pages[i] })),
-        );
-        if (pick === "wait" || pick === undefined) continue;
-        display = pick;
+      // A thread picked up again waits for the screen its agent was set up for (its browser tools drive
+      // that screen's Chrome): on another, Deskwisp would watch, claim and show one screen while the bot
+      // works on the other, and the vault would never see its sign-in pages.
+      const own = s.agentSessionId ? s.env?.display : undefined;
+      let pick = slotFor(b, own);
+      if (!pick) continue;
+      if (own === undefined) {
+        // Its bot's open screens: one already on the task's site first (or wait a little for it), else
+        // where it worked last, else any free one, else a closed one opened.
+        const open = botSlots(getState(), b).filter((x): x is typeof x & { display: number } => x.display !== undefined);
+        if (open.length) {
+          const pages = await screenPages(b);
+          if (session(s.id)?.status !== "queued") continue;
+          const choice = pickBySite(
+            s,
+            open.map((x) => ({ at: x.display, free: !displayBusy(b.id, x.display), page: pages[DISPLAYS.indexOf(x.display)] ?? null })),
+          );
+          if (choice === "wait") continue;
+          const last = s.lastDisplay !== undefined ? open.find((x) => x.display === s.lastDisplay && !displayBusy(b.id, x.display)) : undefined;
+          const at = last?.display ?? choice;
+          const x = at !== undefined ? open.find((y) => y.display === at && !displayBusy(b.id, y.display)) : undefined;
+          if (x) pick = { n: x.n, display: x.display, opens: false };
+          else pick = slotFor(b);
+          if (!pick) continue;
+        }
       }
-      siteWait.delete(s.id);
-      patchSession(s.id, { status: "starting", display, lastDisplay: display, startedAt: s.startedAt ?? Date.now() });
-      void run(s.id).finally(() => {
-        patchSession(s.id, { display: undefined });
-        void pump();
-      });
+      if (pick.opens) openSlot(b.id, pick.n, pick.display, "bot");
+      start(pick.display);
     }
   } finally {
     pumping = false;
@@ -848,6 +839,7 @@ const gh = globalThis as unknown as {
   deskwispSeenThere?: Map<string, number>;
   deskwispComputerCheck?: ReturnType<typeof setInterval>;
   deskwispComputerCheckTick?: () => Promise<void>;
+  deskwispSlotSweep?: ReturnType<typeof setInterval>;
   deskwispReattaching?: Map<string, Promise<void>>;
 };
 /** The heal under way for each bot, by bot id. */
@@ -974,6 +966,8 @@ export function startComputerChecks() {
   const tick = () => void gh.deskwispComputerCheckTick?.().catch((e: Error) => console.warn(`[computer] check: ${e.message}`));
   gh.deskwispComputerCheck = setInterval(tick, 10 * 60_000);
   tick();
+  // Bots' screens whose work ended a while ago close (lib/server/slots.ts).
+  gh.deskwispSlotSweep ??= setInterval(() => void sweepSlots().catch((e: Error) => console.warn(`[screens] sweep: ${e.message}`)), 30_000);
 }
 
 /* ---------------- The free Deskwisp computer, found again ---------------- */
@@ -1128,31 +1122,20 @@ export async function resetScreens(botId: string, displays: number[] = DISPLAYS,
   return { reset: reset.map((d) => DISPLAYS.indexOf(d) + 1), skipped };
 }
 
-/** Bring up the plan's screens (all four on Max), each with a browser open, so the computer is ready to watch and use. */
+/**
+ * A computer just set up or woken: no screen opens by itself (a bot opens its own when it starts a
+ * task there, or the user starts one), so created screens nobody has open close, and don't hold its memory.
+ */
 export async function ensureScreens(computerId: string) {
-  const open = planDisplays(await screenPlan());
-  for (const d of open) await ensureScreen(computerId, d);
-  // Screens the plan doesn't include any more (a smaller plan) close, so they don't hold the computer's memory.
+  // The plan's screens per bot, as the computers' server says it now (the computer view and the scheduler read it).
+  await screenPlan().catch(() => null);
+  const host = getState().bots.find((x) => x.computerId === computerId);
+  const open = new Set((getState().slots ?? []).filter((x) => host && sameComputer(x.botId, host.id)).map((x) => x.display));
   const extra = (await horafirm.screens(computerId).catch(() => [] as HorafirmScreen[])).filter((x) => {
     const d = Number(x.display.replace(/^:/, ""));
-    return d !== 99 && !open.includes(d);
+    return d !== 99 && !open.has(d) && !(host && displayBusy(host.id, d));
   });
   for (const x of extra) await horafirm.deleteScreen(computerId, x.id).catch((e: Error) => console.warn(`[computer] closing screen ${x.id}: ${e.message}`));
-}
-
-/** The screens other bots own on the computer this bot works on (botScreens): never borrowed. */
-function othersScreens(b: Bot) {
-  const st = getState();
-  return [...botScreens(st, workBot(b, st.bots)).entries()].filter(([id]) => id !== b.id).map(([, d]) => d);
-}
-
-/**
- * Screens in use, with those the plan doesn't include counted as taken: a task never starts on one
- * (Free has the boot screen only, Pro one more; Max all four).
- */
-function withLocked(held: number[]) {
-  const open = planDisplays(getState().deskwispPlan?.screens);
-  return [...new Set([...held, ...DISPLAYS.filter((d) => !open.includes(d))])];
 }
 
 /**
@@ -1160,6 +1143,42 @@ function withLocked(held: number[]) {
  * asleep for want of use): none of its screens has a port, which the computer's own list always gives.
  */
 const fromRecord = (screens: HorafirmScreen[]) => screens.length > 0 && screens.every((x) => x.ws_port == null && x.vnc_port == null);
+
+/**
+ * The user starts one of a bot's screens (its computer view's Start): it opens on a free display of
+ * its computer, waking the computer, with its Chrome, and stays open until they close it. `waiting`:
+ * the computer is still being set up (it is now), so the screen can't open yet.
+ */
+export async function startScreen(botId: string, n: number): Promise<{ display: number } | { waiting: true }> {
+  const b = bot(botId);
+  if (!b) throw new Error("no such bot");
+  if (!Number.isInteger(n) || n < 1 || n > screenCount(getState(), b)) throw new Error(`That isn't one of ${b.name}'s screens`);
+  const c = workComputer(b);
+  if (c.computerStatus !== "ready" || !c.computerId) {
+    void ensureComputer(b.id);
+    return { waiting: true };
+  }
+  const open = getState().slots?.find((x) => x.botId === botId && x.n === n);
+  const display = open?.display ?? freeDisplayFor(b, n);
+  if (display === null) throw new Error("All four of the computer's screens are at work. Close one, or wait for a task to finish.");
+  openSlot(botId, n, display, "user");
+  try {
+    await ensureScreen(c.computerId, display);
+  } catch (e) {
+    if (!open) await closeSlot(botId, n);
+    throw e;
+  }
+  return { display };
+}
+
+/** The user closes one of a bot's screens: not while something's going on there (a task, their own control, a watch). */
+export async function stopScreen(botId: string, n: number) {
+  const b = bot(botId);
+  const open = getState().slots?.find((x) => x.botId === botId && x.n === n);
+  if (!b || !open) return;
+  if (displayBusy(botId, open.display)) throw new Error(`${b.name} is using this screen: stop its task (or the watch) first`);
+  await closeSlot(botId, n);
+}
 
 /** Screens live in the computer's memory, so recreate any that a restart or clone dropped. */
 async function ensureScreen(computerId: string, display: number) {
@@ -1179,7 +1198,7 @@ async function ensureScreen(computerId: string, display: number) {
       screens = await horafirm.screens(computerId);
     }
     while (!screens.some((x) => x.display === `:${display}`) && screens.length < MAX_SCREENS) {
-      await horafirm.createScreen(computerId);
+      await horafirm.createScreen(computerId, display);
       screens = await horafirm.screens(computerId);
     }
     if (!screens.some((x) => x.display === `:${display}`)) throw new Error(`screen :${display} unavailable`);

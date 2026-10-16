@@ -368,7 +368,7 @@ export function NewTab({
       </form>
       <div className="flex w-full max-w-[520px] flex-col gap-2">
         <button onClick={onVault} className="mb-2 flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left shadow-[0_0_0_1px_#ECECEA] hover:bg-[#FCFCFB]">
-          <span className="flex size-7 items-center justify-center rounded-full bg-ink text-highlighter">
+          <span className="flex size-7 items-center justify-center rounded-full bg-ink text-white">
             <KeyIcon />
           </span>
           <span className="flex flex-col">
@@ -379,7 +379,7 @@ export function NewTab({
           </span>
         </button>
         <button onClick={onMac} className="mb-2 flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left shadow-[0_0_0_1px_#ECECEA] hover:bg-[#FCFCFB]">
-          <span className="flex size-7 items-center justify-center rounded-full bg-ink text-highlighter">
+          <span className="flex size-7 items-center justify-center rounded-full bg-ink text-white">
             <MacIcon />
           </span>
           <span className="flex flex-col">

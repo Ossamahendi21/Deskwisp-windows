@@ -185,7 +185,7 @@ function CardShell({
 }
 
 const fieldClass = "rounded-xl bg-[#F7F7F6] px-3 py-2.5 text-[14px] leading-5 outline-none shadow-[inset_0_0_0_1px_#E6E6E3] focus:bg-white focus:shadow-[inset_0_0_0_1.5px_#16132B]";
-const primary = "flex-1 rounded-full bg-ink px-4 py-2.5 text-[14px] font-semibold leading-[18px] text-highlighter disabled:opacity-40";
+const primary = "flex-1 rounded-full bg-ink px-4 py-2.5 text-[14px] font-semibold leading-[18px] text-white disabled:opacity-40";
 const secondary = "rounded-full px-3.5 py-2.5 text-[13px] font-medium leading-[18px] text-[#3A3A38] shadow-[inset_0_0_0_1px_#E2E2DF] hover:bg-[#F7F7F6]";
 
 async function act(botId: string, display: number, action: string, values?: Record<string, string>) {

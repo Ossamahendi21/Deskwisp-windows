@@ -23,7 +23,7 @@ export function VaultTab({ state, onClose }: { state: AppState; onClose: () => v
     <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6 pb-8 pt-7">
       <div className="flex w-full max-w-[560px] flex-col gap-5">
         <div className="flex items-start gap-3.5">
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-ink text-highlighter">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-ink text-white">
             <KeyIcon />
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1">

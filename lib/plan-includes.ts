@@ -4,7 +4,8 @@
  * for one more phone number, email or computer. The numbers are DESKWISP_TIERS (cloud/protocol.ts),
  * which horafirm-web and Deskwisp Cloud hold each plan to:
  *
- * - Every plan has one Deskwisp computer; what grows is how many of its screens the bots use at once.
+ * - Every plan has one Deskwisp computer; what grows is how many screens each bot has on it (they open
+ *   while it works, so it can do that many things at once).
  * - Free: $5 of AI credit once, 1 screen, any number of bots sharing it; no phone number, no email.
  * - Pro, $20 a month: $20 of AI credit every month, 2 screens, 1 phone number and 1 email (the main
  *   bot's, set up with the plan).
@@ -28,10 +29,10 @@ export type PlanComputers = { title: string; detail: string };
 
 export type PlanCard = { tier: DeskwispTier; name: string; price: string; per?: string; computers: PlanComputers; lines: PlanLine[] };
 
-/** "1 screen", "2 screens", "4 screens" on the plan's one computer (one line on a card): DESKWISP_TIERS' count. */
+/** "1 screen per bot", "4 screens per bot" on the plan's one computer (one line on a card): DESKWISP_TIERS' count. */
 const included = (tier: DeskwispTier) => {
   const n = DESKWISP_TIERS[tier].screens;
-  return `1 computer, ${n} screen${n === 1 ? "" : "s"}`;
+  return `1 computer, ${n} screen${n === 1 ? "" : "s"} per bot`;
 };
 
 /** The three plans, as the account sheet and deskwisp.bot list them. An Horafirm plan is never one of these. */
@@ -40,7 +41,7 @@ export const PLAN_CARDS: PlanCard[] = [
     tier: "free_deskwisp",
     name: "Free",
     price: "$0",
-    computers: { title: included("free_deskwisp"), detail: "Your bots work on one thing at a time; it sleeps when nobody uses it" },
+    computers: { title: included("free_deskwisp"), detail: "Each bot works on one thing at a time; screens open only while they work" },
     lines: [
       { text: "$5 of AI credit, once" },
       { text: "As many bots as you like, sharing it" },
@@ -53,7 +54,7 @@ export const PLAN_CARDS: PlanCard[] = [
     name: "Pro",
     price: "$20",
     per: "/month",
-    computers: { title: included("pro_deskwisp"), detail: "Two things at once; it sleeps when nobody uses it" },
+    computers: { title: included("pro_deskwisp"), detail: "Each bot does two things at once; screens open only while they work" },
     lines: [
       { text: "$20 of AI credit every month" },
       { text: "As many bots as you like, sharing it" },
@@ -66,7 +67,7 @@ export const PLAN_CARDS: PlanCard[] = [
     name: "Max",
     price: "$200",
     per: "/month",
-    computers: { title: included("max_deskwisp"), detail: "Four things at once; it sleeps when nobody uses it" },
+    computers: { title: included("max_deskwisp"), detail: "Each bot does four things at once; screens open only while they work" },
     lines: [
       { text: "$200 of AI credit every month" },
       { text: "As many bots as you like, on any of them" },

@@ -142,7 +142,7 @@ test("a computer from start to delete", { skip: missing.length ? `missing ${miss
   assert.equal((await call("k1", "GET", `/computers/${id}`)).status, 404);
 });
 
-test("screens by plan: Free has the one, Max four", { skip: missing.length ? `missing ${missing.join(", ")}` : false, timeout: 120_000 }, async () => {
+test("screens by plan: the plan says how many each bot has; the computer opens the display asked for", { skip: missing.length ? `missing ${missing.join(", ")}` : false, timeout: 120_000 }, async () => {
   // A signed-in user on Free (made here as a sign-in would make them).
   const u = await app.store.upsertUser({ clerkId: "user_free", email: "free@example.com", name: null });
   await app.store.addKey(u.id, hashKey("free-key"), "test");
@@ -151,13 +151,13 @@ test("screens by plan: Free has the one, Max four", { skip: missing.length ? `mi
   const w = await call("free-key", "POST", "/workspaces", { name: "deskwisp" });
   const made = await call("free-key", "POST", "/computers", { workspace_id: w.json.id, name: "Wispy" });
   assert.equal(made.status, 200, JSON.stringify(made.json));
-  const more = await call("free-key", "POST", `/computers/${made.json.id}/screens`, { width: 1280, height: 960 });
-  assert.equal(more.status, 403);
-  assert.equal(more.json.code, "SCREEN_LIMIT");
-  // On Max, the same computer opens more.
+  // Two bots on Free, a screen each: the computer opens a second display, the one asked for.
+  const second = await call("free-key", "POST", `/computers/${made.json.id}/screens`, { width: 1280, height: 960, display: 101 });
+  assert.equal(second.status, 200, JSON.stringify(second.json));
+  assert.equal(second.json.id, "screen-101");
   await app.store.setPlan(u.id, "max_deskwisp");
   assert.equal((await call("free-key", "GET", "/user/subscription")).json.planLimits.maxScreens, 4);
-  assert.equal((await call("free-key", "POST", `/computers/${made.json.id}/screens`, { width: 1280, height: 960 })).status, 200);
+  assert.equal((await call("free-key", "DELETE", `/computers/${made.json.id}/screens/screen-101`)).status, 200);
   assert.equal((await call("free-key", "DELETE", `/computers/${made.json.id}`)).status, 200);
 });
 
