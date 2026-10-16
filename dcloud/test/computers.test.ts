@@ -63,6 +63,8 @@ test("a computer from start to delete", { skip: missing.length ? `missing ${miss
   // Bob sees none of Alice's.
   assert.equal((await call("k2", "GET", "/workspaces")).json.workspaces.length, 0);
 
+  // None yet: the app's main bot makes it (lib/server/plan.ts makeFree).
+  assert.equal((await call("k1", "GET", `/billing/compute-limits?workspace_id=${w.json.id}`)).json.deskwisp_free_computer_id, null);
   const made = await call("k1", "POST", "/computers", { workspace_id: w.json.id, name: "Wispy", template_ref: "system/deskwisp-base@0.1.8" });
   assert.equal(made.status, 200, JSON.stringify(made.json));
   const id = made.json.id as string;
@@ -74,6 +76,8 @@ test("a computer from start to delete", { skip: missing.length ? `missing ${miss
   assert.equal(plan.json.computers_used, 1);
   assert.equal(plan.json.max_computers, 1);
   assert.equal(plan.json.max_screens, 4);
+  // The one the account has: a fresh state on another PC takes it up instead of turning the plan full.
+  assert.equal(plan.json.deskwisp_free_computer_id, id);
 
   // The boot screen, then one more.
   let screens = (await call("k1", "GET", `/computers/${id}/screens`)).json.screens;

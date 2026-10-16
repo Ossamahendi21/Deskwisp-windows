@@ -291,6 +291,10 @@ export class Computers {
         account_ram_budget_gb: p.computers * this.cfg.ramGb,
         account_ram_used_gb: ram,
         max_ram_gb: this.cfg.ramGb,
+        // The account's computer, Horafirm's "free Deskwisp computer": the app's main bot takes up the one the
+        // account has (a new sign-in on another PC, or a state started over) instead of making another,
+        // and makes it when there's none (null).
+        deskwisp_free_computer_id: mine[0]?.id ?? null,
       };
     }
 
