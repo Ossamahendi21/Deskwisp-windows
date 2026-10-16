@@ -147,9 +147,10 @@ export function ComputerView({
   const inUse = !mac && computerInUse(state, onComputer);
   const { info, recheck } = useComputer(b.id, mac ? undefined : c.computerId, inUse);
   const asleep = !mac && computerAsleep(info?.computer?.status);
-  // Free's computer with its hours used (10 a month): nothing wakes it till they start over.
+  // The computer with its plan's hours this month used: nothing wakes it till they start over. Deskwisp
+  // Cloud counts every computer's hours (Horafirm only Free's free one).
   const plan = usePlan(state);
-  const time = c.freeComputer ? plan?.deskwisp?.computerTime : undefined;
+  const time = !mac && (c.freeComputer || plan?.deskwisp?.computerTime) ? plan?.deskwisp?.computerTime : undefined;
   const hoursOut = !!time && time.usedSeconds >= time.limitSeconds;
   const holding = new Map(state.sessions.filter((s) => here(s.botId) && s.display !== undefined).map((s) => [s.display!, s]));
   // Screens a thread's helpers are using belong to that thread too.
@@ -520,7 +521,7 @@ export function ComputerView({
   const startedByYou = !mac && (state.slots ?? []).some((x) => x.botId === b.id && x.display === display && x.by === "user");
   const showingReal = view === "desktop" || view === "reader" || !!takeover || busy || showReal || startedByYou || !!read?.blocker || card === "email";
   const screen = asleep ? (
-    <AsleepScreen bot={b} host={c} waking={inUse} hoursOut={hoursOut && time ? freeHoursOutLine(time) : undefined} />
+    <AsleepScreen bot={b} host={c} waking={inUse} hoursOut={hoursOut && time ? freeHoursOutLine(time, plan?.deskwisp?.tier) : undefined} />
   ) : closedHere ? (
     <StartScreen state={state} bot={b} n={firstClosed} onOpen={onDisplay} />
   ) : takeover ? (

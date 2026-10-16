@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { AccountInfo, DeskwispPlan, SpendKind, TokenSource, UsageTotals } from "@/lib/account";
-import type { DeskwispTier } from "@/cloud/protocol";
+import { DESKWISP_TIERS, type DeskwispTier } from "@/cloud/protocol";
 import {
   afterAnswer,
   afterCancel,
@@ -306,9 +306,12 @@ function YourPlan({ plan, known, onPlan, userId }: { plan: DeskwispPlan | null |
  * and when it starts over, in lib/plan-includes.ts freeHoursWords' words (no period named, from an Horafirm that
  * still counts by the week). It sleeps when nothing uses it, so only the time it's used counts. Only when Horafirm said.
  */
+/** Free's one-time AI credit, as the page says it ("$1"). */
+const FREE_CREDIT = `$${DESKWISP_TIERS.free_deskwisp.creditMicros / 1e6}`;
+
 function ComputerTime({ plan }: { plan: DeskwispPlan }) {
   if (!plan.computerTime) return null;
-  const w = freeHoursWords(plan.computerTime);
+  const w = freeHoursWords(plan.computerTime, plan.tier);
   return (
     <div className="flex items-center gap-4 rounded-[14px] p-4 shadow-[0_0_0_1px_#E6E6E3]">
       <span className="min-w-0 flex-1 text-[12.5px] leading-[18px] text-[#6B6B6B]">{w.note}</span>
@@ -330,7 +333,7 @@ function Balance({ plan, onPlan, userId }: { plan: DeskwispPlan; onPlan: (plan: 
   const c = plan.credit;
   const paid = plan.tier !== "free_deskwisp";
   const monthly = plan.tier === "max_deskwisp" ? 200_000_000 : 20_000_000;
-  // Credit added once is kept with what's left of the one-time $5: neither expires.
+  // Credit added once is kept with what's left of Free's one-time credit: neither expires.
   const added = !!c && (c.topUps === true || c.freeLeftMicros > 5_000_000);
   const line =
     paid && plan.status === "past_due"
@@ -342,10 +345,10 @@ function Balance({ plan, onPlan, userId }: { plan: DeskwispPlan; onPlan: (plan: 
         : !paid
           ? added
             ? "Includes credit you added, which doesn't expire."
-            : `${credit(c.freeLeftMicros)} left of your one-time $5.`
+            : `${credit(c.freeLeftMicros)} left of your one-time ${FREE_CREDIT}.`
           : [
               `${credit(c.planLeftMicros)} of ${credit(monthly)} left${c.resetsAt ? `, resets ${day(c.resetsAt)}` : ""}.`,
-              c.freeLeftMicros > 0 ? (added ? `Plus ${credit(c.freeLeftMicros)} that doesn't expire.` : `Plus ${credit(c.freeLeftMicros)} of your one-time $5.`) : "",
+              c.freeLeftMicros > 0 ? (added ? `Plus ${credit(c.freeLeftMicros)} that doesn't expire.` : `Plus ${credit(c.freeLeftMicros)} of your one-time ${FREE_CREDIT}.`) : "",
               plan.cancelAtPeriodEnd && plan.periodEnd ? `Ends ${day(plan.periodEnd)}.` : "",
             ]
               .filter(Boolean)

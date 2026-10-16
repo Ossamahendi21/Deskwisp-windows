@@ -5,14 +5,16 @@
  * which horafirm-web and Deskwisp Cloud hold each plan to:
  *
  * - Every plan has one Deskwisp computer; what grows is how many screens each bot has on it (they open
- *   while it works, so it can do that many things at once).
- * - Free: $5 of AI credit once, 1 screen, any number of bots sharing it; no phone number, no email.
- * - Pro, $20 a month: $20 of AI credit every month, 2 screens, 1 phone number and 1 email (the main
- *   bot's, set up with the plan).
- * - Max, $200 a month: $200 of AI credit every month, all 4 screens, and up to 5 phone numbers and 5
- *   emails (the main bot's with the plan, the others when the user asks).
- * - People who can see the bots' computers on Horafirm (the People sheet): none on Free, 2 on Pro, up to
- *   5 on Max.
+ *   while it works, so it can do that many things at once), and how many hours a month it may run
+ *   (it sleeps when nothing's using it, so only the time it works counts).
+ * - Free: $1 of AI credit once, 10 computer hours a month, 1 screen; no email.
+ * - Pro, $29 a month: $10 of AI credit every month, 60 hours, 2 screens, 1 email (the main bot's, set
+ *   up with the plan).
+ * - Max, $199 a month: $100 of AI credit every month, 300 hours, all 4 screens, and up to 5 emails (the
+ *   main bot's with the plan, the others when the user asks).
+ * - People who can see the bots' computers (the People sheet): none on Free, 2 on Pro, up to 5 on Max.
+ *
+ * Phone numbers are in DESKWISP_TIERS too, but Deskwisp doesn't offer them yet, so the cards don't say so.
  *
  * Shared by the server and the app (no server imports).
  */
@@ -35,7 +37,11 @@ const included = (tier: DeskwispTier) => {
   return `1 computer, ${n} screen${n === 1 ? "" : "s"} per bot`;
 };
 
-/** The three plans, as the account sheet and deskwisp.bot list them. An Horafirm plan is never one of these. */
+/** Dollars, as a card says them: "$29", "$1", "$0.50". */
+const dollars = (micros: number) => `$${Number.isInteger(micros / 1e6) ? micros / 1e6 : (micros / 1e6).toFixed(2)}`;
+const hoursLine = (tier: DeskwispTier) => `${DESKWISP_TIERS[tier].hours} computer hours a month`;
+
+/** The three plans, as the account sheet and Deskwisp's site list them. */
 export const PLAN_CARDS: PlanCard[] = [
   {
     tier: "free_deskwisp",
@@ -43,35 +49,38 @@ export const PLAN_CARDS: PlanCard[] = [
     price: "$0",
     computers: { title: included("free_deskwisp"), detail: "Each bot works on one thing at a time; screens open only while they work" },
     lines: [
-      { text: "$5 of AI credit, once" },
+      { text: `${dollars(DESKWISP_TIERS.free_deskwisp.creditMicros)} of AI credit, once` },
+      { text: hoursLine("free_deskwisp") },
       { text: "As many bots as you like, sharing it" },
-      { text: "No phone number or email", no: true },
+      { text: "No email for your bots", no: true },
       { text: "No sharing with other people", no: true },
     ],
   },
   {
     tier: "pro_deskwisp",
     name: "Pro",
-    price: "$20",
+    price: dollars(DESKWISP_TIERS.pro_deskwisp.priceCents * 10_000),
     per: "/month",
     computers: { title: included("pro_deskwisp"), detail: "Each bot does two things at once; screens open only while they work" },
     lines: [
-      { text: "$20 of AI credit every month" },
+      { text: `${dollars(DESKWISP_TIERS.pro_deskwisp.creditMicros)} of AI credit every month` },
+      { text: hoursLine("pro_deskwisp") },
       { text: "As many bots as you like, sharing it" },
-      { text: "1 phone number and 1 email" },
+      { text: "An email address for your main bot" },
       { text: `Share your bots' computers with ${DESKWISP_TIERS.pro_deskwisp.people} people` },
     ],
   },
   {
     tier: "max_deskwisp",
     name: "Max",
-    price: "$200",
+    price: dollars(DESKWISP_TIERS.max_deskwisp.priceCents * 10_000),
     per: "/month",
     computers: { title: included("max_deskwisp"), detail: "Each bot does four things at once; screens open only while they work" },
     lines: [
-      { text: "$200 of AI credit every month" },
+      { text: `${dollars(DESKWISP_TIERS.max_deskwisp.creditMicros)} of AI credit every month` },
+      { text: hoursLine("max_deskwisp") },
       { text: "As many bots as you like, on any of them" },
-      { text: "Up to 5 phone numbers and 5 emails" },
+      { text: `Up to ${DESKWISP_TIERS.max_deskwisp.emails} email addresses for your bots` },
       { text: `Share your bots' computers with up to ${DESKWISP_TIERS.max_deskwisp.people} people` },
     ],
   },
@@ -102,9 +111,17 @@ const byTheMonth = (resetsAt: number) => resetsAt % 86_400_000 === 0 && new Date
  */
 const backOn = (resetsAt: number) => new Date(resetsAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
-/** Free's computer has used its hours (this month's, when Horafirm counts by the month), and when they're back. */
-export const freeHoursOutLine = (t: FreeHours) =>
-  `Your Deskwisp computer has used its ${hoursOf(t.limitSeconds)} hours${byTheMonth(t.resetsAt) ? " this month" : ""}. It's back ${backOn(t.resetsAt)}, or upgrade to Pro to keep it on.`;
+/** The plan with more hours than this one, if any. */
+const biggerPlan = (tier: DeskwispTier) => (tier === "free_deskwisp" ? "Pro" : tier === "pro_deskwisp" ? "Max" : null);
+
+/**
+ * The computer has used its plan's hours (this month's, when they're counted by the month), and when
+ * they're back. `tier`: whose hours (Free's when not said), for the plan to upgrade to.
+ */
+export const freeHoursOutLine = (t: FreeHours, tier: DeskwispTier = "free_deskwisp") => {
+  const up = biggerPlan(tier);
+  return `Your Deskwisp computer has used its ${hoursOf(t.limitSeconds)} hours${byTheMonth(t.resetsAt) ? " this month" : ""}. It's back ${backOn(t.resetsAt)}${up ? `, or upgrade to ${up} to keep it on` : ""}.`;
+};
 
 /**
  * Free's computer time in the account sheet's words: `amount` the figure ("2 of 10 hours used", rounded
@@ -112,15 +129,15 @@ export const freeHoursOutLine = (t: FreeHours) =>
  * what Free includes and when the hours start over, or, once they're used, when they're back. "A month"
  * and "this month" only when Horafirm counts by the month (byTheMonth); otherwise no period at all.
  */
-export function freeHoursWords(t: FreeHours): { note: string; amount: string; label: string } {
+export function freeHoursWords(t: FreeHours, tier: DeskwispTier = "free_deskwisp"): { note: string; amount: string; label: string } {
   const limit = hoursOf(t.limitSeconds);
   const monthly = byTheMonth(t.resetsAt);
   const sleeps = "sleeps when nothing's using it, so only the time it works counts.";
   return {
     note:
       t.usedSeconds >= t.limitSeconds
-        ? freeHoursOutLine(t)
-        : `${monthly ? `Free includes ${limit} hours a month on your Deskwisp computer. It ${sleeps}` : `Your Deskwisp computer ${sleeps}`} Your hours start over ${backOn(t.resetsAt)}.`,
+        ? freeHoursOutLine(t, tier)
+        : `${monthly ? `${DESKWISP_TIERS[tier].name} includes ${limit} hours a month on your Deskwisp computer. It ${sleeps}` : `Your Deskwisp computer ${sleeps}`} Your hours start over ${backOn(t.resetsAt)}.`,
     amount: `${hoursOf(Math.floor(Math.min(t.usedSeconds, t.limitSeconds) / 360) * 360)} of ${limit} hours used`,
     label: monthly ? "Computer time this month" : "Computer time",
   };
