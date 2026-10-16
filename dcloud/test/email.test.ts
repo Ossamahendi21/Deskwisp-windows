@@ -14,7 +14,7 @@ import { startServer } from "../src/server.ts";
 import { JsonStore } from "../src/store.ts";
 
 /** Clerk's Frontend API, as much of it as the flow uses. Codes are always 424242. */
-function fakeClerk() {
+function fakeClerk(opts: { noClient?: boolean } = {}) {
   const seen: { method: string; path: string; native: boolean; auth: string | null; form: Record<string, string> }[] = [];
   const users: Record<string, string> = { "ana@example.com": "user_ana" };
   const attempts = new Map<string, { email: string; kind: "in" | "up" }>();
@@ -45,7 +45,8 @@ function fakeClerk() {
       if (!a) return json(404, { errors: [{ code: "resource_not_found" }] });
       if (m[3] === "prepare_first_factor" || m[3] === "prepare_verification") return json(200, { response: { id: m[2] } });
       if (form.code !== "424242") return json(422, { errors: [{ code: "form_code_incorrect", message: "Incorrect code" }] });
-      if (a.kind === "in") return json(200, { response: { status: "complete", created_session_id: "sess_1" }, client: { sessions: [{ id: "sess_1", user: { id: users[a.email] } }] } });
+      if (a.kind === "in")
+        return json(200, { response: { status: "complete", created_session_id: "sess_1" }, ...(opts.noClient ? {} : { client: { sessions: [{ id: "sess_1", user: { id: users[a.email] } }] } }) });
       users[a.email] = "user_new";
       return json(200, { response: { status: "complete", created_user_id: "user_new", created_session_id: "sess_2" } });
     }
@@ -121,4 +122,30 @@ test("through the server: the app gets its key, and Clerk's own session is ended
   assert.deepEqual(ended, ["sess_1"]);
   const me = await fetch(`http://127.0.0.1:${cfg.port}/api/user/profile`, { headers: { Authorization: `Bearer ${ok.json.api_key}` } });
   assert.deepEqual(await me.json(), { id: (ok.json.user as { id: string }).id, email: "ana@example.com", full_name: "Ana" });
+});
+
+test("when Clerk's answer doesn't name the user, the session it made does", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dcloud-email2-"));
+  const cfg = loadConfig({ DESKWISP_PROVIDER: "local", DESKWISP_DATA_DIR: dir, DESKWISP_PORT: "8821" });
+  const app = await startServer(cfg, {
+    store: new JsonStore(join(dir, "store.json")),
+    verifier: null,
+    accounts: {
+      email: new EmailSignIn({ host: "fine-ant-12.clerk.accounts.dev", fetchImpl: fakeClerk({ noClient: true }).fetch }),
+      person: async (clerkId) => ({ clerkId, email: "ana@example.com", name: null }),
+      endSession: async () => {},
+      whoseSession: async (sid) => (sid === "sess_1" ? "user_ana" : "nobody"),
+    },
+  });
+  if (!app.server.listening) await new Promise((r) => app.server.once("listening", r));
+  after(async () => {
+    await new Promise((r) => app.server.close(r));
+    rmSync(dir, { recursive: true, force: true });
+  });
+  const post = async (path: string, body: unknown) =>
+    (await fetch(`http://127.0.0.1:${cfg.port}${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json() as Promise<Record<string, unknown>>;
+  const s = await post("/api/auth/email/start", { email: "ana@example.com" });
+  const ok = await post("/api/auth/email/verify", { flow: s.flow, code: "424242" });
+  assert.equal(ok.status, "approved");
+  assert.equal((ok.user as { email: string }).email, "ana@example.com");
 });

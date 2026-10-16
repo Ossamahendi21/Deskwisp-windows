@@ -163,9 +163,12 @@ async function cloudPost<T>(path: string, body: unknown): Promise<T> {
     throw new SignInError("offline", `${path}: ${e.message}`);
   });
   const json = (await res.json().catch(() => ({}))) as T & { error?: string; code?: string };
-  // Deskwisp Cloud's own words for what's wrong (a wrong code, a bad address): the app shows them.
-  if (res.status >= 400 && res.status < 500) throw new EmailSignInProblem(json.code ?? "refused", json.error ?? `Deskwisp Cloud answered ${res.status}`);
-  if (!res.ok) throw new SignInError("horafirm", `${path}: ${res.status} ${json.error ?? ""}`.trim());
+  // Deskwisp Cloud's own words for what's wrong (a wrong code, a bad address, Clerk's setup): the app shows them.
+  if (!res.ok && json.error) {
+    console.error(`[sign-in] ${path}: ${res.status} ${json.code ?? ""} ${json.error}`);
+    throw new EmailSignInProblem(json.code ?? "refused", json.error);
+  }
+  if (!res.ok) throw new SignInError("horafirm", `${path}: ${res.status}`);
   return json;
 }
 

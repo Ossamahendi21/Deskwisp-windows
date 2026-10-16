@@ -2,7 +2,7 @@ import { randomBytes, randomInt, randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { HttpError } from "./computers.ts";
 import type { Config } from "./config.ts";
-import { clerkUser, frontendApi, NotSignedIn, revokeSession, type ClerkPerson, type Verifier } from "./clerk.ts";
+import { clerkUser, frontendApi, NotSignedIn, revokeSession, sessionUser, type ClerkPerson, type Verifier } from "./clerk.ts";
 import { EmailSignIn, EmailSignInError } from "./email-sign-in.ts";
 import { approvePage, ssoCallbackPage } from "./pages.ts";
 import { hashKey, newAppKey, type Store } from "./store.ts";
@@ -60,13 +60,19 @@ export class Accounts {
   private readonly email: EmailSignIn | null;
   private readonly person: (clerkId: string) => Promise<ClerkPerson>;
   private readonly endSession: (sessionId: string) => Promise<void>;
+  private readonly whoseSession: (sessionId: string) => Promise<string>;
   private readonly emails = new Limiter(10);
 
   constructor(
     cfg: Config,
     store: Store,
     verify: Verifier | null,
-    opts: { email?: EmailSignIn | null; person?: (clerkId: string) => Promise<ClerkPerson>; endSession?: (sessionId: string) => Promise<void> } = {},
+    opts: {
+      email?: EmailSignIn | null;
+      person?: (clerkId: string) => Promise<ClerkPerson>;
+      endSession?: (sessionId: string) => Promise<void>;
+      whoseSession?: (sessionId: string) => Promise<string>;
+    } = {},
   ) {
     this.cfg = cfg;
     this.store = store;
@@ -76,6 +82,7 @@ export class Accounts {
     this.email = opts.email !== undefined ? opts.email : host && secretKey ? new EmailSignIn({ host }) : null;
     this.person = opts.person ?? ((id) => clerkUser({ secretKey: secretKey ?? "" }, id));
     this.endSession = opts.endSession ?? ((id) => revokeSession({ secretKey: secretKey ?? "" }, id));
+    this.whoseSession = opts.whoseSession ?? ((id) => sessionUser({ secretKey: secretKey ?? "" }, id));
   }
 
   /** A new key for the app, kept by its hash, named for the PC it's on. */
@@ -183,8 +190,15 @@ export class Accounts {
           return true;
         }
         const done = await this.email.verify(String(body?.flow ?? ""), String(body?.code ?? ""));
+        // Who: Clerk's answer said, or its Backend API says whose the session it made is.
+        const clerkId =
+          done.clerkId ??
+          (await this.whoseSession(done.sessionId!).catch((e: Error) => {
+            console.warn(`[email sign-in] whose session: ${e.message}`);
+            throw new HttpError(502, "Clerk didn't say who signed in. Try again.", "no_user");
+          }));
         if (done.sessionId) void this.endSession(done.sessionId);
-        const person = await this.person(done.clerkId).catch(() => ({ clerkId: done.clerkId, email: done.email, name: null }));
+        const person = await this.person(clerkId).catch(() => ({ clerkId, email: done.email, name: null }));
         const user = await this.store.upsertUser({ clerkId: person.clerkId, email: person.email ?? done.email, name: person.name });
         const key = await this.mintKey(user.id, done.hostname);
         send(200, { status: "approved", api_key: key, user: { id: user.id, email: user.email, name: user.name } });

@@ -281,7 +281,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: () => void }) {
           ) : (
             <Retry
               step={step}
-              onRetry={() => void (keepsKey(step) ? saveAgain() : start(way))}
+              onRetry={() => void (keepsKey(step) ? saveAgain() : way === "email" ? setStep({ kind: "email" }) : start(way))}
               onBack={() => setStep({ kind: "idle" })}
             />
           )}

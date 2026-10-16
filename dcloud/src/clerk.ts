@@ -97,3 +97,15 @@ export function frontendApi(publishableKey: string): string | null {
   const host = Buffer.from(m[2], "base64").toString("utf8").replace(/\$$/, "");
   return /^[a-z0-9.-]+$/i.test(host) ? host : null;
 }
+
+/** Whose a Clerk session is (Backend API, GET /v1/sessions/{id}). */
+export async function sessionUser(opts: { secretKey: string; fetchImpl?: typeof fetch }, sessionId: string): Promise<string> {
+  const res = await (opts.fetchImpl ?? fetch)(`${API}/sessions/${encodeURIComponent(sessionId)}`, {
+    headers: { Authorization: `Bearer ${opts.secretKey}` },
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!res.ok) throw new Error(`Clerk's session ${sessionId}: ${res.status}`);
+  const s = (await res.json()) as { user_id?: string };
+  if (!s.user_id) throw new Error(`Clerk's session ${sessionId} has no user`);
+  return s.user_id;
+}

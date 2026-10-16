@@ -142,7 +142,7 @@ export class EmailSignIn {
   }
 
   /** Check the code: the Clerk user it proves, and the Clerk session that made (to be ended). */
-  async verify(flowId: string, code: string): Promise<{ clerkId: string; sessionId: string | null; email: string; hostname: string }> {
+  async verify(flowId: string, code: string): Promise<{ clerkId: string | null; sessionId: string | null; email: string; hostname: string }> {
     const f = this.flows.get(flowId);
     if (!f || Date.now() - f.at > TTL_MS) throw new EmailSignInError(410, "expired", "That code expired. Send a new one.");
     if (++f.tries > MAX_TRIES) {
@@ -177,7 +177,11 @@ export class EmailSignIn {
       const sessions = ((a.body.client as { sessions?: { id: string; user?: { id: string } }[] } | undefined)?.sessions ?? []) as { id: string; user?: { id: string } }[];
       clerkId = sessions.find((s) => s.id === sessionId)?.user?.id ?? null;
     }
-    if (!clerkId) throw new EmailSignInError(502, "no_user", "Clerk didn't say who signed in. Try again.");
+    // Neither: the caller asks Clerk's Backend API whose session it is.
+    if (!clerkId && !sessionId) {
+      console.warn(`[email sign-in] complete, but no user or session in the answer: ${JSON.stringify(Object.keys(r))}`);
+      throw new EmailSignInError(502, "no_user", "Clerk didn't say who signed in. Try again.");
+    }
     return { clerkId, sessionId, email: f.email, hostname: f.hostname };
   }
 }
