@@ -136,7 +136,7 @@ export function checkUser(req: IncomingMessage, user: CloudUser, required: boole
     if (required) throw new HttpError(400, `Name the user (${DESKWISP_USER_HEADER})`);
     return;
   }
-  if (named !== user.id) throw new HttpError(409, "This Horafirm sign-in is another account's", { code: WRONG_USER });
+  if (named !== user.id) throw new HttpError(409, "This sign-in is another account's", { code: WRONG_USER });
 }
 
 /** The request body, unzipped when the Mac gzipped it. Past 20 MB, sent or unzipped, it's refused (413). */

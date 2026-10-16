@@ -129,12 +129,12 @@ export type DeskwispBillingLink = { url: string } | { error: string; status: num
  */
 export async function deskwispBillingLink(key: string, what: { tier: "pro_deskwisp" | "max_deskwisp" } | "manage"): Promise<DeskwispBillingLink> {
   const got = await postHorafirm<{ url?: unknown; error?: unknown; code?: unknown }>(key, what === "manage" ? "/api/deskwisp/portal" : "/api/deskwisp/checkout", what === "manage" ? {} : what);
-  if (!got) return { error: "Couldn't reach Horafirm. Check your internet connection and try again.", status: 502 };
+  if (!got) return { error: "Couldn't reach Deskwisp. Check your internet connection and try again.", status: 502 };
   if (got.status >= 200 && got.status < 300 && typeof got.json.url === "string" && /^https:\/\//.test(got.json.url)) return { url: got.json.url };
-  if (got.status === 401 || got.status === 403) return { error: "Horafirm didn't accept this PC's sign-in. Sign out, then sign in again.", status: 401 };
+  if (got.status === 401 || got.status === 403) return { error: "Deskwisp didn't accept this PC's sign-in. Sign out, then sign in again.", status: 401 };
   if (got.status === 404 || got.json.code === "deskwisp_plans_off") return { error: "Upgrades open soon.", status: got.status === 404 ? 404 : 503, soon: true };
   if (got.json.code === "no_deskwisp_plan") return { error: "You don't have a paid plan to manage yet.", status: 409 };
-  return { error: typeof got.json.error === "string" ? got.json.error : `Horafirm couldn't open that page (${got.status}). Try again in a minute.`, status: 502 };
+  return { error: typeof got.json.error === "string" ? got.json.error : `Deskwisp couldn't open that page (${got.status}). Try again in a minute.`, status: 502 };
 }
 
 /* ---------------- Adding AI credit once ---------------- */
@@ -146,7 +146,7 @@ export async function deskwispBillingLink(key: string, what: { tier: "pro_deskwi
  * the purchase's Idempotency-Key.
  */
 
-const SIGNED_OUT = "Horafirm didn't accept this PC's sign-in. Sign out, then sign in again.";
+const SIGNED_OUT = "Deskwisp didn't accept this PC's sign-in. Sign out, then sign in again.";
 
 /** Horafirm doesn't sell AI credit yet: in its words, for the app. */
 export const CREDIT_OFF = { error: "Adding credit opens soon.", code: "deskwisp_credit_off" };
@@ -167,10 +167,10 @@ export type CreditCardRead =
  */
 export async function readCreditCard(key: string): Promise<CreditCardRead> {
   const got = await callHorafirm<{ card?: unknown; pending?: unknown; code?: unknown; error?: unknown }>(key, "/api/deskwisp/credit/card-on-file");
-  if (!got) return { error: "Couldn't reach Horafirm. Check your internet connection and try again.", status: 502 };
+  if (!got) return { error: "Couldn't reach Deskwisp. Check your internet connection and try again.", status: 502 };
   if (creditOff(got)) return { off: true };
   if (got.status === 401 || got.status === 403) return { error: SIGNED_OUT, status: 401 };
-  if (got.status !== 200) return { error: typeof got.json.error === "string" ? got.json.error : `Horafirm couldn't look up your card (${got.status}).`, status: 502 };
+  if (got.status !== 200) return { error: typeof got.json.error === "string" ? got.json.error : `Deskwisp couldn't look up your card (${got.status}).`, status: 502 };
   const pending = pendingFrom(got.json.pending);
   return { card: savedCardFrom(got.json.card), pending: pending && pending.map((p) => ({ amount_cents: p.cents, code: p.code })) };
 }
@@ -194,7 +194,7 @@ export async function buyCreditOnCard(key: string, p: { amountCents: number; car
   if (!got) {
     console.warn("[credit] Horafirm didn't answer a card purchase");
     // It may have charged: the app tries again under the same key, which Horafirm answers with the first result.
-    return { status: 502, json: { code: "horafirm_unreachable", error: "Couldn't reach Horafirm. Try again: you won't be charged twice." } };
+    return { status: 502, json: { code: "horafirm_unreachable", error: "Couldn't reach Deskwisp. Try again: you won't be charged twice." } };
   }
   if (got.status === 404) return { status: 503, json: CREDIT_OFF };
   if (got.status === 401 || got.status === 403) return { status: 401, json: { error: SIGNED_OUT, code: "signed_out" } };
@@ -214,14 +214,14 @@ export async function buyCreditOnCard(key: string, p: { amountCents: number; car
  */
 export async function creditCheckoutLink(key: string, amountCents: number): Promise<{ url: string } | { error: string; code?: string; status: number }> {
   const got = await postHorafirm<{ url?: unknown; error?: unknown; code?: unknown }>(key, "/api/deskwisp/credit/checkout", { amount_cents: amountCents });
-  if (!got) return { error: "Couldn't reach Horafirm. Check your internet connection and try again.", code: "horafirm_unreachable", status: 502 };
+  if (!got) return { error: "Couldn't reach Deskwisp. Check your internet connection and try again.", code: "horafirm_unreachable", status: 502 };
   if (got.status >= 200 && got.status < 300 && typeof got.json.url === "string" && /^https:\/\//.test(got.json.url)) return { url: got.json.url };
   if (got.status === 401 || got.status === 403) return { error: SIGNED_OUT, code: "signed_out", status: 401 };
   if (creditOff(got)) return { ...CREDIT_OFF, status: 503 };
   const code = typeof got.json.code === "string" ? got.json.code : undefined;
   if (got.status >= 500) console.warn(`[credit] Horafirm answered a checkout with ${got.status}${code ? ` (${code})` : ""}`);
   return {
-    error: typeof got.json.error === "string" ? got.json.error : `Horafirm couldn't open checkout (${got.status}). Try again in a minute.`,
+    error: typeof got.json.error === "string" ? got.json.error : `Deskwisp couldn't open checkout (${got.status}). Try again in a minute.`,
     ...(code ? { code } : {}),
     status: got.status >= 400 && got.status < 500 ? got.status : 502,
   };

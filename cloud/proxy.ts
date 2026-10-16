@@ -929,7 +929,7 @@ async function signInSetupWithoutSecrets(call: Call) {
       return;
     }
   }
-  throw new HttpError(403, "From Deskwisp, an app's sign-in can only be Composio's own, or one that asks each person for their own key. Ask Horafirm to set up this app.");
+  throw new HttpError(403, "From Deskwisp, an app's sign-in can only be Composio's own, or one that asks each person for their own key. Ask Deskwisp support to set up this app.");
 }
 
 /** A sign-in setup made through the cloud: any user may see and use it, as it holds nobody's secret. */

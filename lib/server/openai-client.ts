@@ -28,7 +28,7 @@ export function openaiClient(opts: Omit<ClientOptions, "apiKey" | "defaultHeader
       const via = cloudProxy("openai");
       if (via) return via.key;
       const key = process.env.OPENAI_API_KEY;
-      if (!key) throw new OpenAI.OpenAIError(process.env.DESKWISP_SELF_HOSTED === "1" ? "No OpenAI key is set: add OPENAI_API_KEY to .env.local." : "Sign in with Horafirm first.");
+      if (!key) throw new OpenAI.OpenAIError(process.env.DESKWISP_SELF_HOSTED === "1" ? "No OpenAI key is set: add OPENAI_API_KEY to .env.local." : "Sign in to Deskwisp first.");
       return key;
     },
   });

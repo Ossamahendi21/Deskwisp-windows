@@ -34,18 +34,18 @@ export async function userForKey(key: string, fetchImpl: typeof fetch = fetch): 
       signal: AbortSignal.timeout(10_000),
     });
   } catch {
-    throw new HttpError(503, "Can't reach Horafirm to check who you are");
+    throw new HttpError(503, "Can't reach Deskwisp's account server to check who you are");
   }
   if (res.status === 401 || res.status === 403) {
     cache.set(id, { user: null, at: Date.now() });
     return null;
   }
-  if (!res.ok) throw new HttpError(503, `Horafirm answered ${res.status} when checking who you are`);
+  if (!res.ok) throw new HttpError(503, `The account server answered ${res.status} when checking who you are`);
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   // Horafirm has answered both bare and wrapped ({ user: {...} }); take whichever has an id.
   const u = (typeof body.user === "object" && body.user ? body.user : body) as Record<string, unknown>;
   const userId = typeof u.id === "string" ? u.id : typeof u.user_id === "string" ? u.user_id : "";
-  if (!userId) throw new HttpError(503, "Horafirm didn't say who you are");
+  if (!userId) throw new HttpError(503, "The account server didn't say who you are");
   const user: CloudUser = {
     id: userId,
     ...(typeof u.email === "string" ? { email: u.email } : {}),
@@ -59,7 +59,7 @@ export async function userForKey(key: string, fetchImpl: typeof fetch = fetch): 
 /** The signed-in user for a request, or a 401. */
 export async function requireUser(req: IncomingMessage): Promise<CloudUser> {
   const user = await userForKey(bearer(req));
-  if (!user) throw new HttpError(401, "Sign in with Horafirm");
+  if (!user) throw new HttpError(401, "Sign in to Deskwisp");
   return user;
 }
 

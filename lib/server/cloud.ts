@@ -41,7 +41,7 @@ export class CloudError extends Error {
 /** A request to Deskwisp Cloud as the signed-in user (their Horafirm key as Bearer). `fetchImpl` lets a test check the wire shape. */
 export async function cloudFetch(path: string, init: RequestInit = {}, fetchImpl: typeof fetch = fetch): Promise<Response> {
   const key = horafirmKey();
-  if (!key) throw new CloudError("Sign in with Horafirm first.");
+  if (!key) throw new CloudError("Sign in to Deskwisp first.");
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${key}`);
   for (const [k, v] of Object.entries(appHeaders())) headers.set(k, v);
@@ -54,7 +54,7 @@ export async function cloudFetch(path: string, init: RequestInit = {}, fetchImpl
 
 /** What a failed answer means, for the user. Out of AI credit (402), the cloud's own words. */
 function problem(status: number, said?: string) {
-  if (status === 401) return "Deskwisp Cloud didn't accept your Horafirm sign-in. Sign out and sign in again.";
+  if (status === 401) return "Deskwisp Cloud didn't accept your sign-in. Sign out and sign in again.";
   if (status >= 500) return `Deskwisp Cloud isn't working right now (${status}). Try again in a minute.`;
   return said || `Deskwisp Cloud turned the request down (${status}).`;
 }
@@ -87,7 +87,7 @@ const RETRY_MS = 10_000;
  */
 export function cloudSession(fresh = false): Promise<CloudSession> {
   const key = horafirmKey();
-  if (!key) return Promise.reject(new CloudError("Sign in with Horafirm first."));
+  if (!key) return Promise.reject(new CloudError("Sign in to Deskwisp first."));
   if (!fresh && box.session?.key === key) return Promise.resolve(box.session.value);
   if (box.asking?.key === key) return box.asking.answer;
   if (!fresh && box.failed?.key === key && Date.now() - box.failed.at < RETRY_MS) return Promise.reject(box.failed.error);
