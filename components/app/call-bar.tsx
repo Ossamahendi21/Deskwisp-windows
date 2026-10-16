@@ -83,6 +83,8 @@ function hangUpTone() {
 
 /** The bot lets it ring at least this long before picking up, like a person reaching for their phone. */
 const RING_AT_LEAST_MS = 1300;
+/** How long a call may ring before it gives up and says why (the mic, the server, or the audio's connection). */
+const CONNECT_WITHIN_MS = 30_000;
 
 /**
  * `compact`: you're in another chat (or the computer), so the call waits small in the sidebar's
@@ -186,10 +188,42 @@ export function CallBar({ bot: b, owner, onClose, compact, onOpen }: { bot: Bot;
     const stopRing = ring();
     const rangLongEnough = new Promise((r) => setTimeout(r, RING_AT_LEAST_MS));
     const hush = () => stopRing();
+    // Where the call got to, so one that never picks up says why instead of ringing on (Windows: a mic
+    // Deskwisp can't use, or a firewall or VPN that keeps the audio from reaching OpenAI).
+    let stage: "mic" | "server" | "audio" = "mic";
+    // The server counts a call from when it answers it: one that never picked up isn't a call any more.
+    const dropped = () => {
+      if (stage === "audio" && !startedAt.current) void fetch("/api/call", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "dropped", botId: b.id }) });
+    };
+    const fail = (why: string) => {
+      if (gone || startedAt.current) return;
+      console.warn(`[call] didn't connect (${stage}): ${why}`);
+      dropped();
+      hush();
+      setError(why);
+      setPhase("failed");
+      // Its channel closing now isn't the call ending: it stays "Call failed", with why, until closed.
+      events.current = null;
+      cleanup();
+    };
+    const noAnswer = setTimeout(
+      () =>
+        fail(
+          stage === "mic"
+            ? "The microphone didn't start. Check that apps can use it: Windows Settings → Privacy & security → Microphone."
+            : stage === "server"
+              ? "Deskwisp's server didn't answer the call. Try again in a moment."
+              : "The call's audio couldn't connect. A firewall or VPN on this PC may be blocking it.",
+        ),
+      CONNECT_WITHIN_MS,
+    );
     void (async () => {
       try {
         const pc = new RTCPeerConnection();
         mine.pc = pc;
+        pc.addEventListener("connectionstatechange", () => {
+          if (pc.connectionState === "failed") fail("The call's audio couldn't connect. A firewall or VPN on this PC may be blocking it.");
+        });
         pc.addEventListener("track", (e) => {
           const remote = new MediaStream([e.track]);
           if (audio.current) {
@@ -212,6 +246,7 @@ export function CallBar({ bot: b, owner, onClose, compact, onOpen }: { bot: Bot;
         channel.addEventListener("message", ({ data }) => {
           const event = JSON.parse(String(data)) as { type: string; delta?: string; delegation?: { id: string; target?: string } };
           if (event.type === "session.started") {
+            clearTimeout(noAnswer);
             hush();
             startedAt.current = Date.now();
             setPhase("live");
@@ -257,6 +292,7 @@ export function CallBar({ bot: b, owner, onClose, compact, onOpen }: { bot: Bot;
           });
         await rangLongEnough;
         if (gone) return;
+        stage = "server";
         const res = await fetch("/api/call", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -265,9 +301,13 @@ export function CallBar({ bot: b, owner, onClose, compact, onOpen }: { bot: Bot;
         const json = (await res.json()) as { transport?: { sdp: string }; error?: string };
         if (!json.transport) throw new Error(json.error ?? "the call didn't connect");
         if (gone) return;
+        stage = "audio";
         await pc.setRemoteDescription({ type: "answer", sdp: json.transport.sdp });
       } catch (e) {
+        clearTimeout(noAnswer);
         if (gone) return;
+        dropped();
+        events.current = null;
         hush();
         setError((e as Error).message.includes("Permission") ? "Deskwisp needs microphone access for calls." : (e as Error).message);
         setPhase("failed");
@@ -276,7 +316,9 @@ export function CallBar({ bot: b, owner, onClose, compact, onOpen }: { bot: Bot;
     })();
 
     return () => {
+      if (!gone) dropped();
       gone = true;
+      clearTimeout(noAnswer);
       hush();
       if (!closed.current && mine.channel?.readyState === "open") mine.channel.send(JSON.stringify({ type: "session.close" }));
       setTimeout(cleanup, 300);

@@ -113,6 +113,7 @@ export async function startCall(botId: string, sdp: string) {
   const b = bot(botId);
   if (!b) throw new Error("no such bot");
   callStarted(botId);
+  const t0 = Date.now();
   try {
     const result = await client.live.create({
       session: {
@@ -123,8 +124,12 @@ export async function startCall(botId: string, sdp: string) {
       },
       transport: { type: "webrtc", sdp },
     } as never, usageTags("call", botId));
-    return result as unknown as { session: { id: string }; transport: { sdp: string } };
+    const live = result as unknown as { session: { id: string }; transport: { sdp: string } };
+    console.log(`[call] ${b.name}: live session ${live.session?.id} answered in ${Date.now() - t0}ms`);
+    return live;
   } catch (e) {
+    console.warn(`[call] ${b.name}: couldn't start the call: ${(e as Error).message}`);
+    callEnded();
     if (noteOutOfCredit(e)) throw new Error(OUT_OF_CREDIT);
     throw e;
   }
@@ -145,6 +150,11 @@ export async function delegate(botId: string, request: string) {
   const touched = getState().sessions.filter((s) => s.chatId === chatId && live(s) && (s.createdAt >= since || s.replies.some((r) => r.at >= since)));
   const started = threads.length ? ` Started on the computer: ${threads.map((s) => `"${s.title}"`).join(", ")}. I'll say how it went if it finishes while we're talking.` : "";
   return { result: (said || "Done.") + started, sessionIds: touched.map((s) => s.id) };
+}
+
+/** A call that never picked up (its audio didn't connect, or it was hung up while ringing): no longer on a call, and nothing in the chat. */
+export function callDropped() {
+  callEnded();
 }
 
 /** A note in the chat once a call ends, so it reads like the rest of the conversation. */

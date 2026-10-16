@@ -1,4 +1,4 @@
-import { delegate, endCall, startCall } from "@/lib/server/call";
+import { callDropped, delegate, endCall, startCall } from "@/lib/server/call";
 import { notReady } from "@/lib/server/ready";
 
 /**
@@ -6,6 +6,7 @@ import { notReady } from "@/lib/server/ready";
  * - { action: "start", botId, sdp } → the GPT-Live session and its SDP answer
  * - { action: "delegate", botId, request } → what the bot did and said, to be spoken back
  * - { action: "end", botId, seconds } → notes the call in the chat
+ * - { action: "dropped" } → a call that never picked up: no longer on a call
  */
 export async function POST(request: Request) {
   const unready = notReady();
@@ -15,6 +16,10 @@ export async function POST(request: Request) {
   try {
     if (body.action === "start" && body.sdp) return Response.json(await startCall(body.botId, body.sdp), { status: 201 });
     if (body.action === "delegate" && body.request?.trim()) return Response.json(await delegate(body.botId, body.request.trim()));
+    if (body.action === "dropped") {
+      callDropped();
+      return Response.json({ ok: true });
+    }
     if (body.action === "end") {
       endCall(body.botId, body.seconds ?? 0, body.transcript);
       return Response.json({ ok: true });
