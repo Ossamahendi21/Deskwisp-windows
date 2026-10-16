@@ -10,6 +10,7 @@ import { CrmNote } from "./crm";
 import { MacIcon } from "./mac-tab";
 import { AttachmentTray, MessageImages, useAttachments } from "./attachments";
 import { ComposerInput } from "./composer-input";
+import { GroupMembers } from "./group-members";
 import { MicButton } from "./mic-button";
 import { ChatAvatar, chatName, clockTime, needsYou, post, StatusIcon, teamOf, useNow } from "./ui";
 
@@ -227,6 +228,9 @@ export function ChatView({
   // App actions waiting for you, asked in this chat or by one of its threads.
   const appAsks = (state.appApprovals ?? []).filter((a) => a.chatId === c.id || state.sessions.some((x) => x.id === a.sessionId && x.chatId === c.id));
   const solo = c.kind === "bot" ? members[0] : undefined;
+  // The group's bots, sliding in from the side (its name at the top opens them): add one, take one out.
+  const [membersOf, setMembersOf] = useState<string | null>(null);
+  const showMembers = c.kind === "group" && membersOf === c.id;
   // A bot's chat shows all its work; a group only the threads started in that group.
   const running = state.sessions.filter((s) => live(s) && (c.kind === "group" ? s.chatId === c.id : c.botIds.includes(s.botId)));
   const sessionById = (sid: string) => state.sessions.find((s) => s.id === sid);
@@ -343,6 +347,7 @@ export function ChatView({
         </div>
       )}
       {pair && <PairSheet state={state} pairId={pair.id} focusId={pair.focus} onClose={() => setPair(null)} />}
+      {showMembers && <GroupMembers state={state} chat={c} onClose={() => setMembersOf(null)} onShowBot={onShowBot} />}
       <div className="absolute right-5 top-[18px] z-10 flex items-center gap-2">
         {solo && !call && (
           <button
@@ -371,13 +376,33 @@ export function ChatView({
             <div ref={callSlot} className="h-[52px] self-stretch" />
           ) : (
             <>
-              <button onClick={() => solo && onShowBot(solo.id)} className="relative top-2 z-10" title={solo ? `${solo.name}'s profile` : undefined}>
+              <button
+                onClick={() => (solo ? onShowBot(solo.id) : setMembersOf(c.id))}
+                className="relative top-2 z-10"
+                title={solo ? `${solo.name}'s profile` : "The group's bots: add or remove"}
+              >
                 <ChatAvatar chat={c} bots={state.bots} size={40} />
               </button>
-              <div className="relative flex flex-col items-center rounded-[14px] bg-white px-3.5 pb-1.5 pt-2.5 shadow-[0_0_0_1px_#E6E6E3,0_6px_16px_-8px_#00000020]">
-                <span className="text-[14px] font-semibold leading-[18px]">{chatName(c, state.bots)}</span>
-                <span className="text-[12px] leading-[15px] text-[#9A9A98]">{status}</span>
-              </div>
+              {c.kind === "group" ? (
+                <button
+                  onClick={() => setMembersOf(c.id)}
+                  title="The group's bots: add or remove"
+                  className="relative flex flex-col items-center rounded-[14px] bg-white px-3.5 pb-1.5 pt-2.5 shadow-[0_0_0_1px_#E6E6E3,0_6px_16px_-8px_#00000020] hover:shadow-[0_0_0_1px_#C9C9C6,0_6px_16px_-8px_#00000030]"
+                >
+                  <span className="flex items-center gap-1 text-[14px] font-semibold leading-[18px]">
+                    {chatName(c, state.bots)}
+                    <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden className="text-[#9A9A98]">
+                      <path d="M3.5 2l3 3-3 3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <span className="text-[12px] leading-[15px] text-[#9A9A98]">{status}</span>
+                </button>
+              ) : (
+                <div className="relative flex flex-col items-center rounded-[14px] bg-white px-3.5 pb-1.5 pt-2.5 shadow-[0_0_0_1px_#E6E6E3,0_6px_16px_-8px_#00000020]">
+                  <span className="text-[14px] font-semibold leading-[18px]">{chatName(c, state.bots)}</span>
+                  <span className="text-[12px] leading-[15px] text-[#9A9A98]">{status}</span>
+                </div>
+              )}
             </>
           )}
         </header>
