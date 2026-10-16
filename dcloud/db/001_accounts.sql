@@ -1,9 +1,10 @@
 -- Deskwisp Cloud: users (Clerk), their apps' keys, sign-ins under way, workspaces and computers.
 -- Everything lives in the "deskwisp" schema. An app key is never stored, only its SHA-256.
+-- Safe to run again: every object is made only if it isn't there.
 
 CREATE SCHEMA IF NOT EXISTS deskwisp;
 
-CREATE TABLE deskwisp.users (
+CREATE TABLE IF NOT EXISTS deskwisp.users (
   id          uuid PRIMARY KEY,
   clerk_id    text NOT NULL UNIQUE,
   email       text,
@@ -11,16 +12,16 @@ CREATE TABLE deskwisp.users (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE deskwisp.app_keys (
+CREATE TABLE IF NOT EXISTS deskwisp.app_keys (
   key_hash     text PRIMARY KEY,
   user_id      uuid NOT NULL REFERENCES deskwisp.users(id) ON DELETE CASCADE,
   label        text NOT NULL DEFAULT '',
   created_at   timestamptz NOT NULL DEFAULT now(),
   last_used_at timestamptz
 );
-CREATE INDEX app_keys_user ON deskwisp.app_keys(user_id);
+CREATE INDEX IF NOT EXISTS app_keys_user ON deskwisp.app_keys(user_id);
 
-CREATE TABLE deskwisp.device_codes (
+CREATE TABLE IF NOT EXISTS deskwisp.device_codes (
   id          uuid PRIMARY KEY,
   device_hash text NOT NULL UNIQUE,
   user_code   text NOT NULL UNIQUE,
@@ -32,15 +33,15 @@ CREATE TABLE deskwisp.device_codes (
 );
 
 -- Owners are text: a user's id, or the name given to a key in DESKWISP_API_KEYS (development).
-CREATE TABLE deskwisp.workspaces (
+CREATE TABLE IF NOT EXISTS deskwisp.workspaces (
   id          uuid PRIMARY KEY,
   owner       text NOT NULL,
   name        text NOT NULL,
   created_at  timestamptz NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX workspaces_owner_name ON deskwisp.workspaces(owner, lower(btrim(name)));
+CREATE UNIQUE INDEX IF NOT EXISTS workspaces_owner_name ON deskwisp.workspaces(owner, lower(btrim(name)));
 
-CREATE TABLE deskwisp.computers (
+CREATE TABLE IF NOT EXISTS deskwisp.computers (
   id            uuid PRIMARY KEY,
   owner         text NOT NULL,
   workspace_id  uuid NOT NULL REFERENCES deskwisp.workspaces(id) ON DELETE CASCADE,
@@ -52,4 +53,4 @@ CREATE TABLE deskwisp.computers (
   ram           integer NOT NULL,
   created_at    timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX computers_owner ON deskwisp.computers(owner);
+CREATE INDEX IF NOT EXISTS computers_owner ON deskwisp.computers(owner);

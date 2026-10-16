@@ -61,7 +61,7 @@ export class PgStore implements Store {
     const pool = new pg.Pool({ connectionString, max: 5, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 15_000 });
     pool.on("error", (e) => console.warn(`[dcloud] database: ${e.message}`));
     const store = new PgStore(pool);
-    await store.migrate();
+    await store.migrate(connectionString);
     return store;
   }
 
@@ -69,12 +69,19 @@ export class PgStore implements Store {
     await this.pool.end();
   }
 
-  private async migrate() {
+  /**
+   * Migrations run on a direct connection, not Neon's pooler (PgBouncer in transaction mode), which
+   * hands each statement outside a transaction to any server connection: an advisory lock, and what's
+   * read before the work, could land on different sessions. Neon's direct host is the pooled one
+   * without "-pooler". Any other Postgres is used as given. Every migration is also safe to run again.
+   */
+  private async migrate(url: string) {
     const dir = new URL("../db/", import.meta.url);
     const files = readdirSync(dir)
       .filter((f) => /^\d+_.+\.sql$/.test(f))
       .sort();
-    const c = await this.pool.connect();
+    const c = new pg.Client({ connectionString: directUrl(url), connectionTimeoutMillis: 15_000 });
+    await c.connect();
     try {
       await c.query("SELECT pg_advisory_lock(hashtext('deskwisp.migrations'))");
       await c.query("CREATE SCHEMA IF NOT EXISTS deskwisp");
@@ -95,7 +102,7 @@ export class PgStore implements Store {
       }
     } finally {
       await c.query("SELECT pg_advisory_unlock(hashtext('deskwisp.migrations'))").catch(() => {});
-      c.release();
+      await c.end().catch(() => {});
     }
   }
 
@@ -235,3 +242,14 @@ export class PgStore implements Store {
 
 /** Ids from a URL are checked before they reach a uuid column, which would throw on anything else. */
 const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+
+/** Neon's direct connection for a pooled one (its host without "-pooler"); any other URL as it is. */
+export function directUrl(url: string) {
+  try {
+    const u = new URL(url);
+    if (/\.neon\.tech$/i.test(u.hostname) && /-pooler\./i.test(u.hostname)) u.hostname = u.hostname.replace(/-pooler\./i, ".");
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
