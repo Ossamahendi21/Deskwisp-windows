@@ -32,9 +32,9 @@ export function connectedPage(url: URL) {
   const title = ok ? (app ? `${app} is connected` : "Connected") : app ? `${app} didn't connect` : "That didn't connect";
   const line = ok ? "Your bots can use it now. You can close this tab and go back to Deskwisp." : "Nothing was saved. Go back to Deskwisp and try again.";
   const style = `
-body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#FDFFF6;font:16px/1.5 -apple-system,BlinkMacSystemFont,"Inter",sans-serif;color:#0A0A0A}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#FBFAFF;font:16px/1.5 -apple-system,BlinkMacSystemFont,"Inter",sans-serif;color:#16132B}
 main{display:flex;flex-direction:column;align-items:center;gap:14px;padding:40px;text-align:center;max-width:420px}
-img{width:88px;height:88px;border-radius:24px;box-shadow:0 0 0 1px #0000000F,0 18px 40px -18px #28320066}
+img{width:88px;height:88px;border-radius:24px;box-shadow:0 0 0 1px #0000000F,0 18px 40px -18px #16132B40}
 h1{margin:6px 0 0;font-size:24px;line-height:30px;letter-spacing:-.01em}
 p{margin:0;color:#6B6B6B;font-size:15px}
 .mark{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:${ok ? "#12B76A" : "#F04438"};color:#fff;font-size:13px;font-weight:700;vertical-align:-3px;margin-right:8px}

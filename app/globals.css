@@ -207,25 +207,25 @@
 }
 
 /*
- * Wispy listening to music while Deskwisp loads (WispyLoading in components/app/mascot.tsx): it deskwisp to
- * the beat, leaning one way then the other, and notes drift out of its headphones. The same scene as
+ * Wispy while Deskwisp loads (WispLoading in components/app/mascot.tsx): it bobs gently, leaning one way
+ * then the other, and sparks drift up off it. The same scene as
  * the window's splash (desktop/splash.html), so one hands over to the other without a jump.
  */
-.wispy-loading-scene {
+.wisp-loading-scene {
   position: relative;
   width: 88px;
   height: 96px;
 }
-.wispy-loading-wispy {
+.wisp-loading-wisp {
   position: absolute;
   left: 0;
   top: 0;
   width: 88px;
   height: 88px;
   transform-origin: 50% 90%;
-  animation: wispy-bop 1.1s ease-in-out infinite;
+  animation: wisp-bob 1.1s ease-in-out infinite;
 }
-.wispy-loading-shadow {
+.wisp-loading-shadow {
   position: absolute;
   left: 22px;
   bottom: 0;
@@ -234,9 +234,9 @@
   border-radius: 50%;
   background: #16132B;
   opacity: 0.08;
-  animation: wispy-shadow 0.55s ease-in-out infinite;
+  animation: wisp-shadow 0.55s ease-in-out infinite;
 }
-.wispy-loading-note {
+.wisp-loading-note {
   position: absolute;
   top: 34px;
   width: 14px;
@@ -247,24 +247,24 @@
   animation-timing-function: cubic-bezier(0.2, 0.6, 0.35, 1);
   animation-iteration-count: infinite;
 }
-.wispy-loading-note.l {
+.wisp-loading-note.l {
   left: 4px;
-  animation-name: wispy-note-l;
+  animation-name: wisp-spark-l;
 }
-.wispy-loading-note.r {
+.wisp-loading-note.r {
   right: 4px;
-  animation-name: wispy-note-r;
+  animation-name: wisp-spark-r;
 }
-.wispy-loading-note:nth-of-type(2) {
+.wisp-loading-note:nth-of-type(2) {
   animation-delay: 0.55s;
 }
-.wispy-loading-note:nth-of-type(3) {
+.wisp-loading-note:nth-of-type(3) {
   animation-delay: 1.1s;
 }
-.wispy-loading-note:nth-of-type(4) {
+.wisp-loading-note:nth-of-type(4) {
   animation-delay: 1.65s;
 }
-@keyframes wispy-bop {
+@keyframes wisp-bob {
   0%,
   100% {
     transform: translateY(-3px) rotate(-5deg);
@@ -277,7 +277,7 @@
     transform: translateY(-3px) rotate(5deg);
   }
 }
-@keyframes wispy-shadow {
+@keyframes wisp-shadow {
   0%,
   100% {
     transform: scaleX(0.85);
@@ -288,7 +288,7 @@
     opacity: 0.1;
   }
 }
-@keyframes wispy-note-l {
+@keyframes wisp-spark-l {
   0% {
     transform: translate(0, 0) rotate(0deg) scale(0.5);
     opacity: 0;
@@ -305,7 +305,7 @@
     opacity: 0;
   }
 }
-@keyframes wispy-note-r {
+@keyframes wisp-spark-r {
   0% {
     transform: translate(0, 0) rotate(0deg) scale(0.5);
     opacity: 0;
@@ -323,11 +323,11 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .wispy-loading-wispy,
-  .wispy-loading-shadow {
+  .wisp-loading-wisp,
+  .wisp-loading-shadow {
     animation: none;
   }
-  .wispy-loading-note {
+  .wisp-loading-note {
     display: none;
   }
 }

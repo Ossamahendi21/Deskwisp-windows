@@ -11,13 +11,13 @@ import { ABOUT_DESKWISP, ASKING, WRITING } from "./style.ts";
 /** The workspace every older bot belongs to (lib/types.ts MAIN_WORKSPACE). */
 export const MAIN_WORKSPACE = "ws_main";
 /** Every main bot's picture (lib/mascot.ts pictureName), served at <public>/mascot/<name>.png. */
-export const MAIN_PICTURE = "main-0A0A0A";
+export const MAIN_PICTURE = "main-16132B";
 
 /** A bot as a turn reads it from the state (lib/types.ts Bot). */
 export type AgentBot = { id: string; name: string; role: string; color: string; isMain: boolean; workspaceId?: string; email?: string; phone?: string };
 
-/** Wispy as a new Mac install makes it (lib/server/store.ts): the main bot of a user with no state yet. */
-export const DEFAULT_BOT: AgentBot = { id: "wispy", name: "Wispy", role: "Chief of Staff", color: "#0A0A0A", isMain: true };
+/** Wispy as a new install makes it (lib/server/store.ts; its id from older installs kept): the main bot of a user with no state yet. */
+export const DEFAULT_BOT: AgentBot = { id: "wispy", name: "Wispy", role: "Chief of Staff", color: "#16132B", isMain: true };
 
 type Workspace = { id: string; line?: { phone: string; type: string }; memory?: unknown };
 type Task = { id: string; botId: string; title: string; status: string };
@@ -81,7 +81,7 @@ export const chatIdOf = (botId: string) => `bot:${botId}`;
 
 /**
  * The user's main bot: the default workspace's (it can be deleted while another workspace exists), else
- * the first workspace's, else any main bot. With none (no state yet), Wispy, as a new Mac makes it.
+ * the first workspace's, else any main bot. With none (no state yet), Wispy, as a new install makes it.
  */
 export function mainBotOf(v: AgentView): { bot: AgentBot; isDefault: boolean } {
   const mains = v.bots.filter((b) => b.isMain);

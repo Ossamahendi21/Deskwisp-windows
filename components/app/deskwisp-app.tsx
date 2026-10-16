@@ -11,7 +11,7 @@ import { ComputerPeek, ComputerView, defaultDisplay } from "./computer";
 import { crmOpen } from "@/lib/crm-access";
 import { categoriesOpen } from "@/lib/memory-categories";
 import { CrmView, OpenCrm } from "./crm";
-import { WispyLoading, BusyBots, Mascot } from "./mascot";
+import { WispLoading, BusyBots, Mascot } from "./mascot";
 import { MemoryView, type MemoryOpen } from "./memory-categories";
 import { CHAT_TAB, hostOf, NewTab, OpenLink, TabBar, WebTab, type PanelTab } from "./panel-tabs";
 
@@ -1264,7 +1264,7 @@ function FirstLoad() {
     return () => clearTimeout(t);
   }, []);
   return (
-    <WispyLoading label="Loading Deskwisp…">
+    <WispLoading label="Loading Deskwisp…">
       {slow && (
         <div className="flex flex-col items-center gap-3">
           <span>This is taking longer than usual.</span>
@@ -1277,6 +1277,6 @@ function FirstLoad() {
           {confirm && <RestartConfirm onClose={() => setConfirm(false)} />}
         </div>
       )}
-    </WispyLoading>
+    </WispLoading>
   );
 }

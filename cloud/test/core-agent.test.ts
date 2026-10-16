@@ -198,7 +198,7 @@ test("the main bot: the default workspace's, else the first workspace's, else an
   const noState = await newUser(undefined, "Sam Rivera");
   let info = (await phone(noState, "GET", "/v1/agent")).json as AgentInfo;
   assert.deepEqual(info, {
-    bot: { id: "wispy", name: "Wispy", role: "Chief of Staff", color: "#0A0A0A", picture: "https://deskwisp-api.test/mascot/main-0A0A0A.png" },
+    bot: { id: "wispy", name: "Wispy", role: "Chief of Staff", color: "#16132B", picture: "https://deskwisp-api.test/mascot/main-16132B.png" },
     chatId: "bot:wispy",
     owner: { name: "Sam Rivera" },
     isDefault: true,

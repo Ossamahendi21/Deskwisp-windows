@@ -239,7 +239,6 @@ The installed app keeps its files in `%APPDATA%\Deskwisp`: `data\` (state and th
 | `db/` | The Postgres schema for hosted Deskwisp |
 | `edge/` | The webhook relay for self-hosting |
 | `slack/` | The Slack app |
-| `site/` | The original project's website |
 | `docs/` | Images and what's new in each version of the original (`docs/releases/`) |
 
 ## Contributing

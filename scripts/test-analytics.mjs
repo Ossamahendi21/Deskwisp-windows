@@ -117,8 +117,6 @@ for (const [event, spec] of Object.entries(R.EVENTS)) {
 }
 assert.ok(R.POSTHOG_PROJECT.startsWith("phc_") && R.POSTHOG_PROJECT.length > 20, "the project key is a PostHog project key");
 assert.equal(R.POSTHOG_HOST, "https://us.i.posthog.com");
-// The same project as deskwisp.bot (and so horafirm-web's): compared, never printed.
-assert.ok(readFileSync(join(root, "site/index.html"), "utf8").includes(`posthog.init('${R.POSTHOG_PROJECT}'`), "the site uses the same project");
 
 const clean = R.cleanProperties;
 assert.equal(clean("deskwisp_nope", {}, "mac_server"), null, "an unknown event");

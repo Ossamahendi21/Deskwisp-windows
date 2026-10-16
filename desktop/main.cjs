@@ -514,7 +514,7 @@ async function startOrFind() {
   }
 }
 
-/** Wispy bopping to music while the server starts (desktop/splash.html). */
+/** Wispy bobbing while the server starts (desktop/splash.html). */
 const SPLASH = path.join(__dirname, "splash.html");
 /** What the window shows when Deskwisp can't start, with Try again (desktop/trouble.html). */
 const TROUBLE = path.join(__dirname, "trouble.html");

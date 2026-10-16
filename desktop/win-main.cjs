@@ -157,7 +157,10 @@ async function ensureServer() {
       mainLog(`server answering after ${((Date.now() - started) / 1000).toFixed(1)}s`);
       return { ok: true };
     }
-    if (who.up) return { ok: false, reason: "port-taken", detail: `another program answers on port ${PORT}` };
+    // Our own `next dev` answers before it has compiled the health route (a 404 while it builds, or
+    // after a pull left its cache behind): it's ours while it runs, so wait for it. Another program on
+    // the port makes ours exit (it can't listen), and then it's someone else's.
+    if (who.up && !(server && !packagedDir())) return { ok: false, reason: "port-taken", detail: `another program answers on port ${PORT}` };
     if (!(await portTaken()) && !server) {
       if (spawned >= 2) return { ok: false, reason: "server-ended", detail: serverEnded };
       spawned++;
@@ -165,7 +168,13 @@ async function ensureServer() {
       spawnServer();
     }
     // `next dev` compiles on its first request: give it longer.
-    if (Date.now() - started > (packagedDir() ? 90_000 : 240_000)) return { ok: false, reason: "server-slow", detail: serverEnded };
+    if (Date.now() - started > (packagedDir() ? 90_000 : 240_000))
+      return {
+        ok: false,
+        reason: "server-slow",
+        // A `next dev` that answers but never finds its own routes has a build cache from other files.
+        detail: who.up && !packagedDir() ? "the server answers but can't find its pages: delete the .next folder in the source folder, then try again" : serverEnded,
+      };
     await sleep(500);
   }
 }

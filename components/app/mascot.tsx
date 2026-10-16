@@ -4,7 +4,7 @@ import { createContext, useContext } from "react";
 import { mascotMarkup } from "@/lib/mascot";
 
 /**
- * Plush-style bot mascots with headphones (lib/mascot.ts draws them). Every mascot in the app reads
+ * The bots' wisps (lib/mascot.ts draws them). Every mascot in the app reads
  * which bots are at work from one place (BusyBots, set at the top of the app): a busy bot opens its
  * eyes, an idle one vibes with them closed.
  */
@@ -19,7 +19,7 @@ export function Mascot({
   botId: string;
   color: string;
   size?: number;
-  /** The main bot's highlighter headphones; false draws them in ink (the chat pill's small mark). */
+  /** The main bot's spark in the accent; false draws it in a quiet grey (the chat pill's small mark). */
   antenna?: boolean;
 }) {
   const awake = useContext(BusyBots).has(botId);
@@ -48,18 +48,18 @@ const NOTES = [
 ];
 
 /**
- * Wispy listening to music, bopping to the beat while notes drift out of its headphones: the app's
- * first load, the same scene as the window's splash (desktop/splash.html). CSS only (globals.css).
+ * Wispy bobbing gently while sparks drift up off it: the app's first load, the same scene as the
+ * window's splash (desktop/splash.html). CSS only (globals.css).
  */
-export function WispyLoading({ label, children }: { label: string; children?: React.ReactNode }) {
+export function WispLoading({ label, children }: { label: string; children?: React.ReactNode }) {
   return (
     <div className="flex h-screen flex-col items-center justify-center gap-3.5 text-[13px] text-pencil select-none">
-      <div className="wispy-loading-scene" aria-hidden="true">
-        <div className="wispy-loading-shadow" />
+      <div className="wisp-loading-scene" aria-hidden="true">
+        <div className="wisp-loading-shadow" />
         {(["l", "r", "l", "r"] as const).map((side, i) => (
-          <svg key={i} className={`wispy-loading-note ${side}`} viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: `<g fill="#7C5CFF">${NOTES[i === 0 || i === 3 ? 0 : 1]}</g>` }} />
+          <svg key={i} className={`wisp-loading-note ${side}`} viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: `<g fill="#7C5CFF">${NOTES[i === 0 || i === 3 ? 0 : 1]}</g>` }} />
         ))}
-        <svg className="wispy-loading-wispy" viewBox="0 0 40 40" dangerouslySetInnerHTML={{ __html: mascotMarkup("wispy", "#16132B", { mood: "awake" }) }} />
+        <svg className="wisp-loading-wisp" viewBox="0 0 40 40" dangerouslySetInnerHTML={{ __html: mascotMarkup("wispy", "#16132B", { mood: "awake" }) }} />
       </div>
       <div>{label}</div>
       {/* Below the label without moving it: the scene stays where the splash had it. */}

@@ -56,7 +56,6 @@ const nextConfig: NextConfig = {
       "./lib/**",
       "./horafirm/**",
       "./scripts/**",
-      "./site/**",
       "./types/**",
       "./vendor/**",
       "./node_modules/app-builder-lib/**",

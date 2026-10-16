@@ -87,14 +87,14 @@ test("/oauth/callback: straight on to Composio with the query as it came, and th
 });
 
 test("/mascot and /brand: the fixed pictures, with their own types, and nothing else", async () => {
-  const png = await get("/mascot/main-0A0A0A.png");
+  const png = await get("/mascot/main-16132B.png");
   assert.equal(png.status, 200);
   assert.equal(png.headers.get("content-type"), "image/png");
   assert.equal(png.headers.get("cache-control"), "public, max-age=86400");
   const bytes = Buffer.from(await png.arrayBuffer());
-  assert.deepEqual(bytes, readFileSync(new URL("../public/mascot/main-0A0A0A.png", import.meta.url)));
+  assert.deepEqual(bytes, readFileSync(new URL("../public/mascot/main-16132B.png", import.meta.url)));
   assert.equal(bytes.subarray(1, 4).toString(), "PNG");
-  const jpg = await get("/mascot/blob-2EC4B6.jpg");
+  const jpg = await get("/mascot/wisp-2EC4B6.jpg");
   assert.equal(jpg.status, 200);
   assert.equal(jpg.headers.get("content-type"), "image/jpeg");
   const logo = await get("/brand/deskwisp-512.png");
@@ -105,12 +105,12 @@ test("/mascot and /brand: the fixed pictures, with their own types, and nothing 
 
   for (const path of [
     "/mascot/nobody-000000.png",
-    "/mascot/main-0A0A0A.gif",
+    "/mascot/main-16132B.gif",
     "/brand/deskwisp-512.jpg",
     "/mascot",
     "/mascot/",
-    "/mascot/sub/main-0A0A0A.png",
-    "/mascot/main-0A0A0A.png.png",
+    "/mascot/sub/main-16132B.png",
+    "/mascot/main-16132B.png.png",
     "/mascot/%2e%2e%2fserver.ts",
     "/mascot/..%2f..%2fserver.ts",
     "/brand/..%2F..%2Fpackage.json",

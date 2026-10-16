@@ -50,7 +50,7 @@ import { recordTokens } from "./usage.ts";
  * the user's Mac never answers a message it reads from the cloud (only its own chat, calls, texts and
  * channels start a turn there), so nothing is answered twice and no Mac release is needed. It answers
  * whenever the phone has a connection, whether the Mac is awake, asleep, closed, on an old build or
- * not there at all; a user who never used Deskwisp on a Mac gets Wispy, as a new Mac install makes it.
+ * not there at all; a user who never used Deskwisp on a Mac gets Wispy, as a new install makes it.
  *
  * - GET /v1/agent: the main bot and its chat. GET /v1/agent/messages: that chat, as the phone shows it
  *   (phoneMessage). POST /v1/agent/messages: the user's message, written into the main bot's chat

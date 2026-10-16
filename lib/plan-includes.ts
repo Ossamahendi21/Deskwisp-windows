@@ -1,6 +1,6 @@
 /**
- * What each Deskwisp plan includes, in the words the app and deskwisp.bot show (keep site/index.html's
- * pricing in step: scripts/test-site.mjs checks it says the same words), and why a plan has no room
+ * What each Deskwisp plan includes, in the words the app shows (and, once there is one, Deskwisp's own
+ * website: keep its pricing in step), and why a plan has no room
  * for one more phone number, email or computer. The numbers are DESKWISP_TIERS (cloud/protocol.ts),
  * which horafirm-web and Deskwisp Cloud hold each plan to:
  *
