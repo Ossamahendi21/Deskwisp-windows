@@ -11,6 +11,7 @@ import { Accounts } from "./accounts.ts";
 import { clerkVerifier, type Verifier } from "./clerk.ts";
 import { JsonStore, type Store } from "./store.ts";
 import { PgStore } from "./store-pg.ts";
+import { isTier } from "./plans.ts";
 
 /**
  * Deskwisp Cloud: the app's sign-in (accounts.ts, with Clerk), its users, keys and computers (in Neon,
@@ -44,7 +45,9 @@ export async function startServer(
   const provider = opts.provider ?? makeProvider(cfg);
   const store = opts.store ?? (await openStore(cfg));
   const accounts = new Accounts(cfg, store, opts.verifier !== undefined ? opts.verifier : makeVerifier(cfg), opts.accounts);
-  const computers = new Computers(cfg, store, provider);
+  // A signed-in user's plan; a development key (DESKWISP_API_KEYS) is on DESKWISP_DEV_PLAN, Max unless set.
+  const devPlan = isTier(process.env.DESKWISP_DEV_PLAN) ? process.env.DESKWISP_DEV_PLAN : "max_deskwisp";
+  const computers = new Computers(cfg, store, provider, async (owner) => (await store.user(owner).catch(() => null))?.plan ?? devPlan);
 
   const send = (res: ServerResponse, status: number, body: unknown) => {
     if (res.headersSent) return void res.end();
@@ -103,9 +106,14 @@ export async function startServer(
       return socket.destroy();
     }
     wss.handleUpgrade(req, socket, head, (client) => {
-      const upstream = new WebSocket(target, ["binary"]);
+      const upstream = new WebSocket(target.url, ["binary"]);
       const pending: Buffer[] = [];
-      client.on("message", (data: Buffer) => (upstream.readyState === WebSocket.OPEN ? upstream.send(data) : pending.push(data)));
+      client.on("message", (data: Buffer) => {
+        // Someone at the live view keeps the computer awake (computers.touch tells the provider once a minute at most).
+        computers.touch(target.boxId);
+        if (upstream.readyState === WebSocket.OPEN) upstream.send(data);
+        else pending.push(data);
+      });
       upstream.on("open", () => {
         for (const d of pending.splice(0)) upstream.send(d);
       });
@@ -121,7 +129,10 @@ export async function startServer(
     });
   });
 
-  server.on("close", () => void store.close().catch(() => {}));
+  server.on("close", () => {
+    computers.stop();
+    void store.close().catch(() => {});
+  });
   server.listen(cfg.port, cfg.host);
   return { server, store, accounts, computers };
 }

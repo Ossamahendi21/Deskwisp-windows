@@ -77,7 +77,9 @@ const SOLD_PLANS = [
 ];
 
 /** Horafirm's name for a plan key. A key Deskwisp doesn't know shows as itself. */
-export const planName = (tier: string) => TIERS[tier.toLowerCase()]?.name ?? tier.charAt(0).toUpperCase() + tier.slice(1).replace(/_v\d+$/, "");
+export const planName = (tier: string) =>
+  TIERS[tier.toLowerCase()]?.name ??
+  (tier in DESKWISP_TIERS ? DESKWISP_TIERS[tier as DeskwispTier].name : tier.charAt(0).toUpperCase() + tier.slice(1).replace(/_v\d+$/, ""));
 
 /** The computers a plan key allows, when Deskwisp knows the key. */
 export const planComputers = (tier: string): number | undefined => TIERS[tier.toLowerCase()]?.computers;

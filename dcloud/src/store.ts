@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { isTier, type Tier } from "./plans.ts";
 
 /**
  * What Deskwisp Cloud keeps: its users (signed in with Clerk), the keys their apps hold, the codes of
@@ -11,7 +12,7 @@ import { dirname } from "node:path";
  * An app key is never kept, only its SHA-256: the app holds the key, the store can only check it.
  */
 
-export type User = { id: string; clerkId: string; email: string | null; name: string | null; createdAt: number };
+export type User = { id: string; clerkId: string; email: string | null; name: string | null; plan: Tier; createdAt: number };
 
 export type Computer = {
   id: string;
@@ -50,6 +51,8 @@ export interface Store {
   /** The user for a Clerk account, made on their first sign-in; their email and name follow Clerk's. */
   upsertUser(u: { clerkId: string; email: string | null; name: string | null }): Promise<User>;
   user(id: string): Promise<User | null>;
+  /** Put a user on a plan (billing does, step 2.4). */
+  setPlan(userId: string, plan: Tier): Promise<void>;
 
   addKey(userId: string, keyHash: string, label: string): Promise<void>;
   /** Whose key this is (by its hash), or null. */
@@ -125,14 +128,21 @@ export class JsonStore implements Store {
   async upsertUser(u: { clerkId: string; email: string | null; name: string | null }) {
     let user = this.data.users.find((x) => x.clerkId === u.clerkId);
     if (user) Object.assign(user, { email: u.email, name: u.name });
-    else this.data.users.push((user = { id: randomUUID(), clerkId: u.clerkId, email: u.email, name: u.name, createdAt: Date.now() }));
+    else this.data.users.push((user = { id: randomUUID(), clerkId: u.clerkId, email: u.email, name: u.name, plan: "free_deskwisp", createdAt: Date.now() }));
     this.save();
-    return { ...user };
+    return { ...user, plan: isTier(user.plan) ? user.plan : "free_deskwisp" };
   }
 
   async user(id: string) {
     const u = this.data.users.find((x) => x.id === id);
-    return u ? { ...u } : null;
+    return u ? { ...u, plan: isTier(u.plan) ? u.plan : "free_deskwisp" } : null;
+  }
+
+  async setPlan(userId: string, plan: Tier) {
+    const u = this.data.users.find((x) => x.id === userId);
+    if (!u) return;
+    u.plan = plan;
+    this.save();
   }
 
   async addKey(userId: string, keyHash: string, label: string) {

@@ -341,9 +341,10 @@ export const PLAN_LIMIT = "plan_limit";
  *   numbers the sheet shows, and nobody is added from the app without them.
  */
 export const DESKWISP_TIERS = {
-  free_deskwisp: { name: "Free", priceCents: 0, creditMicros: 5_000_000, monthly: false, computers: 1, phoneNumbers: 0, emails: 0, people: 0 },
-  pro_deskwisp: { name: "Pro", priceCents: 2_000, creditMicros: 20_000_000, monthly: true, computers: 1, phoneNumbers: 1, emails: 1, people: 2 },
-  max_deskwisp: { name: "Max", priceCents: 20_000, creditMicros: 200_000_000, monthly: true, computers: 3, phoneNumbers: 5, emails: 5, people: 5 },
+  // One computer on every plan; what grows is how many of its screens the bots use at once (dcloud/src/plans.ts).
+  free_deskwisp: { name: "Free", priceCents: 0, creditMicros: 5_000_000, monthly: false, computers: 1, screens: 1, phoneNumbers: 0, emails: 0, people: 0 },
+  pro_deskwisp: { name: "Pro", priceCents: 2_000, creditMicros: 20_000_000, monthly: true, computers: 1, screens: 2, phoneNumbers: 1, emails: 1, people: 2 },
+  max_deskwisp: { name: "Max", priceCents: 20_000, creditMicros: 200_000_000, monthly: true, computers: 1, screens: 4, phoneNumbers: 5, emails: 5, people: 5 },
 } as const;
 
 export type DeskwispTier = keyof typeof DESKWISP_TIERS;

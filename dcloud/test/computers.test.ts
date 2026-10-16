@@ -11,6 +11,7 @@ import { after, before, test } from "node:test";
 import { WebSocket } from "ws";
 import { loadConfig } from "../src/config.ts";
 import { startServer } from "../src/server.ts";
+import { hashKey } from "../src/store.ts";
 
 const have = (bin: string) => {
   try {
@@ -70,7 +71,8 @@ test("a computer from start to delete", { skip: missing.length ? `missing ${miss
 
   const plan = await call("k1", "GET", `/billing/compute-limits?workspace_id=${w.json.id}`);
   assert.equal(plan.json.computers_used, 1);
-  assert.equal(plan.json.max_computers, 2);
+  assert.equal(plan.json.max_computers, 1);
+  assert.equal(plan.json.max_screens, 4);
 
   // The boot screen, then one more.
   let screens = (await call("k1", "GET", `/computers/${id}/screens`)).json.screens;
@@ -113,13 +115,47 @@ test("a computer from start to delete", { skip: missing.length ? `missing ${miss
   });
   assert.ok(refused);
 
-  // Forks fall back to clones; the plan's limit holds.
+  // Asleep: put to sleep by its user, then looks (status, screens, screenshots) leave it asleep, and a use wakes it.
+  assert.equal((await call("k1", "POST", `/computers/${id}/suspend`)).status, 200);
+  assert.equal((await call("k1", "GET", `/computers/${id}`)).json.status, "suspended");
+  const look = await call("k1", "GET", `/computers/${id}/screenshot?screen=default&format=jpeg&scale=0.5`);
+  assert.equal(look.status, 409);
+  assert.equal(look.json.code, "computer_asleep");
+  assert.equal((await call("k1", "GET", `/computers/${id}/screens`)).json.code, "computer_asleep");
+  assert.equal((await call("k1", "GET", `/computers/${id}`)).json.status, "suspended", "still asleep after the looks");
+  assert.equal((await call("k1", "POST", `/computers/${id}/bash`, { command: "true", timeout: 10 })).status, 200);
+  assert.equal((await call("k1", "GET", `/computers/${id}`)).json.status, "running");
+  // Nobody uses it for the idle time: it goes to sleep on its own.
+  await app.computers.sweep(Date.now() + cfg.idleMs + 1000);
+  assert.equal((await call("k1", "GET", `/computers/${id}`)).json.status, "suspended");
+  assert.equal((await call("k1", "POST", `/computers/${id}/resume`)).status, 200);
+  assert.equal((await call("k1", "GET", `/computers/${id}`)).json.status, "running");
+
+  // Forks fall back to clones; every plan has one computer.
   assert.equal((await call("k1", "POST", `/computers/${id}/fork`)).json.code, "NOT_FORKABLE");
-  assert.equal((await call("k1", "POST", "/computers", { workspace_id: w.json.id, name: "Two" })).status, 200);
-  assert.equal((await call("k1", "POST", "/computers", { workspace_id: w.json.id, name: "Three" })).json.code, "COMPUTER_LIMIT");
+  assert.equal((await call("k1", "POST", "/computers", { workspace_id: w.json.id, name: "Two" })).json.code, "COMPUTER_LIMIT");
 
   const list = await call("k1", "GET", `/workspaces/${w.json.id}`);
-  assert.equal(list.json.desktops.length, 2);
+  assert.equal(list.json.desktops.length, 1);
   for (const d of list.json.desktops) assert.equal((await call("k1", "DELETE", `/computers/${d.id}`)).status, 200);
   assert.equal((await call("k1", "GET", `/computers/${id}`)).status, 404);
+});
+
+test("screens by plan: Free has the one, Max four", { skip: missing.length ? `missing ${missing.join(", ")}` : false, timeout: 120_000 }, async () => {
+  // A signed-in user on Free (made here as a sign-in would make them).
+  const u = await app.store.upsertUser({ clerkId: "user_free", email: "free@example.com", name: null });
+  await app.store.addKey(u.id, hashKey("free-key"), "test");
+  const sub = await call("free-key", "GET", "/user/subscription");
+  assert.deepEqual(sub.json, { tier: "free_deskwisp", name: "Free", planLimits: { maxDesktops: 1, maxScreens: 1 } });
+  const w = await call("free-key", "POST", "/workspaces", { name: "deskwisp" });
+  const made = await call("free-key", "POST", "/computers", { workspace_id: w.json.id, name: "Wispy" });
+  assert.equal(made.status, 200, JSON.stringify(made.json));
+  const more = await call("free-key", "POST", `/computers/${made.json.id}/screens`, { width: 1280, height: 960 });
+  assert.equal(more.status, 403);
+  assert.equal(more.json.code, "SCREEN_LIMIT");
+  // On Max, the same computer opens more.
+  await app.store.setPlan(u.id, "max_deskwisp");
+  assert.equal((await call("free-key", "GET", "/user/subscription")).json.planLimits.maxScreens, 4);
+  assert.equal((await call("free-key", "POST", `/computers/${made.json.id}/screens`, { width: 1280, height: 960 })).status, 200);
+  assert.equal((await call("free-key", "DELETE", `/computers/${made.json.id}`)).status, 200);
 });

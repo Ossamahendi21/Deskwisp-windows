@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BLOCKER_LABEL, computerAsleep, computerCheckMs, computerInUse, DISPLAYS, live, streamsLive, workBot, workspaceOf, type AppState, type Bot, type Session } from "@/lib/types";
+import { BLOCKER_LABEL, computerAsleep, computerCheckMs, computerInUse, DISPLAYS, live, MAX_SCREENS, planDisplays, streamsLive, workBot, workspaceOf, type AppState, type Bot, type Session } from "@/lib/types";
+import { DESKWISP_TIERS, type DeskwispTier } from "@/cloud/protocol";
 import { freeComputerOpen, setupShort } from "@/lib/horafirm-plans";
 import { BotCursor } from "./bot-cursor";
 import { LiveDesktop, Waking } from "./live-desktop";
@@ -194,6 +195,21 @@ export function ComputerView({
       return p.title || p.url;
     }
   };
+  // The screens the plan includes (Free 1, Pro 2, Max all four); the others show as a (+) to get more.
+  const open = mac ? DISPLAYS : planDisplays(state.deskwispPlan?.screens);
+  const [paywall, setPaywall] = useState(false);
+  const [stopping, setStopping] = useState<{ busy: boolean; error?: string }>({ busy: false });
+  const stopComputer = async () => {
+    setStopping({ busy: true });
+    try {
+      const res = await fetch("/api/computer/sleep", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ botId: b.id }) });
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      setStopping(res.ok ? { busy: false } : { busy: false, error: j.error ?? "Couldn't stop it. Try again." });
+    } catch {
+      setStopping({ busy: false, error: "Couldn't stop it. Try again." });
+    }
+    recheck();
+  };
   const tasks = DISPLAYS.filter((d) => holding.has(d) || yours(d));
   const lastAct = (d: number) => Math.max(acted[d] ?? 0, stepOn(d)?.at ?? 0);
   /** A screen showing something only the user can do: a sign-in, a payment, a draft to approve. */
@@ -219,12 +235,12 @@ export function ComputerView({
     return () => ro.disconnect();
   }, [stage]);
   // Every screen streams live: over the tailnet, or through Horafirm when it streams them all (AppState.screenStream).
-  const everyLive = DISPLAYS.every((d) => streamsLive(c, d, state.screenStream));
+  const everyLive = open.every((d) => streamsLive(c, d, state.screenStream));
   // How many screens are busy sets the layout: one big screen, two side by side, or all four two by
   // two. A screen that needs you gets the whole frame (its card needs the room); a screen you
   // picked stays on its own until you say Follow.
   const auto = mode === "panel" && !!follow?.on && state.takeover?.botId !== b.id;
-  const tiles = auto && !mac && !asleep && everyLive && !DISPLAYS.some(needsYouOn) ? (working.length >= 3 ? DISPLAYS : working.length === 2 ? working : []) : [];
+  const tiles = auto && !mac && !asleep && everyLive && !open.some(needsYouOn) ? (working.length >= 3 ? open : working.length === 2 ? working : []) : [];
   const grid = tiles.length > 1;
   const following = auto && !grid;
   const acting = (d: number) => working.includes(d) && now - lastAct(d) < FRESH_MS;
@@ -496,7 +512,7 @@ export function ComputerView({
           <span className="text-[15px] font-semibold leading-5">{b.name}&apos;s computer</span>
           <span className="flex-1" />
           <div className="flex gap-1">
-            {DISPLAYS.map((d) => {
+            {open.map((d) => {
               const on = d === display;
               const busy = tasks.includes(d);
               return (
@@ -797,7 +813,7 @@ export function ComputerView({
 
       {mode === "panel" && (
         <div className="flex gap-2.5">
-          {DISPLAYS.map((d) => {
+          {open.map((d) => {
             const s = holding.get(d);
             const inView = d === display && !grid;
             const w = watchOn(d);
@@ -885,8 +901,43 @@ export function ComputerView({
               </button>
             );
           })}
+          {!mac && open.length < MAX_SCREENS && (
+            // More screens come with a bigger plan: the (+) says what each gives.
+            <button
+              onClick={() => setPaywall(true)}
+              title="More screens, so your bots can do more at once"
+              className="flex w-[64px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl text-[#6B6B6B] shadow-[inset_0_0_0_1.5px_#E2E2DF] hover:bg-[#F7F7F6] hover:text-ink"
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
+                <path d="M9 3.5v11M3.5 9h11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+              <span className="text-[10.5px] font-medium leading-[13px]">Screen</span>
+            </button>
+          )}
         </div>
       )}
+
+      {/* Done with the computer for now: it sleeps (nothing runs or is billed) and wakes on the next use. */}
+      {mode === "panel" && !mac && hasComputer && !takeover && (
+        <div className="-mt-1 flex items-center justify-end gap-2">
+          {stopping.error && <span className="truncate text-[11.5px] leading-4 text-[#B42318]">{stopping.error}</span>}
+          {!asleep && (
+            <button
+              onClick={() => void stopComputer()}
+              disabled={stopping.busy || inUse}
+              title={inUse ? "A bot is working on it: stop the task first" : "Put the computer to sleep until it's needed again"}
+              className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-medium leading-4 text-[#3A3A38] shadow-[0_0_0_1px_#E2E2DF] hover:bg-[#F7F7F6] disabled:opacity-50"
+            >
+              <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden>
+                <path d="M6 1.2v4.3M3.2 3a4 4 0 1 0 5.6 0" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              </svg>
+              {stopping.busy ? "Stopping…" : "Stop computer"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {paywall && <MoreScreens tier={state.deskwispPlan?.tier ?? "free_deskwisp"} onClose={() => setPaywall(false)} />}
 
       {/* Under the screen, only when something's going on: a bot at work, something waiting on you, news. Its controls are on the screen. */}
       {!takeover && (grid || onScreen || read?.blocker || watchedHere?.alert) && (
@@ -912,6 +963,77 @@ export function ComputerView({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * More screens: what the next plans give, with the way to upgrade (the account's checkout, which opens
+ * in the browser, or says when upgrades aren't open yet). Free sees Pro and Max, Pro sees Max.
+ */
+function MoreScreens({ tier, onClose }: { tier: DeskwispTier; onClose: () => void }) {
+  const [busy, setBusy] = useState<DeskwispTier | null>(null);
+  const [said, setSaid] = useState<{ tier: DeskwispTier; text: string } | null>(null);
+  const offers = (tier === "free_deskwisp" ? (["pro_deskwisp", "max_deskwisp"] as const) : tier === "pro_deskwisp" ? (["max_deskwisp"] as const) : []) as DeskwispTier[];
+  const now = DESKWISP_TIERS[tier];
+  const upgrade = async (to: DeskwispTier) => {
+    setBusy(to);
+    setSaid(null);
+    try {
+      const res = await fetch("/api/account/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tier: to }) });
+      const j = (await res.json().catch(() => ({}))) as { url?: string; error?: string; soon?: boolean };
+      if (j.url) window.open(j.url, "_blank");
+      else setSaid({ tier: to, text: j.soon ? "Upgrades open soon." : (j.error ?? "Couldn't open checkout. Try again in a minute.") });
+    } catch {
+      setSaid({ tier: to, text: "Couldn't open checkout. Try again in a minute." });
+    } finally {
+      setBusy(null);
+    }
+  };
+  const screens = (n: number) => `${n} screen${n === 1 ? "" : "s"}`;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-[440px] animate-[call-in_200ms_ease-out] flex-col gap-4 rounded-[20px] bg-white p-6 shadow-[0_0_0_1px_#0000000F,0_30px_70px_-28px_#00000059]">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <span className="text-[17px] font-semibold leading-6">More screens, more done at once</span>
+            <span className="text-[13px] leading-[18px] text-[#6B6B6B]">
+              {`${now.name} gives your bots ${screens(now.screens)} on your Deskwisp computer. Each screen is one more thing they work on at the same time.`}
+            </span>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="flex size-8 shrink-0 items-center justify-center rounded-full hover:bg-[#F2F2F0]">
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
+              <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="#16132B" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+        <div className={`grid gap-2.5 ${offers.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+          {offers.map((t) => {
+            const p = DESKWISP_TIERS[t];
+            const next = t === offers[0];
+            return (
+              <div key={t} className={`flex flex-col gap-3 rounded-[14px] p-4 ${next ? "shadow-[0_0_0_1.5px_#16132B]" : "shadow-[0_0_0_1px_#E6E6E3]"}`}>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[13px] font-semibold leading-5">{p.name}</span>
+                  <span className="flex items-baseline gap-0.5">
+                    <span className="text-[22px] font-semibold leading-7 tracking-[-0.02em] tabular-nums">{`$${p.priceCents / 100}`}</span>
+                    <span className="text-[12px] text-[#6B6B6B]">/month</span>
+                  </span>
+                </div>
+                <span className="rounded-[10px] bg-[#F3F0FF] px-2.5 py-2 text-[12.5px] font-medium leading-4 text-ink">{`${screens(p.screens)} on your computer`}</span>
+                <button
+                  onClick={() => void upgrade(t)}
+                  disabled={busy !== null}
+                  className={`h-9 rounded-full text-[13px] font-semibold disabled:opacity-50 ${next ? "bg-ink text-white" : "text-ink shadow-[0_0_0_1px_#E2E2DF] hover:bg-[#F7F7F6]"}`}
+                >
+                  {busy === t ? "Opening…" : `Upgrade to ${p.name}`}
+                </button>
+                {said?.tier === t && <span className="text-center text-[12px] leading-4 text-[#6B6B6B]">{said.text}</span>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

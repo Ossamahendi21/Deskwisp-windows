@@ -229,7 +229,7 @@ export async function creditCheckoutLink(key: string, amountCents: number): Prom
 
 /* ---------------- Horafirm's plan ---------------- */
 
-type Subscription = { tier?: string; planLimits?: { maxDesktops?: number; maxRamPerUser?: number } | null };
+type Subscription = { tier?: string; planLimits?: { maxDesktops?: number; maxRamPerUser?: number; maxScreens?: number } | null };
 type Limits = {
   max_computers?: number;
   computers_used?: number;
@@ -265,6 +265,25 @@ export async function horafirmPlan({ fresh = false } = {}): Promise<HorafirmPlan
 /** Forget the plan read last: its numbers are out of date (Horafirm turned a computer down, or one is gone). */
 export const forgetPlan = () => void (g.deskwispHorafirmPlan = undefined);
 
+/**
+ * The Deskwisp plan's screens, when the computers' server says (Deskwisp Cloud's subscription answer has
+ * planLimits.maxScreens and a Deskwisp tier): kept in the state for the scheduler and the computer view.
+ */
+function noteScreenPlan(s: Subscription | undefined) {
+  const screens = s?.planLimits?.maxScreens;
+  const tier = s?.tier;
+  if (typeof screens !== "number" || !(tier === "free_deskwisp" || tier === "pro_deskwisp" || tier === "max_deskwisp")) return;
+  const now = getState().deskwispPlan;
+  if (now?.tier === tier && now.screens === screens) return;
+  update((st) => (st.deskwispPlan = { tier, screens }));
+}
+
+/** The plan's screens, read now if they haven't been (a minute's cache otherwise, like the plan). */
+export async function screenPlan() {
+  await horafirmPlan().catch(() => null);
+  return getState().deskwispPlan?.screens;
+}
+
 async function readPlan(key: string): Promise<HorafirmPlan | null> {
   // Computers count against the owner of the workspace they're in, across every workspace they own,
   // so any workspace the user owns gives their numbers. None is made just to read them.
@@ -275,6 +294,7 @@ async function readPlan(key: string): Promise<HorafirmPlan | null> {
   ]);
   const s = sub.ok ? sub.json : undefined;
   const l = limits?.ok ? limits.json : undefined;
+  noteScreenPlan(s);
   const counted = typeof l?.max_computers === "number" && typeof l.computers_used === "number" ? { computers: l.max_computers, inUse: l.computers_used } : undefined;
   // Horafirm answers "free" when it couldn't look the plan up: a plan it counts computers on isn't Free.
   const tier = s?.tier && !(s.tier.toLowerCase() === "free" && counted && counted.computers > 0) ? s.tier : undefined;

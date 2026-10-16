@@ -4,12 +4,12 @@
  * for one more phone number, email or computer. The numbers are DESKWISP_TIERS (cloud/protocol.ts),
  * which horafirm-web and Deskwisp Cloud hold each plan to:
  *
- * - Free: $5 of AI credit once, the one free Deskwisp computer (10 hours a month, 4 cores, 16 GB,
- *   multi-screen), any number of bots sharing it; no phone number, no email.
- * - Pro, $20 a month: $20 of AI credit every month, the same one computer and as many bots on it,
- *   1 phone number and 1 email (the main bot's, set up with the plan); no more computers.
- * - Max, $200 a month: $200 of AI credit every month, up to 3 Deskwisp computers, and up to 5 phone
- *   numbers and 5 emails (the main bot's with the plan, the others when the user asks).
+ * - Every plan has one Deskwisp computer; what grows is how many of its screens the bots use at once.
+ * - Free: $5 of AI credit once, 1 screen, any number of bots sharing it; no phone number, no email.
+ * - Pro, $20 a month: $20 of AI credit every month, 2 screens, 1 phone number and 1 email (the main
+ *   bot's, set up with the plan).
+ * - Max, $200 a month: $200 of AI credit every month, all 4 screens, and up to 5 phone numbers and 5
+ *   emails (the main bot's with the plan, the others when the user asks).
  * - People who can see the bots' computers on Horafirm (the People sheet): none on Free, 2 on Pro, up to
  *   5 on Max.
  *
@@ -28,10 +28,10 @@ export type PlanComputers = { title: string; detail: string };
 
 export type PlanCard = { tier: DeskwispTier; name: string; price: string; per?: string; computers: PlanComputers; lines: PlanLine[] };
 
-/** "1 computer included" on Free and Pro, "Up to 3 computers" on Max (one line on a card): DESKWISP_TIERS' count. */
+/** "1 screen", "2 screens", "4 screens" on the plan's one computer (one line on a card): DESKWISP_TIERS' count. */
 const included = (tier: DeskwispTier) => {
-  const n = DESKWISP_TIERS[tier].computers;
-  return n === 1 ? "1 computer included" : `Up to ${n} computers`;
+  const n = DESKWISP_TIERS[tier].screens;
+  return `1 computer, ${n} screen${n === 1 ? "" : "s"}`;
 };
 
 /** The three plans, as the account sheet and deskwisp.bot list them. An Horafirm plan is never one of these. */
@@ -40,7 +40,7 @@ export const PLAN_CARDS: PlanCard[] = [
     tier: "free_deskwisp",
     name: "Free",
     price: "$0",
-    computers: { title: included("free_deskwisp"), detail: "10 hours a month, 4 cores, 16 GB RAM, multi-screen" },
+    computers: { title: included("free_deskwisp"), detail: "Your bots work on one thing at a time; it sleeps when nobody uses it" },
     lines: [
       { text: "$5 of AI credit, once" },
       { text: "As many bots as you like, sharing it" },
@@ -53,13 +53,12 @@ export const PLAN_CARDS: PlanCard[] = [
     name: "Pro",
     price: "$20",
     per: "/month",
-    computers: { title: included("pro_deskwisp"), detail: "Always on, 4 cores, 16 GB RAM, templates, multi-screen" },
+    computers: { title: included("pro_deskwisp"), detail: "Two things at once; it sleeps when nobody uses it" },
     lines: [
       { text: "$20 of AI credit every month" },
       { text: "As many bots as you like, sharing it" },
       { text: "1 phone number and 1 email" },
       { text: `Share your bots' computers with ${DESKWISP_TIERS.pro_deskwisp.people} people` },
-      { text: "No extra computers", no: true },
     ],
   },
   {
@@ -67,7 +66,7 @@ export const PLAN_CARDS: PlanCard[] = [
     name: "Max",
     price: "$200",
     per: "/month",
-    computers: { title: included("max_deskwisp"), detail: "Always on, 4 cores, 16 GB RAM each" },
+    computers: { title: included("max_deskwisp"), detail: "Four things at once; it sleeps when nobody uses it" },
     lines: [
       { text: "$200 of AI credit every month" },
       { text: "As many bots as you like, on any of them" },
@@ -169,8 +168,8 @@ export function emailShort(tier: DeskwispTier, held: number, bot: { isPlanBot: b
 export function computerShort(tier: DeskwispTier, held: number, more = 1): PlanRoomShort | null {
   const limit = DESKWISP_TIERS[tier].computers;
   if (held + more <= limit) return null;
-  if (tier === "max_deskwisp") return { text: `Max includes up to ${MAX.computers} Deskwisp computers, and you have ${MAX.computers}.`, upgrade: null };
-  return { text: `${DESKWISP_TIERS[tier].name} includes ${limit} Deskwisp computer. Max includes up to ${MAX.computers}.`, upgrade: "max" };
+  // Every plan has one computer: what grows with the plan is its screens.
+  return { text: `${DESKWISP_TIERS[tier].name} includes ${limit} Deskwisp computer. A bigger plan gives it more screens.`, upgrade: tier === "max_deskwisp" ? null : "max" };
 }
 
 /* ---------------- People ---------------- */

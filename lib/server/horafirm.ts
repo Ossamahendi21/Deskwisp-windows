@@ -496,6 +496,8 @@ export const horafirm = {
    * still records a template computer's boot screen as 1280x720 and would size new screens to that.
    */
   createScreen: (computerId: string) => call<HorafirmScreen>("POST", `/computers/${computerId}/screens`, DESKWISP_SCREEN),
+  /** Close a created screen (never the boot screen): one the plan no longer includes. */
+  deleteScreen: (computerId: string, screen: string) => call<{ ok?: boolean }>("DELETE", `/computers/${computerId}/screens/${encodeURIComponent(screen)}`),
 
   destroyScreen: (computerId: string, screenId: string) => call("DELETE", `/computers/${computerId}/screens/${screenId}`),
 
@@ -541,6 +543,12 @@ export const horafirm = {
    */
   resume: (computerId: string) =>
     call<{ waking?: boolean; pending?: boolean; expected_seconds?: number }>("POST", `/computers/${computerId}/resume`, undefined, { wait: false }),
+
+  /**
+   * Put a computer to sleep now, for the user who's done with it (Deskwisp Cloud: its box is paused,
+   * and nothing is billed until the next use wakes it, with everything as it was).
+   */
+  suspend: (computerId: string) => call<{ ok?: boolean; status?: string }>("POST", `/computers/${computerId}/suspend`, undefined, { wait: false }),
 };
 
 /**

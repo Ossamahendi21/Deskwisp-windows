@@ -1,3 +1,4 @@
+import type { DeskwispTier } from "@/cloud/protocol";
 /** Shared shapes for the Deskwisp app state, used by both the server and the UI. */
 
 export type BotId = string;
@@ -468,6 +469,11 @@ export type Owner = { name: string; about?: string };
 export type AppState = {
   /** Who the bots work for. Empty until set in Settings. */
   owner?: Owner;
+  /**
+   * The Deskwisp plan as the computers' server says it (GET /api/user/subscription): its tier and how
+   * many of the computer's screens the bots may use (Free 1, Pro 2, Max 4). Unknown: all four.
+   */
+  deskwispPlan?: { tier: DeskwispTier; screens: number };
   bots: Bot[];
   chats: Chat[];
   messages: Message[];
@@ -781,6 +787,13 @@ export type Watch = {
 export const MAX_SCREENS = 4;
 /** Created screens first; the boot screen (with Horafirm's own desktop) last. */
 export const DISPLAYS = [100, 101, 102, 99];
+
+/**
+ * The screens a plan lets the bots use (`screens` of them, all four when it isn't known): the boot
+ * screen always, since it's there from the start, and the created ones before it in order.
+ */
+export const planDisplays = (screens?: number): number[] =>
+  !screens || screens >= MAX_SCREENS ? [...DISPLAYS] : [...DISPLAYS.slice(0, Math.max(0, Math.floor(screens) - 1)), 99];
 
 /**
  * The screen Horafirm streams by default: its WebRTC video reaches the boot screen only, and so does its

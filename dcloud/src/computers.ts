@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Config } from "./config.ts";
 import * as desk from "./desktop.ts";
 import { BoxGone, type Box, type Provider } from "./providers/types.ts";
+import { PLANS, type Tier } from "./plans.ts";
 import type { Computer, Store } from "./store.ts";
 
 /**
@@ -21,28 +22,97 @@ export class HttpError extends Error {
 
 type Ctx = { owner: string; method: string; parts: string[]; query: URLSearchParams; body: () => Promise<unknown>; res: ServerResponse };
 
+/**
+ * A computer sleeps (its box paused: E2B bills nothing then) when nobody has used it for
+ * DESKWISP_IDLE_MINUTES, or when its user puts it to sleep. Using it means a bot acting on it (a
+ * command, a click, typing, a screen made or closed), the user driving it over the live view, or a
+ * wake. Looking at it doesn't: a status read, a screen list or a screenshot of a sleeping computer
+ * answers 409 computer_asleep (as Horafirm does) and leaves it asleep.
+ */
 export class Computers {
   private readonly cfg: Config;
   private readonly reg: Store;
   private readonly provider: Provider;
-  /** Open boxes, kept a few minutes so each request doesn't reconnect. */
-  private readonly open = new Map<string, { box: Promise<Box>; at: number }>();
+  private readonly planOf: (owner: string) => Promise<Tier>;
+  /** Boxes this process has open (an open box is a connection, not a wake: it's kept while it's awake). */
+  private readonly open = new Map<string, Promise<Box>>();
   /** Boxes whose screens this process has set up. */
   private readonly readied = new Set<string>();
+  /** When each box was last used, and when its provider was last told so. */
+  private readonly used = new Map<string, number>();
+  private readonly told = new Map<string, number>();
+  /** Boxes asleep, as far as this process knows (a status read checks with the provider too). */
+  private readonly asleep = new Set<string>();
+  /** When the provider was last asked whether each box is asleep. */
+  private readonly checked = new Map<string, number>();
+  private readonly sweeper: ReturnType<typeof setInterval>;
 
-  constructor(cfg: Config, reg: Store, provider: Provider) {
+  constructor(cfg: Config, reg: Store, provider: Provider, planOf: (owner: string) => Promise<Tier> = async () => "max_deskwisp") {
     this.cfg = cfg;
     this.reg = reg;
     this.provider = provider;
+    this.planOf = planOf;
+    // Each minute, a box nobody has used for the idle time goes to sleep (E2B would pause it on its
+    // own timer too; this is the same rule, for every provider).
+    this.sweeper = setInterval(() => void this.sweep(), 60_000);
+    this.sweeper.unref?.();
   }
 
-  /** The box for a computer, awake and with its screens up. */
-  async box(c: Computer): Promise<Box> {
-    const kept = this.open.get(c.boxId);
-    let p = kept && Date.now() - kept.at < 5 * 60_000 ? kept.box : undefined;
+  stop() {
+    clearInterval(this.sweeper);
+  }
+
+  /** Someone used the box: it stays awake for the idle time from now. */
+  touch(boxId: string) {
+    const now = Date.now();
+    this.used.set(boxId, now);
+    if (now - (this.told.get(boxId) ?? 0) > 60_000) {
+      this.told.set(boxId, now);
+      void this.provider.keepAwake(boxId, this.cfg.idleMs).catch(() => {});
+    }
+  }
+
+  async sweep(now = Date.now()) {
+    for (const [boxId, at] of this.used) {
+      if (now - at < this.cfg.idleMs || this.asleep.has(boxId)) continue;
+      await this.sleep(boxId).catch((e: Error) => console.warn(`[dcloud] putting ${boxId} to sleep: ${e.message}`));
+    }
+  }
+
+  private async sleep(boxId: string) {
+    await this.provider.pause(boxId);
+    this.asleep.add(boxId);
+    this.open.delete(boxId);
+    this.used.delete(boxId);
+  }
+
+  /**
+   * Whether the box is asleep: what this process knows, checked with the provider (a cheap read, no
+   * wake) at most every 30 seconds, since the provider may pause it on its own timer too.
+   */
+  private async sleeping(boxId: string) {
+    if (this.asleep.has(boxId)) return true;
+    if (this.open.has(boxId) && Date.now() - (this.checked.get(boxId) ?? 0) < 30_000) return false;
+    const st = await this.provider.state(boxId);
+    this.checked.set(boxId, Date.now());
+    if (st === "gone") throw new HttpError(404, "Computer not found", "not_found");
+    if (st === "paused") {
+      this.asleep.add(boxId);
+      this.open.delete(boxId);
+    }
+    return st === "paused";
+  }
+
+  /**
+   * The box for a computer, with its screens up. `wake`: it's being used, so a sleeping box wakes and
+   * counts as used; without it (a look), a sleeping box answers 409 computer_asleep and stays asleep.
+   */
+  async box(c: Computer, wake = false): Promise<Box> {
+    if (!wake && (await this.sleeping(c.boxId))) throw new HttpError(409, "The computer is asleep", "computer_asleep");
+    let p = this.open.get(c.boxId);
     if (!p) {
       p = this.provider.open(c.boxId);
-      this.open.set(c.boxId, { box: p, at: Date.now() });
+      this.open.set(c.boxId, p);
       p.catch(() => this.open.delete(c.boxId));
     }
     let box: Box;
@@ -52,12 +122,20 @@ export class Computers {
       if (e instanceof BoxGone) throw new HttpError(404, "Computer not found", "not_found");
       throw e;
     }
-    void this.provider.keepAwake(c.boxId, this.cfg.idleMs).catch(() => {});
+    this.asleep.delete(c.boxId);
+    if (wake) this.touch(c.boxId);
+    else if (!this.used.has(c.boxId)) this.used.set(c.boxId, Date.now());
     if (!this.readied.has(c.boxId)) {
       await desk.ready(box, c.vncPassword);
       this.readied.add(c.boxId);
     }
     return box;
+  }
+
+  /** The user's plan, as the app reads it (GET /api/user/subscription). */
+  private async limits(owner: string) {
+    const tier = await this.planOf(owner);
+    return { tier, ...PLANS[tier] };
   }
 
   private async mine(owner: string, id: string) {
@@ -107,14 +185,19 @@ export class Computers {
     const [a, b, c, d] = parts;
 
     // ---- The plan the app reads (lib/server/plan.ts): Deskwisp's limits, until billing sets them per user.
-    if (a === "user" && b === "subscription" && method === "GET") return { tier: "deskwisp", planLimits: { maxDesktops: this.cfg.maxComputers } };
+    if (a === "user" && b === "subscription" && method === "GET") {
+      const p = await this.limits(owner);
+      return { tier: p.tier, name: p.name, planLimits: { maxDesktops: p.computers, maxScreens: p.screens } };
+    }
     if (a === "billing" && b === "compute-limits" && method === "GET") {
+      const p = await this.limits(owner);
       const mine = await this.reg.computers(owner);
       const ram = mine.reduce((n, x) => n + x.ram, 0);
       return {
-        max_computers: this.cfg.maxComputers,
+        max_computers: p.computers,
         computers_used: mine.length,
-        account_ram_budget_gb: this.cfg.maxComputers * this.cfg.ramGb,
+        max_screens: p.screens,
+        account_ram_budget_gb: p.computers * this.cfg.ramGb,
         account_ram_used_gb: ram,
         max_ram_gb: this.cfg.ramGb,
       };
@@ -143,8 +226,9 @@ export class Computers {
       const body = (await ctx.body()) as { workspace_id?: string; name?: string; ram?: number };
       const w = body?.workspace_id ? await this.reg.workspace(owner, body.workspace_id) : null;
       if (!w) throw new HttpError(404, "Workspace not found", "not_found");
-      if ((await this.reg.computers(owner)).length >= this.cfg.maxComputers)
-        throw new HttpError(403, `Your plan includes ${this.cfg.maxComputers} computers`, "COMPUTER_LIMIT");
+      const p = await this.limits(owner);
+      if ((await this.reg.computers(owner)).length >= Math.min(p.computers, this.cfg.maxComputers))
+        throw new HttpError(403, `Your plan includes ${p.computers} computer${p.computers === 1 ? "" : "s"}`, "COMPUTER_LIMIT");
       return this.view(await this.create(owner, w.id, String(body?.name ?? "Computer").slice(0, 80)));
     }
 
@@ -153,9 +237,8 @@ export class Computers {
 
     if (!c) {
       if (method === "GET") {
-        const state = await this.provider.state(comp.boxId);
-        if (state === "gone") throw new HttpError(404, "Computer not found", "not_found");
-        return this.view(comp, "running");
+        // Horafirm's word for a computer asleep is "suspended": the app shows it asleep and leaves it be.
+        return this.view(comp, (await this.sleeping(comp.boxId)) ? "suspended" : "running");
       }
       if (method === "DELETE") {
         await this.provider.kill(comp.boxId).catch((e) => {
@@ -163,6 +246,8 @@ export class Computers {
         });
         this.open.delete(comp.boxId);
         this.readied.delete(comp.boxId);
+        this.used.delete(comp.boxId);
+        this.asleep.delete(comp.boxId);
         await this.reg.removeComputer(comp.id);
         return { ok: true };
       }
@@ -175,14 +260,20 @@ export class Computers {
       case "webrtc":
         throw new HttpError(409, "WebRTC isn't available on Deskwisp computers", "webrtc_unavailable");
       case "resume":
-        await this.box(comp);
+        await this.box(comp, true);
         return { waking: false };
+      // Put to sleep by its user: nothing runs, nothing is billed, and it all comes back on the next use.
+      case "suspend":
+        if (method !== "POST") break;
+        if (!(await this.sleeping(comp.boxId))) await this.sleep(comp.boxId);
+        return { ok: true, status: "suspended" };
       case "fork":
         throw new HttpError(409, "This computer can't be forked", "NOT_FORKABLE");
       case "clone": {
         const body = (await ctx.body()) as { name?: string };
-        if ((await this.reg.computers(owner)).length >= this.cfg.maxComputers)
-          throw new HttpError(403, `Your plan includes ${this.cfg.maxComputers} computers`, "COMPUTER_LIMIT");
+        const p = await this.limits(owner);
+        if ((await this.reg.computers(owner)).length >= Math.min(p.computers, this.cfg.maxComputers))
+          throw new HttpError(403, `Your plan includes ${p.computers} computer${p.computers === 1 ? "" : "s"}`, "COMPUTER_LIMIT");
         // A fresh computer from the template: what the app needs from a clone is a computer of its own.
         return this.view(await this.create(owner, comp.workspaceId, String(body?.name ?? `${comp.name} copy`).slice(0, 80)));
       }
@@ -190,7 +281,11 @@ export class Computers {
         if (!d && method === "GET") return { screens: await this.screenList(comp) };
         if (!d && method === "POST") {
           const body = (await ctx.body()) as { width?: number; height?: number };
-          const s = await desk.addScreen(await this.box(comp), body?.width || desk.SCREEN.width, body?.height || desk.SCREEN.height);
+          const box = await this.box(comp, true);
+          const p = await this.limits(owner);
+          if ((await desk.screens(box)).length >= p.screens)
+            throw new HttpError(403, `${p.name} includes ${p.screens} screen${p.screens === 1 ? "" : "s"} on your computer`, "SCREEN_LIMIT");
+          const s = await desk.addScreen(box, body?.width || desk.SCREEN.width, body?.height || desk.SCREEN.height);
           if (!s) throw new HttpError(409, "All four screens are in use", "screen_limit");
           return { id: desk.screenIdOf(s.display), display: `:${s.display}`, width: s.width, height: s.height, default: false, vnc_port: 5900 + s.display, ws_port: 5981 + s.display };
         }
@@ -199,7 +294,7 @@ export class Computers {
         if (method === "PATCH") return { ok: true };
         if (method === "DELETE") {
           if (n === 99) throw new HttpError(409, "The boot screen stays", "boot_screen");
-          await desk.removeScreen(await this.box(comp), n);
+          await desk.removeScreen(await this.box(comp, true), n);
           return { ok: true };
         }
         break;
@@ -208,22 +303,22 @@ export class Computers {
         const body = (await ctx.body()) as { command?: string; timeout?: number };
         if (typeof body?.command !== "string") throw new HttpError(400, "command is required", "bad_request");
         const timeout = Math.min(Math.max(Number(body.timeout) || 60, 1), 600);
-        const r = await (await this.box(comp)).exec(body.command, timeout);
+        const r = await (await this.box(comp, true)).exec(body.command, timeout);
         return { output: r.output, exit_code: r.exitCode };
       }
       case "click": {
         const body = (await ctx.body()) as { x?: number; y?: number; double?: boolean };
-        await desk.click(await this.box(comp), this.display(query), Number(body?.x) || 0, Number(body?.y) || 0, !!body?.double);
+        await desk.click(await this.box(comp, true), this.display(query), Number(body?.x) || 0, Number(body?.y) || 0, !!body?.double);
         return { ok: true };
       }
       case "type": {
         const body = (await ctx.body()) as { text?: string };
-        await desk.type(await this.box(comp), this.display(query), String(body?.text ?? ""));
+        await desk.type(await this.box(comp, true), this.display(query), String(body?.text ?? ""));
         return { ok: true };
       }
       case "key": {
         const body = (await ctx.body()) as { key?: string };
-        await desk.key(await this.box(comp), this.display(query), String(body?.key ?? ""));
+        await desk.key(await this.box(comp, true), this.display(query), String(body?.key ?? ""));
         return { ok: true };
       }
       case "screenshot": {
@@ -243,7 +338,8 @@ export class Computers {
   private async create(owner: string, workspaceId: string, name: string) {
     const box = await this.provider.create({ cpu: this.cfg.cpu, ramGb: this.cfg.ramGb, meta: { owner, name } });
     const c = await this.reg.addComputer({ owner, workspaceId, name, boxId: box.id, provider: this.provider.name, cpu: this.cfg.cpu, ram: this.cfg.ramGb });
-    this.open.set(box.id, { box: Promise.resolve(box), at: Date.now() });
+    this.open.set(box.id, Promise.resolve(box));
+    this.touch(box.id);
     try {
       await desk.ready(box, c.vncPassword);
       this.readied.add(box.id);
@@ -262,8 +358,9 @@ export class Computers {
     if (!c || !token || token !== c.vncPassword) return null;
     const display = desk.displayOf(screenId);
     if (display === null) return null;
-    const box = await this.box(c);
-    return box.portUrl(5981 + display).replace(/^http/, "ws");
+    // Opening the live view is someone at the computer: it wakes, and stays awake while they're on it.
+    const box = await this.box(c, true);
+    return { url: box.portUrl(5981 + display).replace(/^http/, "ws"), boxId: c.boxId };
   }
 }
 

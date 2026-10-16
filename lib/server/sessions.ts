@@ -7,12 +7,12 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { AI_CREDIT_EMPTY, AI_CREDIT_LOW } from "@/cloud/protocol";
-import { BLOCKER_LABEL, botChatId, DISPLAYS, live, MAIN_WORKSPACE, MAX_SCREENS, workBot, workspaceOf, type Bot, type Effort, type Session, type ThreadReply } from "@/lib/types";
+import { BLOCKER_LABEL, botChatId, DISPLAYS, live, MAIN_WORKSPACE, MAX_SCREENS, planDisplays, workBot, workspaceOf, type Bot, type Effort, type Session, type ThreadReply } from "@/lib/types";
 import { CloudError, creditsOut, executorKey, noteOutOfCredit, OUT_OF_CREDIT, outOfCreditError, shortOfCredit } from "./cloud";
 import { appsMcp, appsSocket, browserMcp, cdpPort, cuaDriverHere, currentUrl, ensureChrome, MAC_BROWSER_TOOLS, MAC_UI_TOOLS, macTaskPort, macUiMcp, navigate, startExecutor, stopExecutor, taskDir, taskSockets } from "./local";
 import { relayNewComputer } from "./relay";
 import { computerAsleepError, computerWakingError, madeByThisServer, madeReady, horafirm, HorafirmError, screenId, wakeWaitMs, type HorafirmScreen } from "./horafirm";
-import { forgetPlan, holdFreeAgain, limitText, makeMainComputer, makeOwnComputer, horafirmPlan, PlanLimit } from "./plan";
+import { forgetPlan, holdFreeAgain, limitText, makeMainComputer, makeOwnComputer, horafirmPlan, PlanLimit, screenPlan } from "./plan";
 import { signedInUser } from "./horafirm-auth";
 import { fullAccessOn } from "./full-access";
 import { onPostgres } from "./persist";
@@ -595,7 +595,7 @@ async function pump() {
       }
       if (mine && using.includes(mine.display)) continue;
       // Watched screens stay on their site; only a thread started from one runs there.
-      let held = [...using, ...watched.filter((w) => w !== mine).map((w) => w.display)];
+      let held = withLocked([...using, ...watched.filter((w) => w !== mine).map((w) => w.display)]);
       if (!mine && held.length >= MAX_SCREENS) continue;
       // A thread picked up again waits for the screen its agent was set up for (its browser tools drive
       // that screen's Chrome): on another, Deskwisp would watch, claim and show one screen while the bot
@@ -616,7 +616,7 @@ async function pump() {
         const pages = await screenPages(b);
         // Reading took a moment: what's in use now.
         const now = screensInUse(b.id);
-        held = [...now.held, ...now.watched.map((w) => w.display)];
+        held = withLocked([...now.held, ...now.watched.map((w) => w.display)]);
         if (held.length >= MAX_SCREENS || session(s.id)?.status !== "queued") continue;
         const pick = pickBySite(
           s,
@@ -1112,9 +1112,25 @@ export async function resetScreens(botId: string, displays: number[] = DISPLAYS,
   return { reset: reset.map((d) => DISPLAYS.indexOf(d) + 1), skipped };
 }
 
-/** Bring up all four screens, each with a browser open, so the computer is ready to watch and use. */
+/** Bring up the plan's screens (all four on Max), each with a browser open, so the computer is ready to watch and use. */
 export async function ensureScreens(computerId: string) {
-  for (const d of DISPLAYS) await ensureScreen(computerId, d);
+  const open = planDisplays(await screenPlan());
+  for (const d of open) await ensureScreen(computerId, d);
+  // Screens the plan doesn't include any more (a smaller plan) close, so they don't hold the computer's memory.
+  const extra = (await horafirm.screens(computerId).catch(() => [] as HorafirmScreen[])).filter((x) => {
+    const d = Number(x.display.replace(/^:/, ""));
+    return d !== 99 && !open.includes(d);
+  });
+  for (const x of extra) await horafirm.deleteScreen(computerId, x.id).catch((e: Error) => console.warn(`[computer] closing screen ${x.id}: ${e.message}`));
+}
+
+/**
+ * Screens in use, with those the plan doesn't include counted as taken: a task never starts on one
+ * (Free has the boot screen only, Pro one more; Max all four).
+ */
+function withLocked(held: number[]) {
+  const open = planDisplays(getState().deskwispPlan?.screens);
+  return [...new Set([...held, ...DISPLAYS.filter((d) => !open.includes(d))])];
 }
 
 /**

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import pg from "pg";
+import { isTier, type Tier } from "./plans.ts";
 import { newVncPassword, WorkspaceTaken, type Computer, type DeviceCode, type Store, type User, type Workspace } from "./store.ts";
 
 /**
@@ -12,7 +13,14 @@ import { newVncPassword, WorkspaceTaken, type Computer, type DeviceCode, type St
 const ms = (d: Date | null) => (d ? d.getTime() : 0);
 
 type Row = Record<string, unknown>;
-const user = (r: Row): User => ({ id: r.id as string, clerkId: r.clerk_id as string, email: (r.email as string) ?? null, name: (r.name as string) ?? null, createdAt: ms(r.created_at as Date) });
+const user = (r: Row): User => ({
+  id: r.id as string,
+  clerkId: r.clerk_id as string,
+  email: (r.email as string) ?? null,
+  name: (r.name as string) ?? null,
+  plan: isTier(r.plan) ? r.plan : "free_deskwisp",
+  createdAt: ms(r.created_at as Date),
+});
 const workspace = (r: Row): Workspace => ({ id: r.id as string, owner: r.owner as string, name: r.name as string, createdAt: ms(r.created_at as Date) });
 const computer = (r: Row): Computer => ({
   id: r.id as string,
@@ -108,6 +116,10 @@ export class PgStore implements Store {
   async user(id: string) {
     const [r] = await this.rows("SELECT * FROM deskwisp.users WHERE id = $1", [id]);
     return r ? user(r) : null;
+  }
+
+  async setPlan(userId: string, plan: Tier) {
+    await this.rows("UPDATE deskwisp.users SET plan = $2 WHERE id = $1", [userId, plan]);
   }
 
   async addKey(userId: string, keyHash: string, label: string) {
