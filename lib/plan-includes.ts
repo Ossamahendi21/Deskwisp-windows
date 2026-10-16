@@ -7,7 +7,7 @@
  * - Every plan has one Deskwisp computer; what grows is how many screens each bot has on it (they open
  *   while it works, so it can do that many things at once), and how many hours a month it may run
  *   (it sleeps when nothing's using it, so only the time it works counts).
- * - Free: $1 of AI credit once, 10 computer hours a month, 1 screen; no email.
+ * - Free: $1 of AI credit every month, 10 computer hours a month, 1 screen; no email.
  * - Pro, $29 a month: $10 of AI credit every month, 60 hours, 2 screens, 1 email (the main bot's, set
  *   up with the plan).
  * - Max, $199 a month: $100 of AI credit every month, 300 hours, all 4 screens, and up to 5 emails (the
@@ -49,7 +49,7 @@ export const PLAN_CARDS: PlanCard[] = [
     price: "$0",
     computers: { title: included("free_deskwisp"), detail: "Each bot works on one thing at a time; screens open only while they work" },
     lines: [
-      { text: `${dollars(DESKWISP_TIERS.free_deskwisp.creditMicros)} of AI credit, once` },
+      { text: `${dollars(DESKWISP_TIERS.free_deskwisp.creditMicros)} of AI credit every month` },
       { text: hoursLine("free_deskwisp") },
       { text: "As many bots as you like, sharing it" },
       { text: "No email for your bots", no: true },

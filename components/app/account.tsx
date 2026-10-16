@@ -306,9 +306,6 @@ function YourPlan({ plan, known, onPlan, userId }: { plan: DeskwispPlan | null |
  * and when it starts over, in lib/plan-includes.ts freeHoursWords' words (no period named, from an Horafirm that
  * still counts by the week). It sleeps when nothing uses it, so only the time it's used counts. Only when Horafirm said.
  */
-/** Free's one-time AI credit, as the page says it ("$1"). */
-const FREE_CREDIT = `$${DESKWISP_TIERS.free_deskwisp.creditMicros / 1e6}`;
-
 function ComputerTime({ plan }: { plan: DeskwispPlan }) {
   if (!plan.computerTime) return null;
   const w = freeHoursWords(plan.computerTime, plan.tier);
@@ -332,9 +329,10 @@ function Balance({ plan, onPlan, userId }: { plan: DeskwispPlan; onPlan: (plan: 
   const canAdd = !!topUp.info && !topUp.info.off;
   const c = plan.credit;
   const paid = plan.tier !== "free_deskwisp";
-  const monthly = plan.tier === "max_deskwisp" ? 200_000_000 : 20_000_000;
-  // Credit added once is kept with what's left of Free's one-time credit: neither expires.
-  const added = !!c && (c.topUps === true || c.freeLeftMicros > 5_000_000);
+  // Every plan's credit comes each month (Free's too); what's left of it resets then, nothing carried over.
+  const monthly = DESKWISP_TIERS[plan.tier].creditMicros;
+  // Credit added once, or left from the one-time credit Free once had: it doesn't expire.
+  const added = !!c && c.topUps === true;
   const line =
     paid && plan.status === "past_due"
       ? "Payment failed. Update your card in Manage plan."
@@ -342,24 +340,20 @@ function Balance({ plan, onPlan, userId }: { plan: DeskwispPlan; onPlan: (plan: 
         ? paid && plan.cancelAtPeriodEnd && plan.periodEnd
           ? `Your plan ends ${day(plan.periodEnd)}.`
           : ""
-        : !paid
-          ? added
-            ? "Includes credit you added, which doesn't expire."
-            : `${credit(c.freeLeftMicros)} left of your one-time ${FREE_CREDIT}.`
-          : [
-              `${credit(c.planLeftMicros)} of ${credit(monthly)} left${c.resetsAt ? `, resets ${day(c.resetsAt)}` : ""}.`,
-              c.freeLeftMicros > 0 ? (added ? `Plus ${credit(c.freeLeftMicros)} that doesn't expire.` : `Plus ${credit(c.freeLeftMicros)} of your one-time ${FREE_CREDIT}.`) : "",
-              plan.cancelAtPeriodEnd && plan.periodEnd ? `Ends ${day(plan.periodEnd)}.` : "",
-            ]
-              .filter(Boolean)
-              .join(" ");
+        : [
+            `${credit(c.planLeftMicros)} of ${credit(monthly)} left this month${c.resetsAt ? `, resets ${day(c.resetsAt)}` : ""}.`,
+            c.freeLeftMicros > 0 ? (added ? `Plus ${credit(c.freeLeftMicros)} that doesn't expire.` : `Plus ${credit(c.freeLeftMicros)} of your one-time credit.`) : "",
+            paid && plan.cancelAtPeriodEnd && plan.periodEnd ? `Ends ${day(plan.periodEnd)}.` : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
   if (!c && !line && !canAdd) return null;
   return (
     <div className="flex flex-col rounded-[14px] shadow-[0_0_0_1px_#E6E6E3]">
       <div className="flex items-center gap-4 p-4">
         <span className="min-w-0 flex-1 text-[12.5px] leading-[18px] text-[#6B6B6B]">{line}</span>
         {c && (
-          <div className="flex shrink-0 flex-col items-end gap-1" data-tip="AI credit pays for what your bots do, at what it costs Horafirm">
+          <div className="flex shrink-0 flex-col items-end gap-1" data-tip="AI credit pays for what your bots do, at what it costs Deskwisp">
             <span className="text-[24px] font-semibold leading-7 tracking-[-0.02em] tabular-nums">{credit(c.leftMicros)}</span>
             <span className="text-[12.5px] leading-[18px] text-[#6B6B6B]">AI credit left</span>
           </div>
@@ -368,7 +362,7 @@ function Balance({ plan, onPlan, userId }: { plan: DeskwispPlan; onPlan: (plan: 
       {c && c.leftMicros <= 0 && (
         <span className="border-t border-[#F0F0EE] px-4 py-3 text-[12.5px] leading-[18px] text-[#3A3A38]">
           You&apos;re out of AI credit, so your bots are paused.
-          {canAdd ? " Add credit below to keep them going." : paid ? " It comes back when your plan renews, or upgrade for more." : " Upgrade to keep them going."}
+          {canAdd ? " Add credit below to keep them going." : ` It comes back ${c.resetsAt ? day(c.resetsAt) : "next month"}${plan.tier === "max_deskwisp" ? "" : ", or upgrade for more"}.`}
         </span>
       )}
       {canAdd && <AddCredit plan={plan} topUp={topUp} onPlan={onPlan} userId={userId} />}

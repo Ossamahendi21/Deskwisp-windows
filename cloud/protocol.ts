@@ -343,7 +343,7 @@ export const PLAN_LIMIT = "plan_limit";
 export const DESKWISP_TIERS = {
   // One computer on every plan; what grows is how many of its screens the bots use at once, and how many
   // hours a month it may run (dcloud/src/plans.ts, which holds the computer to them; keep the two in step).
-  free_deskwisp: { name: "Free", priceCents: 0, creditMicros: 1_000_000, monthly: false, hours: 10, computers: 1, screens: 1, phoneNumbers: 0, emails: 0, people: 0 },
+  free_deskwisp: { name: "Free", priceCents: 0, creditMicros: 1_000_000, monthly: true, hours: 10, computers: 1, screens: 1, phoneNumbers: 0, emails: 0, people: 0 },
   pro_deskwisp: { name: "Pro", priceCents: 2_900, creditMicros: 10_000_000, monthly: true, hours: 60, computers: 1, screens: 2, phoneNumbers: 1, emails: 1, people: 2 },
   max_deskwisp: { name: "Max", priceCents: 19_900, creditMicros: 100_000_000, monthly: true, hours: 300, computers: 1, screens: 4, phoneNumbers: 5, emails: 5, people: 5 },
 } as const;

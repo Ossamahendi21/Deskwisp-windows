@@ -19,7 +19,7 @@ one without it (it holds locks across statements, which Neon's pooler can't keep
 | | Free | Pro | Max |
 |---|---|---|---|
 | Price | $0 | $29 a month | $199 a month |
-| AI credit | $1, once | $10 every month | $100 every month |
+| AI credit | $1 every month | $10 every month | $100 every month |
 | Computer hours | 10 a month | 60 a month | 300 a month |
 | Screens per bot | 1 | 2 | 4 |
 | Emails for bots | none | 1 | up to 5 |

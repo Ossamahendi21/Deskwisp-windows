@@ -98,17 +98,20 @@ after(async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("a new user is on Free, with its one-time credit and its hours", async () => {
+test("a new user is on Free, with this month's credit and its hours", async () => {
   const p = await call("GET", "/deskwisp/plan");
   assert.equal(p.status, 200);
   assert.equal(p.json.tier, "free_deskwisp");
   assert.equal(p.json.price_cents, 0);
   assert.equal(p.json.credit.left_micros, 1_000_000);
-  assert.equal(p.json.credit.free_left_micros, 1_000_000);
+  assert.equal(p.json.credit.plan_left_micros, 1_000_000, "Free's credit comes each month, like a plan's");
+  assert.equal(p.json.credit.free_left_micros, 0);
+  // It resets on the 1st (UTC).
+  assert.equal(new Date(p.json.credit.plan_resets_at).getUTCDate(), 1);
   assert.equal(p.json.computer_time.limit_seconds, 10 * 3600);
   assert.equal(p.json.computer_time.used_seconds, 0);
   assert.ok(Date.parse(p.json.computer_time.resets_at) > Date.now());
-  // Asked again, the one-time credit isn't given twice.
+  // Asked again, this month's credit isn't given twice.
   assert.equal((await call("GET", "/deskwisp/plan")).json.credit.left_micros, 1_000_000);
 });
 
@@ -120,7 +123,7 @@ test("a paid plan brings its month of credit, and the services server hears of i
   assert.equal(p.price_cents, 2_900);
   assert.equal(p.status, "active");
   assert.equal(p.credit.plan_left_micros, 10_000_000);
-  assert.equal(p.credit.left_micros, 11_000_000);
+  assert.equal(p.credit.left_micros, 10_000_000, "the plan's month replaces Free's");
   assert.equal(p.computer_time.limit_seconds, 60 * 3600);
   assert.ok(p.period_end);
   const told = heard.at(-1)!;

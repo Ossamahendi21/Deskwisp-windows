@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { isTier, PLANS, type Tier } from "./plans.ts";
+import { isTier, monthOf, nextMonthStart, PLANS, type Tier } from "./plans.ts";
 
 /**
  * What Deskwisp Cloud keeps: its users (signed in with Clerk), the keys their apps hold, the codes of
@@ -229,14 +229,14 @@ export class JsonStore implements Store {
     this.save();
   }
 
-  /** The same math as db/005_ai_credit.sql, for development and the tests. */
+  /** The same math as db/005_ai_credit.sql and 006_free_monthly.sql, for development and the tests. */
   async credit(userId: string): Promise<Credit> {
     const l = (this.data.credit[userId] ??= { plan: 0, planEnds: null, free: 0, grants: [] });
-    if (!l.grants.some((g) => g.kind === "free_signup")) {
-      const amount = PLANS.free_deskwisp.creditMicros;
-      l.grants.push({ kind: "free_signup", tier: "free_deskwisp", amount, invoice: null, end: null, at: Date.now() });
-      l.free += amount;
-      this.save();
+    // Free's credit for this month, when no plan credit is running (a paid plan's left after a move to Free runs out first).
+    const u = this.data.users.find((x) => x.id === userId);
+    if (u && (u.plan ?? "free_deskwisp") === "free_deskwisp" && !(l.planEnds && l.planEnds > Date.now())) {
+      const start = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1);
+      await this.grantPlan(userId, "free_deskwisp", `free:${userId}:${monthOf(start)}`, PLANS.free_deskwisp.creditMicros, start, nextMonthStart(start));
     }
     const plan = l.planEnds && l.planEnds > Date.now() ? l.plan : 0;
     return {

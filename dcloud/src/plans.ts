@@ -5,15 +5,15 @@
  * people the user can let watch or use it (People), and the AI credit each month brings.
  *
  * AI credit pays for what the bots do with AI (OpenAI, quick checks, texts), at what it costs Deskwisp
- * (cloud/pricing.ts). Free's comes once, at the first use; Pro's and Max's each month they're paid
- * for, with nothing carried over. The computer's hours are what make a plan cost Deskwisp more than
+ * (cloud/pricing.ts). Free's comes each month (db/006_free_monthly.sql); Pro's and Max's each month
+ * they're paid for. Nothing carries over. The computer's hours are what make a plan cost Deskwisp more than
  * its credit, so they're capped too.
  *
  * The tiers' names are the app's (cloud/protocol.ts DESKWISP_TIERS, kept in step with this); billing
  * (Polar) sets a user's tier, and until then everyone is on Free.
  */
 export const PLANS = {
-  free_deskwisp: { name: "Free", priceCents: 0, creditMicros: 1_000_000, monthly: false, hours: 10, computers: 1, screens: 1, people: 0 },
+  free_deskwisp: { name: "Free", priceCents: 0, creditMicros: 1_000_000, monthly: true, hours: 10, computers: 1, screens: 1, people: 0 },
   pro_deskwisp: { name: "Pro", priceCents: 2_900, creditMicros: 10_000_000, monthly: true, hours: 60, computers: 1, screens: 2, people: 2 },
   max_deskwisp: { name: "Max", priceCents: 19_900, creditMicros: 100_000_000, monthly: true, hours: 300, computers: 1, screens: 4, people: 5 },
 } as const;
