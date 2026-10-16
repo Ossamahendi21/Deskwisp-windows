@@ -895,6 +895,26 @@ async function botTurn(botId: string, chatId: string, opts: TurnOptions = {}): P
       recordTokens("chat", response.model, response.usage, botId);
     }
 
+    // A tapback and no words, to a message that wants words ("hi", a question): some models (the small one
+    // Free runs on) call react and stop, waiting for its output. Given it, they answer. Not for a message a
+    // tapback says all of ("thanks!", "ok"), where it is the whole answer.
+    const calledNow = response.output.filter((o) => o.type === "function_call") as { call_id: string; name: string }[];
+    if (answering && !response.output_text?.trim() && calledNow.length && calledNow.every((c) => c.name === "react") && !ackOnly(answering.text)) {
+      earlier.push(...response.output.filter((o) => o.type === "function_call"));
+      stillOurs(ours);
+      response = await client.responses.create({
+        model: CHAT_MODEL,
+        reasoning: CHAT_REASONING,
+        instructions,
+        previous_response_id: response.id,
+        input: calledNow.map((c) => ({ type: "function_call_output" as const, call_id: c.call_id, output: `Tapped back. ${owner}'s message wants an answer in words too: reply now.` })),
+        tools,
+        tool_choice: "none",
+      }, usageTags("chat", botId));
+      stillOurs(ours);
+      recordTokens("chat", response.model, response.usage, botId);
+    }
+
     // A task started from a message with images: it gets where the images are (files on the user's PC;
     // a cloud computer can't open them, so the goal has to say what's in them).
     const pics = (answering?.images ?? []).map((i) => uploadPath(i.id)?.path).filter(Boolean) as string[];
@@ -1053,6 +1073,17 @@ async function botTurn(botId: string, chatId: string, opts: TurnOptions = {}): P
     // Still drawing a picture: it keeps typing until that's in (drawFor).
     if (ours() && !drawing.get(`${chatId} ${botId}`)) setTyping(chatId, botId, false);
   }
+}
+
+/**
+ * A message a tapback says all of: thanks, ok, a laugh, an emoji or two. Anything else wants words
+ * when the bot only tapbacked it (botTurn).
+ */
+export function ackOnly(text: string) {
+  const t = text.trim().toLowerCase().replace(/[\s!.,~]+$/u, "");
+  if (!t) return true;
+  if (/^[\p{Extended_Pictographic}\p{Emoji_Component}\s]+$/u.test(t) && !/[0-9#*]/.test(t)) return true;
+  return /^(thanks?( (you|a lot|so much))?|thx|ty|tysm|ok(ay)?|k|kk|cool|nice|great|perfect|awesome|got it|sounds good|good|done|lol|lmao|haha+|hehe+|ha|yay|merci( beaucoup)?|d'accord|parfait|safi|wakha|okey|shukran|chokran|شكرا|واخا|صافي|مزيان|تبارك الله)$/u.test(t);
 }
 
 /** Pictures being made, by chat and bot ("<chatId> <botId>"), so the bot shows as typing until they're in. */
