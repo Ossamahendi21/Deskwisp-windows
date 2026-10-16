@@ -148,7 +148,8 @@ async function matchEmail(page: Page): Promise<ScreenRead["email"]> {
 export async function readScreen(botId: string, display: number, endpoint: string, task: string, sessionId?: string, opts: { signIn?: boolean } = {}): Promise<ScreenRead | null> {
   const page = await pageText(endpoint).catch(() => null);
   if (!page?.url || page.url === "about:blank") return null;
-  const a = await decide({ task, page: { url: page.url, title: page.title, text: page.text, fields: page.fields } }, QUESTIONS);
+  // On every page change: Jev's alone (fast and cheap enough for that), never a model call per page.
+  const a = await decide({ task, page: { url: page.url, title: page.title, text: page.text, fields: page.fields } }, QUESTIONS, { jevOnly: true });
   if (!a) return null;
   const pick = chose(a.blocker);
   // Only a page that stands between the bot and its task needs the user; one it just has to read doesn't.
