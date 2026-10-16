@@ -1166,6 +1166,15 @@ export async function startScreen(botId: string, n: number): Promise<{ display: 
     void ensureComputer(b.id);
     return { waiting: true };
   }
+  // Asleep: it wakes for you, like Take control (or says why it can't: Free's hours used, say).
+  if (getState().host === "horafirm") {
+    const why = await wakeForUser(c.computerId);
+    update((state) => {
+      const x = state.bots.find((y) => y.id === c.id);
+      if (x) x.wakeFailed = why ? { why, at: Date.now() } : undefined;
+    });
+    if (why) throw new Error(`The computer couldn't wake up. ${why}`);
+  }
   const open = getState().slots?.find((x) => x.botId === botId && x.n === n);
   const display = open?.display ?? freeDisplayFor(b, n);
   if (display === null) throw new Error("All four of the computer's screens are at work. Close one, or wait for a task to finish.");
@@ -1176,6 +1185,11 @@ export async function startScreen(botId: string, n: number): Promise<{ display: 
     if (!open) await closeSlot(botId, n);
     throw e;
   }
+  // A fresh screen, ready to use: its Chrome on a page, not a blank one.
+  const endpoint = screenEndpoint(b, display);
+  if (endpoint && (await currentUrl(endpoint).catch(() => null)) === "about:blank") await navigate(endpoint, "https://www.google.com").catch(() => {});
+  // Two minutes from now it closes unless someone uses it (a task, you driving it).
+  slotIdle(botId, display);
   return { display };
 }
 

@@ -516,7 +516,9 @@ export function ComputerView({
       <LiveScreen key={`${viewKey}-v${interactive}`} bot={b} botId={b.id} display={display} interactive={interactive} onInput={sendInput} onFail={recheck} className="h-full w-full" />
     );
   // A real desktop is the computer itself, so it always shows; elsewhere a free screen shows the bot's home screen.
-  const showingReal = view === "desktop" || view === "reader" || !!takeover || busy || showReal || !!read?.blocker || card === "email";
+  // A screen the user started shows as it is: they opened it to use it.
+  const startedByYou = !mac && (state.slots ?? []).some((x) => x.botId === b.id && x.display === display && x.by === "user");
+  const showingReal = view === "desktop" || view === "reader" || !!takeover || busy || showReal || startedByYou || !!read?.blocker || card === "email";
   const screen = asleep ? (
     <AsleepScreen bot={b} host={c} waking={inUse} hoursOut={hoursOut && time ? freeHoursOutLine(time) : undefined} />
   ) : closedHere ? (
@@ -776,7 +778,7 @@ export function ComputerView({
                 {b.name}
               </span>
             )}
-            {!busy && !asleep && view !== "desktop" && (
+            {!busy && !asleep && !startedByYou && view !== "desktop" && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -851,7 +853,7 @@ export function ComputerView({
       {mode === "panel" && (
         <div className="flex gap-2.5">
           {mySlots.map(({ n, display: d }) => {
-            if (d === undefined) return <ClosedTile key={`closed-${n}`} n={n} on={closedHere && firstClosed === n} onPick={() => onDisplay(-n)} />;
+            if (d === undefined) return <ClosedTile key={`closed-${n}`} bot={b} n={n} on={closedHere && firstClosed === n} asleep={asleep} onOpen={onDisplay} />;
             const s = holding.get(d);
             const inView = d === display && !grid;
             const w = watchOn(d);
@@ -1269,18 +1271,33 @@ function AsleepScreen({ bot: b, host, waking, hoursOut }: { bot: Bot; /** The bo
 /** "1 screen", "3 screens". */
 export const screenWord = (n: number) => `${n} screen${n === 1 ? "" : "s"}`;
 
-/** Start one of a bot's screens (it opens on a free display of its computer); says why when it can't. */
+/**
+ * Start one of a bot's screens: it opens on a free display of its computer (waking the computer when it's
+ * asleep), with its Chrome up, and shows. While the computer is still being set up it tries again every
+ * few seconds; says why when it can't.
+ */
 function useStartScreen(b: Bot, n: number, onOpen: (display: number) => void) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const start = async () => {
+    if (busy) return;
     setBusy(true);
     setNote(null);
-    const res = await post("/api/computer/screen", { botId: b.id, n, action: "start" }).catch(() => null);
-    const j = ((await res?.json().catch(() => null)) ?? {}) as { display?: number; waiting?: boolean; error?: string };
-    setBusy(false);
-    if (res?.ok && typeof j.display === "number") onOpen(j.display);
-    else setNote(j.waiting ? "The computer is being set up. Try again in a minute." : (j.error ?? "Couldn't start it. Try again."));
+    const until = Date.now() + 3 * 60_000;
+    for (;;) {
+      const res = await post("/api/computer/screen", { botId: b.id, n, action: "start" }).catch(() => null);
+      const j = ((await res?.json().catch(() => null)) ?? {}) as { display?: number; waiting?: boolean; error?: string };
+      if (res?.ok && typeof j.display === "number") {
+        setBusy(false);
+        return onOpen(j.display);
+      }
+      if (!j.waiting || Date.now() > until) {
+        setBusy(false);
+        return setNote(j.waiting ? "The computer is still being set up. Try again in a minute." : (j.error ?? "Couldn't start it. Try again."));
+      }
+      setNote("Setting up the computer…");
+      await new Promise((r) => setTimeout(r, 5000));
+    }
   };
   return { busy, note, start };
 }
@@ -1358,16 +1375,17 @@ function StartScreen({ state, bot: b, n, onOpen }: { state: AppState; bot: Bot; 
         </form>
       ) : (
         <div className="flex flex-wrap justify-center gap-2">
+          <button onClick={() => void start()} disabled={busy} title={`Open screen ${n}: it's ready to use, and ${b.name} works there too`} className="flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-[13px] font-semibold leading-4 text-white disabled:opacity-60">
+            <PlayIcon />
+            {busy ? "Starting…" : "Start"}
+          </button>
           {last && !live(last) && (
-            <button onClick={() => void act({ action: "continue" })} disabled={sending} title={`${b.name} carries on with "${last.title}" on this screen`} className="rounded-full bg-ink px-4 py-2 text-[13px] font-semibold leading-4 text-white disabled:opacity-60">
-              {sending ? "Continuing…" : "Continue"}
+            <button onClick={() => void act({ action: "continue" })} disabled={sending} title={`${b.name} carries on with "${last.title}" on this screen`} className={ghost}>
+              {sending ? "Continuing…" : "Continue last task"}
             </button>
           )}
-          <button onClick={() => setAsking(true)} className={last && !live(last) ? ghost : "rounded-full bg-ink px-4 py-2 text-[13px] font-semibold leading-4 text-white"}>
+          <button onClick={() => setAsking(true)} className={ghost}>
             New task
-          </button>
-          <button onClick={() => void start()} disabled={busy} title="Open it for you to use" className={ghost}>
-            {busy ? "Opening…" : "Just open it"}
           </button>
         </div>
       )}
@@ -1376,27 +1394,39 @@ function StartScreen({ state, bot: b, n, onOpen }: { state: AppState; bot: Bot; 
   );
 }
 
-/** A screen of the bot's that isn't open, among the thumbnails: picking it shows it in the frame, to continue, give a task or open. */
-function ClosedTile({ n, on, onPick }: { n: number; on: boolean; onPick: () => void }) {
+/**
+ * A screen of the bot's that isn't open, among the thumbnails. Start opens it straight away (waking the
+ * computer if it's asleep) and shows it, like a task taking a screen.
+ */
+function ClosedTile({ bot: b, n, on, asleep, onOpen }: { bot: Bot; n: number; on: boolean; asleep: boolean; onOpen: (display: number) => void }) {
+  const { busy, note, start } = useStartScreen(b, n, onOpen);
+  const failed = note && note !== "Setting up the computer…";
   return (
     <button
-      onClick={onPick}
-      title={`Screen ${n} is off: continue its last task, give it a new one, or open it`}
+      onClick={() => void start()}
+      disabled={busy}
+      title={failed ? note : asleep ? `Wake the computer and open screen ${n}` : `Open screen ${n}`}
       className={`group/thumb relative flex min-w-0 flex-1 basis-0 flex-col gap-1.5 rounded-xl p-1.5 text-left ${on ? "bg-white shadow-[0_0_0_2px_#16132B]" : "shadow-[inset_0_0_0_1.5px_#E2E2DF] hover:bg-[#F7F7F6]"}`}
     >
       <div className="relative flex h-[52px] shrink-0 items-center justify-center rounded-[7px] bg-[#F4F4F2]">
-        <span className="flex items-center gap-1 rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold leading-[14px] text-white">
-          <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden>
-            <path d="M2.5 1.5v7l6-3.5z" fill="currentColor" />
-          </svg>
-          Start
+        <span className={`flex items-center gap-1 rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold leading-[14px] text-white ${busy ? "animate-pulse" : ""}`}>
+          {!busy && <PlayIcon size={9} />}
+          {busy ? (asleep ? "Waking…" : "Starting…") : "Start"}
         </span>
       </div>
       <div className="flex min-w-0 items-center gap-[5px] text-[11px] leading-[14px]">
         <span className="shrink-0 font-semibold text-[#6B6B6B]">Screen {n}</span>
-        <span className="truncate text-[#9A9A98]">Off</span>
+        <span className={`truncate ${failed ? "text-[#B42318]" : "text-[#9A9A98]"}`}>{failed ? note : busy ? (note ?? "Opening") : "Off"}</span>
       </div>
     </button>
+  );
+}
+
+function PlayIcon({ size = 10 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 10 10" aria-hidden>
+      <path d="M2.5 1.5v7l6-3.5z" fill="currentColor" />
+    </svg>
   );
 }
 

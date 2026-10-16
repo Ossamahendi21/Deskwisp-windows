@@ -488,7 +488,7 @@ export function ChatView({
               e.preventDefault();
               void send();
             }}
-            className="flex flex-col rounded-[22px] bg-white py-2 pl-2 pr-2 shadow-[0_0_0_1px_#E2E2DF]"
+            className="relative flex flex-col rounded-[22px] bg-white py-2 pl-2 pr-2 shadow-[0_0_0_1px_#E2E2DF]"
           >
             <AttachmentTray items={attach.items} onRemove={attach.remove} />
             <div className="flex items-end gap-2">
@@ -526,6 +526,7 @@ export function ChatView({
                 attach.add(files);
               }}
               onKeyDown={(e) => e.key === "Escape" && replying && (e.stopPropagation(), setReplying(null))}
+              mentions={c.kind === "group" ? members : undefined}
               placeholder={replying ? "Reply" : solo ? `Text ${solo.name}` : "Message the group · @ to mention"}
               className="min-w-0 flex-1 bg-transparent py-[6px] text-[14px] leading-[18px] outline-none placeholder:text-[#9A9A98]"
             />
@@ -553,6 +554,7 @@ export function ChatView({
           rootId={openReplies}
           messages={messages}
           showSender={c.kind === "group"}
+          mentions={c.kind === "group" ? members : undefined}
           onClose={() => setRepliesOpen(null)}
           onSend={(text) => post(`/api/chats/${encodeURIComponent(c.id)}/messages`, { text, replyTo: openReplies })}
           rowProps={rowProps}
@@ -575,6 +577,7 @@ function RepliesView({
   rootId,
   messages,
   showSender,
+  mentions,
   onClose,
   onSend,
   rowProps,
@@ -586,6 +589,7 @@ function RepliesView({
   rootId: string;
   messages: Message[];
   showSender: boolean;
+  mentions?: Bot[];
   onClose: () => void;
   onSend: (text: string) => Promise<unknown>;
   rowProps: (m: Message) => Pick<RowProps, "replyCount" | "root" | "onReply" | "onOpenReplies" | "onShowMac">;
@@ -643,13 +647,14 @@ function RepliesView({
             setDraft("");
             void onSend(text);
           }}
-          className="m-3 mt-0 flex items-end gap-2.5 rounded-[22px] bg-white py-2 pl-4 pr-2 shadow-[0_0_0_1px_#E2E2DF]"
+          className="relative m-3 mt-0 flex items-end gap-2.5 rounded-[22px] bg-white py-2 pl-4 pr-2 shadow-[0_0_0_1px_#E2E2DF]"
         >
           <ComposerInput
             autoFocus
             value={draft}
             onChange={setDraft}
             onKeyDown={(e) => e.key === "Escape" && onClose()}
+            mentions={mentions}
             placeholder="Reply"
             className="min-w-0 flex-1 bg-transparent py-[6px] text-[14px] leading-[18px] outline-none placeholder:text-[#9A9A98]"
           />
