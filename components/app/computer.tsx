@@ -1253,12 +1253,12 @@ function AsleepScreen({ bot: b, host, waking, hoursOut }: { bot: Bot; /** The bo
   return (
     <div className="relative h-full w-full overflow-hidden" style={{ backgroundImage: botWash(b) }} data-asleep={waking ? "waking" : "asleep"}>
       {waking ? (
-        <Waking thumbnail={false} bot={b} text={`Waking ${host.name}'s computer…`} />
+        <Waking thumbnail={false} bot={b} text={`Waking ${b.name}'s computer…`} />
       ) : (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-6 text-center">
           <Mascot botId={b.id} color={b.color} size={40} />
           <span className="rounded-full bg-white/85 px-3 py-1 text-[12.5px] font-medium leading-4 text-[#3A3A38] shadow-[0_0_0_1px_#0000000D,0_6px_16px_-8px_#00000033]">
-            {`${host.name}'s computer is asleep`}
+            {`${b.name}'s computer is asleep`}
           </span>
           <span className="max-w-[300px] text-[12px] leading-4 text-[#6B6B6B]">{line}</span>
         </div>
@@ -1502,7 +1502,7 @@ function NoComputer({ state, bot: b, host }: { state: AppState; bot: Bot; /** Th
   if (host.computerStatus === "cloning")
     return (
       <div className="relative aspect-[16/10] w-full overflow-hidden rounded-[20px]" style={{ backgroundImage: botWash(b) }}>
-        <Waking thumbnail={false} bot={b} text={`Setting up ${host.name}'s computer… about a minute`} />
+        <Waking thumbnail={false} bot={b} text={`Setting up ${b.name}'s computer… about a minute`} />
       </div>
     );
   return (
@@ -1512,7 +1512,7 @@ function NoComputer({ state, bot: b, host }: { state: AppState; bot: Bot; /** Th
         {b.isMain
           ? `${b.name} doesn't have a computer yet. ${free ? `Your free Deskwisp computer starts the first time ${b.name} needs it` : `It starts the first time ${b.name} needs one`}, or set it up now. The bots you add work on it too, unless you give one its own.`
           : host.id !== b.id
-            ? `${b.name} works on ${host.name}'s computer, which isn't set up yet. It starts the first time either of them needs it.`
+            ? `${b.name}'s computer isn't set up yet. It starts the first time ${b.name} needs it, or set it up now.`
             : plan?.plan?.deskwisp
               ? `${b.name} doesn't have a computer yet. It gets a Deskwisp computer of its own, fresh from the Deskwisp template.`
               : `${b.name} doesn't have a computer yet. It gets a copy of the main bot's computer: apps, logins and open screens.`}
@@ -1532,7 +1532,7 @@ function NoComputer({ state, bot: b, host }: { state: AppState; bot: Bot; /** Th
         />
       ) : (
         <button onClick={() => void post("/api/computer", { botId: b.id })} className="rounded-full bg-ink px-4 py-2 text-[13px] font-semibold leading-4 text-white">
-          {`Set up ${host.name}'s computer`}
+          {`Set up ${b.name}'s computer`}
         </button>
       )}
     </div>
@@ -1561,7 +1561,7 @@ export function ComputerSummary({ state, bot: b, className = "", onOpen }: { sta
             : b.isMain
               ? `${b.name}'s cloud computer`
               : c.id !== b.id
-                ? `${screenWord(screenCount(state, b))} of its own on ${c.name}'s cloud computer`
+                ? `${b.name}'s cloud computer · ${screenWord(screenCount(state, b))}`
                 : b.computerId
                   ? "Its own cloud computer, set up like the main bot's"
                   : "Its own, set up on its first task"}

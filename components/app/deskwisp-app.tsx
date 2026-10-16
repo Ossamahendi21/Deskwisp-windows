@@ -1126,7 +1126,7 @@ const tabId = () => `tab_${Date.now().toString(36)}${Math.random().toString(36).
 /** A bot's computer, in plain words. A bot that shares says whose computer it works on. */
 const computerNow = (state: AppState, b: AppState["bots"][number]) => {
   const c = workBot(b, state.bots);
-  if (state.host !== "mac" && c.id !== b.id) return `${screenWord(screenCount(state, b))} of its own on ${c.name}'s computer`;
+  if (state.host !== "mac" && c.id !== b.id) return `${screenWord(screenCount(state, b))} of its own`;
   return state.host === "mac" ? "Uses this PC" : b.computerStatus === "ready" ? "Ready" : b.computerStatus === "cloning" ? "Setting up" : b.computerStatus === "none" ? "Set up on its first task" : "Couldn't be set up yet";
 };
 
