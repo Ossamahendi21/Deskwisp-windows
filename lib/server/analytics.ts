@@ -20,8 +20,8 @@ import { getState } from "./store";
 type Client = Pick<PostHog, "capture" | "captureException" | "flush" | "shutdown">;
 const g = globalThis as unknown as { deskwispPosthog?: Client };
 
-/** Whether the PC sends usage events now. */
-export const analyticsOn = () => telemetryHere() && cloudOn() && !!getState().account && !getState().analyticsOff;
+/** Whether the PC sends usage events now: never while Deskwisp has no analytics project of its own (POSTHOG_PROJECT). */
+export const analyticsOn = () => !!POSTHOG_PROJECT && telemetryHere() && cloudOn() && !!getState().account && !getState().analyticsOff;
 
 /** Which Deskwisp this is, with horafirm-web's values for its `environment` property. */
 export function telemetryEnvironment(): "production" | "staging" | "development" {
