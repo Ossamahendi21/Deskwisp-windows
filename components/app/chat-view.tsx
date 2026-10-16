@@ -10,6 +10,7 @@ import { CrmNote } from "./crm";
 import { MacIcon } from "./mac-tab";
 import { AttachmentTray, MessageImages, useAttachments } from "./attachments";
 import { ComposerInput } from "./composer-input";
+import { CreditBanners } from "./credit-banners";
 import { GroupMembers } from "./group-members";
 import { MicButton } from "./mic-button";
 import { ChatAvatar, chatName, clockTime, needsYou, post, StatusIcon, teamOf, useNow } from "./ui";
@@ -485,7 +486,7 @@ export function ChatView({
             <div className="absolute inset-0 backdrop-blur-[6px] [mask-image:linear-gradient(to_top,black_30%,transparent_75%)]" />
               <div className="absolute inset-0 bg-gradient-to-t from-white from-45% via-white/80 via-75% to-white/0" />
             </div>
-          {state.credits?.out && <OutOfCredit onUpgrade={onUpgrade} />}
+          <CreditBanners state={state} onUpgrade={onUpgrade} />
           {appAsks.length > 0 && (
             <div className="mb-2.5 flex flex-col gap-2">
               {appAsks.map((a) => (
@@ -2002,25 +2003,3 @@ function AppApprovalCard({ state, approval: a }: { state: AppState; approval: Ap
   );
 }
 
-/**
- * The user's AI credit is used up (state.credits): the bots are paused until there's more. Upgrade
- * opens the Account sheet. While it shows, Deskwisp asks Horafirm again whenever the app comes back to the
- * front (the user may have just paid in the browser), and the card goes once there's credit.
- */
-function OutOfCredit({ onUpgrade }: { onUpgrade?: () => void }) {
-  useEffect(() => {
-    const check = () => void fetch("/api/plan?fresh=1", { cache: "no-store" }).catch(() => {});
-    window.addEventListener("focus", check);
-    return () => window.removeEventListener("focus", check);
-  }, []);
-  return (
-    <div className="mb-2.5 flex items-center gap-3 rounded-[16px] bg-white px-3.5 py-2.5 shadow-[0_0_0_1px_#E2E2DF]">
-      <span className="min-w-0 flex-1 text-[12.5px] leading-[17px] text-[#3A3A38]">Out of AI credit. Your bots are paused until you add more.</span>
-      {onUpgrade && (
-        <button onClick={onUpgrade} className="shrink-0 rounded-full bg-ink px-3 py-1.5 text-[12.5px] font-medium leading-4 text-white">
-          Upgrade
-        </button>
-      )}
-    </div>
-  );
-}

@@ -30,6 +30,16 @@ step. AI credit is spent at what each use costs Deskwisp (`cloud/pricing.ts`). A
 on E2B) costs about $0.17 an hour while it runs; it sleeps after 15 minutes nobody uses it, and only
 the time it runs counts toward the plan's hours.
 
+Which model each plan runs on (cloud/proxy.ts `freeModel`, enforced on the server whatever the app asks):
+
+| | Free | Pro and Max |
+|---|---|---|
+| Chat, quick checks | gpt-6-luna ($0.10 in, $0.50 out per 1M tokens) | gpt-6.1-sol ($2.00 in, $10.00 out); quick checks on gpt-6-luna |
+| Tasks on the computer | gpt-6-luna (`DESKWISP_FREE_TASK_MODEL` to change) | gpt-6.1-sol, gpt-6-astra for hard ones ($10.00 in, $50.00 out) |
+
+When this month's credit is nearly used, the chat says so with Upgrade; when it runs out, the bots stop,
+and the tasks it stopped carry on by themselves once there's credit again (an upgrade, or the 1st).
+
 Until billing (Polar) is in, put someone on a plan by hand:
 
 ```bash

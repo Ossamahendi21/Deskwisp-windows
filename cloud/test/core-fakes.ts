@@ -16,6 +16,8 @@ export const TEST_DATABASE_URL = process.env.DESKWISP_TEST_DATABASE_URL || "post
 /** An advisory lock a test file holds shared while it uses horafirm-web's credit ledger, and core-credit's access test exclusively while it takes access away. */
 export const LEDGER_IN_USE = "deskwisp-tests-ai-credit-ledger";
 process.env.DESKWISP_DATABASE_URL = TEST_DATABASE_URL;
+// Free's cheap model is tested on its own (core-free-model.test.ts): elsewhere, the model the test asks for.
+process.env.DESKWISP_FREE_MODEL ??= "off";
 process.env.DESKWISP_CLOUD_SECRET = randomBytes(32).toString("base64");
 process.env.DESKWISP_CLOUD_PUBLIC_URL = "https://deskwisp-api.test";
 

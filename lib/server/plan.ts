@@ -113,7 +113,11 @@ export async function readDeskwispPlan(key: string): Promise<DeskwispPlan | null
       : {}),
     ...(computerTimeOf(a.computer_time) ?? {}),
   };
-  if ((plan.credit?.leftMicros ?? 0) > 0 && getState().credits?.out) update((st) => (st.credits = undefined));
+  if ((plan.credit?.leftMicros ?? 0) > 0 && getState().credits?.out) {
+    update((st) => (st.credits = undefined));
+    // What the credit running out stopped carries on now (an upgrade, or the month's credit).
+    void import("./sessions").then((m) => m.resumeCreditStopped()).catch(() => {});
+  }
   return plan;
 }
 

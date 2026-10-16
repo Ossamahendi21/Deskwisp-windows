@@ -172,7 +172,10 @@ export function shortOfCredit(e: unknown): string | undefined {
 }
 
 /** What a bot says, once, in place of the error, when the credit ran out under it. */
-export const OUT_OF_CREDIT = "I'm out of AI credit, so I've stopped. Upgrade in Settings to keep me going.";
+export const OUT_OF_CREDIT = "I'm out of AI credit, so I've stopped. Upgrade and I'll keep going right where I left off.";
+
+/** What a bot says when a task of its stopped for want of AI credit: it picks it up again once there's more. */
+export const outOfCreditOn = (title: string) => `I ran out of AI credit partway through "${title}". Upgrade and I'll pick it up right where I stopped.`;
 
 /**
  * Mark the AI credit used up when `e` says so (state.credits: the chat shows it with Upgrade, and the

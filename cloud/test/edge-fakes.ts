@@ -18,6 +18,8 @@ import { makeServer } from "../server.ts";
 
 export const TEST_DATABASE_URL = process.env.DESKWISP_TEST_DATABASE_URL || "postgres://deskwisp_app:deskwisp-local@127.0.0.1:55432/horafirm_edge";
 process.env.DESKWISP_DATABASE_URL = TEST_DATABASE_URL;
+// Free's cheap model is tested on its own (core-free-model.test.ts): elsewhere, the model the test asks for.
+process.env.DESKWISP_FREE_MODEL ??= "off";
 process.env.DESKWISP_CLOUD_SECRET = randomBytes(32).toString("base64");
 process.env.OPENAI_API_KEY = "sk-test-not-a-real-key";
 process.env.OPENAI_WEBHOOK_SECRET = `whsec_${randomBytes(24).toString("base64")}`;

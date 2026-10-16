@@ -11,7 +11,7 @@ import { seal } from "./crypto.ts";
 import { objectInfo, objectOwner, ownObject, query, sessionUsed } from "./db.ts";
 import { HttpError, readBody, refuseUpgrade, type Route, type Upgrade } from "./http.ts";
 import { recordLine } from "./lines.ts";
-import { refuseSecondPlanNumber, requireRoomForNumber, sendingStopped } from "./plans.ts";
+import { refuseSecondPlanNumber, requireRoomForNumber, sendingStopped, tierOf } from "./plans.ts";
 import { imageModelPriced, numberCost, smsSegments } from "./pricing.ts";
 import { PLAN_REQUIRED, USAGE_APP_HEADER, USAGE_BOT_HEADER, USAGE_SOURCE_HEADER } from "./protocol.ts";
 import { accountFor, composioUserId, honchoPrefix, ownsWorkspace } from "./session.ts";
@@ -322,6 +322,20 @@ async function openaiRefs(call: Call) {
  * search) or that reach elsewhere (remote MCP servers) aren't passed through: the cloud couldn't count them.
  */
 const RESPONSES_TOOLS = new Set(["function", "computer", "web_search", "web_search_preview"]);
+/**
+ * Free runs on its cheap model (config.freeModel), whatever the app asked for: a month's credit then
+ * buys many answers, and a hard task can't spend it in a minute on the dearest model. The body is
+ * changed before it's checked and sent on, so the model asked, priced and kept is that one.
+ */
+async function freeModel(call: Call, where: "responses" | "agent") {
+  const want = where === "agent" ? config.freeTaskModel() : config.freeModel();
+  if (!want || want === "off" || !isObject(call.json)) return;
+  if ((await tierOf(call.user.id).catch(() => "free_deskwisp")) !== "free_deskwisp") return;
+  if (where === "responses") {
+    if (typeof call.json.model === "string") call.json.model = want;
+  } else if (isObject(call.json.agent) && typeof call.json.agent.model === "string") call.json.agent.model = want;
+}
+
 function responsesTools(call: Call) {
   const tools = isObject(call.json) && Array.isArray(call.json.tools) ? call.json.tools : [];
   for (const t of tools) {
@@ -450,7 +464,10 @@ const openai: Spec = {
     rule("POST v1/responses", {
       spends: true,
       readToEnd: true,
-      check: responsesTools,
+      check: async (call) => {
+        await freeModel(call, "responses");
+        responsesTools(call);
+      },
       json: (call, data) => recordResponse(call, data as ResponseObject, true),
       event: (call, data) => {
         const e = data as { type?: string; response?: ResponseObject };
@@ -514,7 +531,10 @@ const openai: Spec = {
     // (admitTurn: 402, 403 or 429), and it's read to the end, so a session made for a Mac that went away is still the user's, and watched.
     rule("POST v1/agents/sessions", {
       readToEnd: true,
-      check: async (call) => void (call.start = await admitTurn(call.user.id, undefined, modelAsked(call))),
+      check: async (call) => {
+        await freeModel(call, "agent");
+        call.start = await admitTurn(call.user.id, undefined, modelAsked(call));
+      },
       json: async (call, data) => {
         const s = data as { id?: unknown; object?: unknown };
         if (s.object !== "agent.session" || typeof s.id !== "string") return;

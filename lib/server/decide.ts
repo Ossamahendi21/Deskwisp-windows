@@ -66,7 +66,8 @@ export async function decide<K extends string>(
 export const chose = (a: Answer | undefined) => (a?.type === "choice" ? a : undefined);
 export const yes = (a: Answer | undefined) => (a?.type === "noul" ? a.noul : undefined);
 
-const DECIDE_MODEL = process.env.DESKWISP_DECIDE_MODEL ?? process.env.DESKWISP_CHAT_MODEL ?? "gpt-6.1-sol";
+// A small model: these are short yes/no and pick-one questions (Free runs on its own cheap one anyway).
+const DECIDE_MODEL = process.env.DESKWISP_DECIDE_MODEL ?? "gpt-6-luna";
 
 /** The JSON answer one question takes from the model: a choice's key, or how likely a yes/no is true, or a score's place. */
 function answerSchema(q: Question) {

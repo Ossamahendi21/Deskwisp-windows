@@ -9,7 +9,7 @@ import { dirname, join } from "node:path";
 import { AI_CREDIT_EMPTY, AI_CREDIT_LOW } from "@/cloud/protocol";
 import { BLOCKER_LABEL, botChatId, botSlots, DISPLAYS, screenCount, live, MAIN_WORKSPACE, MAX_SCREENS, workBot, workspaceOf, type Bot, type Effort, type Session, type ThreadReply } from "@/lib/types";
 import { closeSlot, displayBusy, freeDisplayFor, openSlot, slotFor, slotForN, slotIdle, sweepSlots } from "./slots";
-import { CloudError, creditsOut, executorKey, noteOutOfCredit, OUT_OF_CREDIT, outOfCreditError, shortOfCredit } from "./cloud";
+import { CloudError, creditsOut, executorKey, noteOutOfCredit, OUT_OF_CREDIT, outOfCreditError, outOfCreditOn, shortOfCredit } from "./cloud";
 import { appsMcp, appsSocket, browserMcp, cdpPort, cuaDriverHere, currentUrl, ensureChrome, MAC_BROWSER_TOOLS, MAC_UI_TOOLS, macTaskPort, macUiMcp, navigate, startExecutor, stopExecutor, taskDir, taskSockets } from "./local";
 import { relayNewComputer } from "./relay";
 import { computerAsleepError, computerWakingError, madeByThisServer, madeReady, horafirm, HorafirmError, screenId, wakeWaitMs, type HorafirmScreen } from "./horafirm";
@@ -491,6 +491,18 @@ export function replyToSession(sessionId: string, text: string, note?: string, f
     patchSession(sessionId, { status: "queued", error: undefined, endedAt: undefined });
     void pump();
   } else steerers.get(sessionId)?.();
+}
+
+/**
+ * The AI credit is back (an upgrade, or the month's): the tasks it stopped in the last three days
+ * carry on where they stopped, each once. Each says so in its thread.
+ */
+export function resumeCreditStopped() {
+  const since = Date.now() - 3 * 86_400_000;
+  for (const s of getState().sessions.filter((x) => x.creditStopped && !live(x) && (x.endedAt ?? 0) > since)) {
+    patchSession(s.id, { creditStopped: undefined });
+    replyToSession(s.id, "Your AI credit is back. Carry on where you stopped: look at the screen as it is now before you act.", "Picked up again: your AI credit is back");
+  }
 }
 
 /** A screen the computer's ledger says is taken, though Deskwisp thought it free. */
@@ -1876,7 +1888,7 @@ async function run(sessionId: string) {
     // Not started or stopped by Deskwisp Cloud for want of more AI credit, with some left (cloud/turn-guard.ts): not out of it.
     const low = stopped.has(sessionId) ? undefined : (shortOfCredit(e) ?? freeHoursUsed(e));
     const error = stopped.has(sessionId) ? (getState().takeover?.sessionId === sessionId ? "Paused while you took over" : "Stopped by you") : credit ? OUT_OF_CREDIT : (low ?? (e as Error).message);
-    patchSession(sessionId, { status: "failed", error, endedAt: Date.now(), offerMac: undefined });
+    patchSession(sessionId, { status: "failed", error, endedAt: Date.now(), offerMac: undefined, ...(credit ? { creditStopped: true } : {}) });
     taskEnded(
       session(sessionId) ?? s,
       stopped.has(sessionId)
@@ -1894,7 +1906,7 @@ async function run(sessionId: string) {
       who,
     );
     // Out of AI credit, or short of it: said once, plainly, in the chat only (never by email, text or a channel).
-    if (credit) addMessage({ chatId: s.chatId, role: "bot", botId: b.id, text: OUT_OF_CREDIT, sessionIds: [sessionId], resultOf: sessionId });
+    if (credit) addMessage({ chatId: s.chatId, role: "bot", botId: b.id, text: outOfCreditOn(s.title), sessionIds: [sessionId], resultOf: sessionId });
     else if (low) addMessage({ chatId: s.chatId, role: "bot", botId: b.id, text: `I couldn't finish ${s.title}${onMac ? " on your PC" : ""}: ${error}`, sessionIds: [sessionId], resultOf: sessionId });
     else if (!stopped.has(sessionId)) {
       const failed = addMessage({ chatId: s.chatId, role: "bot", botId: b.id, text: `I couldn't finish ${s.title}${onMac ? " on your PC" : ""}: ${error}`, sessionIds: [sessionId], resultOf: sessionId });

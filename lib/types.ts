@@ -381,6 +381,8 @@ export type Session = {
   onWatch?: string;
   /** Which of its bot's screens it runs (or ran) on, by number (lib/server/slots.ts): continued there, or started there by the user. */
   screenN?: number;
+  /** It stopped because the AI credit ran out: it carries on by itself once there's credit again (an upgrade, the month's). */
+  creditStopped?: boolean;
   /** Where it runs: the bot's cloud computer (also when unset, as older threads are), or a Chrome of its own on the user's PC. */
   runsOn?: "cloud" | "mac";
   /** Deskwisp is still deciding where it runs. */

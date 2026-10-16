@@ -42,6 +42,9 @@ type Rates = { input: number; cached: number; cacheWrite: number; output: number
 const MODELS: { model: RegExp; rates: Rates }[] = [
   { model: /^gpt-6\.1-sol(-\d{4}-\d{2}-\d{2})?$/, rates: { input: 2, cached: 0.1, cacheWrite: 2.5, output: 10 } },
   { model: /^gpt-6-astra(-\d{4}-\d{2}-\d{2})?$/, rates: { input: 10, cached: 1, cacheWrite: 12.5, output: 50 } },
+  // Free's model (config.freeModel): $0.10 input, $0.50 output per 1M; its cached rate isn't published, so a
+  // tenth of input as OpenAI's others, and cache writes at 1.25x input.
+  { model: /^gpt-6-luna(-\d{4}-\d{2}-\d{2})?$/, rates: { input: 0.1, cached: 0.01, cacheWrite: 0.125, output: 0.5 } },
 ];
 const DEAREST: Rates = { input: 10, cached: 1, cacheWrite: 12.5, output: 50 };
 
@@ -94,6 +97,8 @@ export const HONCHO_CALL = 0;
 const TURN_HOLD: { model: RegExp; most: number; least: number }[] = [
   { model: /^gpt-6\.1-sol(-\d{4}-\d{2}-\d{2})?$/, most: 500_000 / 60, least: 330_000 / 60 },
   { model: /^gpt-6-astra(-\d{4}-\d{2}-\d{2})?$/, most: 4_000_000 / 60, least: 2_600_000 / 60 },
+  // Not measured yet: Sol's hold at Luna's price (a twentieth).
+  { model: /^gpt-6-luna(-\d{4}-\d{2}-\d{2})?$/, most: 25_000 / 60, least: 16_500 / 60 },
 ];
 
 /** A running turn's hold at `model`, in micro-dollars a second: where a session starts, and the least its own turns may lower it to. */

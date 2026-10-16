@@ -88,6 +88,13 @@ export const config = {
   planLimits: () => env("DESKWISP_PLAN_LIMITS") === "1",
   /** The area code a plan's number is bought in (AgentPhone picks a nearby one when there's none), as the app's DESKWISP_PHONE_AREA. */
   phoneArea: () => env("DESKWISP_PHONE_AREA") || "415",
+  /**
+   * The model Free's bots run on, whatever the app asks for (proxy.ts freeModel): a cheap one, so a
+   * month's $1 goes a long way, and never the dearest. DESKWISP_FREE_MODEL for chat and quick answers,
+   * DESKWISP_FREE_TASK_MODEL for tasks (falls back to the first). "off": Free runs on what the app asks.
+   */
+  freeModel: () => (env("DESKWISP_FREE_MODEL") || "gpt-6-luna").trim(),
+  freeTaskModel: () => (env("DESKWISP_FREE_TASK_MODEL") || env("DESKWISP_FREE_MODEL") || "gpt-6-luna").trim(),
 
   /** Upstreams, overridable for tests (a fake server on localhost). */
   upstream: {
