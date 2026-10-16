@@ -11,6 +11,7 @@ import { Accounts } from "./accounts.ts";
 import { clerkVerifier, type Verifier } from "./clerk.ts";
 import { JsonStore, type Store } from "./store.ts";
 import { PgStore } from "./store-pg.ts";
+import { Billing } from "./billing.ts";
 import { isTier } from "./plans.ts";
 import { People } from "./people.ts";
 
@@ -58,6 +59,7 @@ export async function startServer(
   const planOf = async (owner: string) => (await store.user(owner).catch(() => null))?.plan ?? devPlan;
   const computers = new Computers(cfg, store, provider, planOf);
   const people = new People(cfg, store, computers, verifier, planOf, opts.people);
+  const billing = new Billing(cfg, store, computers, planOf);
 
   const send = (res: ServerResponse, status: number, body: unknown) => {
     if (res.headersSent) return void res.end();
@@ -86,6 +88,8 @@ export async function startServer(
       }
       const parts = url.pathname.slice("/api/".length).split("/").filter(Boolean).map(decodeURIComponent);
       if (parts.join("/") === "user/profile" && req.method === "GET") return send(res, 200, await accounts.profile(owner));
+      const billed = await billing.handle(owner, (req.method ?? "GET").toUpperCase(), parts);
+      if (billed !== false) return send(res, 200, billed);
       const shared = await people.handle(owner, (req.method ?? "GET").toUpperCase(), parts, readOnce);
       if (shared !== false) return send(res, 200, shared);
       const out = await computers.handle({
@@ -153,7 +157,7 @@ export async function startServer(
     void store.close().catch(() => {});
   });
   server.listen(cfg.port, cfg.host);
-  return { server, store, accounts, computers, people };
+  return { server, store, accounts, computers, people, billing };
 }
 
 // Run directly (not imported by the tests). Node 24 says so in import.meta.main; on 22, compare paths,

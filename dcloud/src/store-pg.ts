@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import pg from "pg";
 import { isTier, type Tier } from "./plans.ts";
-import { newVncPassword, WorkspaceTaken, type Computer, type DeviceCode, type Member, type Store, type User, type Workspace } from "./store.ts";
+import { newVncPassword, WorkspaceTaken, type Computer, type Credit, type DeviceCode, type Member, type Store, type User, type Workspace } from "./store.ts";
 
 /**
  * The store in Postgres (Neon): DATABASE_URL. At start it applies dcloud/db/*.sql that haven't run,
@@ -134,6 +134,55 @@ export class PgStore implements Store {
   async user(id: string) {
     const [r] = await this.rows("SELECT * FROM deskwisp.users WHERE id = $1", [id]);
     return r ? user(r) : null;
+  }
+
+  async userByEmail(email: string) {
+    const [r] = await this.rows("SELECT * FROM deskwisp.users WHERE lower(email) = lower($1) ORDER BY created_at LIMIT 1", [email]);
+    return r ? user(r) : null;
+  }
+
+  async computerSeconds(owner: string, month: string) {
+    const [r] = await this.rows("SELECT seconds FROM deskwisp.computer_time WHERE owner = $1 AND month = $2", [owner, month]);
+    return r ? Number(r.seconds) : 0;
+  }
+
+  async addComputerSeconds(owner: string, month: string, seconds: number) {
+    if (!(seconds > 0)) return;
+    await this.rows(
+      `INSERT INTO deskwisp.computer_time (owner, month, seconds) VALUES ($1, $2, $3)
+       ON CONFLICT (owner, month) DO UPDATE SET seconds = deskwisp.computer_time.seconds + EXCLUDED.seconds, updated_at = now()`,
+      [owner, month, Math.round(seconds)],
+    );
+  }
+
+  async credit(userId: string): Promise<Credit> {
+    const [b] = await this.rows("SELECT public.deskwisp_ai_credit_balance($1::uuid) AS left", [userId]);
+    const [r] = await this.rows("SELECT plan_micros, plan_expires_at, free_micros FROM public.deskwisp_ai_credit WHERE user_id = $1", [userId]);
+    const grants = await this.rows(
+      "SELECT kind, tier, amount_micros, created_at FROM public.deskwisp_ai_credit_grants WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT 10",
+      [userId],
+    );
+    const ends = r?.plan_expires_at ? ms(r.plan_expires_at as Date) : null;
+    const plan = ends && ends > Date.now() ? Number(r?.plan_micros ?? 0) : 0;
+    return {
+      leftMicros: Number(b?.left ?? 0),
+      planLeftMicros: plan,
+      planEndsAt: plan ? ends : null,
+      freeLeftMicros: Number(r?.free_micros ?? 0),
+      grants: grants.map((g) => ({ kind: g.kind as string, tier: g.tier as string, amountMicros: Number(g.amount_micros), at: ms(g.created_at as Date) })),
+    };
+  }
+
+  async grantPlan(userId: string, tier: Tier, invoice: string, amountMicros: number, start: number, end: number) {
+    const [r] = await this.rows("SELECT public.deskwisp_ai_credit_grant_plan($1::uuid, $2, $3, $4::bigint, to_timestamp($5 / 1000.0), to_timestamp($6 / 1000.0)) AS added", [
+      userId,
+      invoice,
+      tier,
+      Math.round(amountMicros),
+      start,
+      end,
+    ]);
+    return r?.added === null || r?.added === undefined ? null : Number(r.added);
   }
 
   async setPlan(userId: string, plan: Tier) {

@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Config } from "./config.ts";
 import * as desk from "./desktop.ts";
 import { BoxGone, type Box, type Provider } from "./providers/types.ts";
-import { PLANS, type Tier } from "./plans.ts";
+import { monthOf, nextMonthStart, PLANS, upgradeOf, type Tier } from "./plans.ts";
 import { newVncPassword, type Computer, type Store } from "./store.ts";
 
 /**
@@ -28,6 +28,11 @@ type Ctx = { owner: string; method: string; parts: string[]; query: URLSearchPar
  * command, a click, typing, a screen made or closed), the user driving it over the live view, or a
  * wake. Looking at it doesn't: a status read, a screen list or a screenshot of a sleeping computer
  * answers 409 computer_asleep (as Horafirm does) and leaves it asleep.
+ *
+ * While it's awake its time counts toward its owner's plan hours for the month (PLANS hours: E2B
+ * bills by the second while a box runs). Once they're used, it won't wake (402 deskwisp_free_hours, the
+ * words and code the app knows from Horafirm's Free hours) and one that's awake goes to sleep, until the
+ * next month or a bigger plan.
  */
 export class Computers {
   private readonly cfg: Config;
@@ -46,6 +51,8 @@ export class Computers {
   /** When the provider was last asked whether each box is asleep. */
   private readonly checked = new Map<string, number>();
   private readonly sweeper: ReturnType<typeof setInterval>;
+  /** Boxes awake now, whose they are, and up to when their time has been counted. */
+  private readonly awake = new Map<string, { owner: string; since: number }>();
 
   constructor(cfg: Config, reg: Store, provider: Provider, planOf: (owner: string) => Promise<Tier> = async () => "max_deskwisp") {
     this.cfg = cfg;
@@ -77,6 +84,53 @@ export class Computers {
       if (now - at < this.cfg.idleMs || this.asleep.has(boxId)) continue;
       await this.sleep(boxId).catch((e: Error) => console.warn(`[dcloud] putting ${boxId} to sleep: ${e.message}`));
     }
+    // Count the time of every box still awake, and put to sleep one whose owner's hours are used.
+    for (const [boxId, a] of [...this.awake]) {
+      await this.count(boxId, now);
+      if ((await this.hoursOut(a.owner).catch(() => null)) && !this.asleep.has(boxId))
+        await this.sleep(boxId).catch((e: Error) => console.warn(`[dcloud] putting ${boxId} to sleep (hours used): ${e.message}`));
+    }
+  }
+
+  /** A box is awake (opened, woken or made): its time counts from now, for its owner. */
+  private woke(boxId: string, owner: string) {
+    if (!this.awake.has(boxId)) this.awake.set(boxId, { owner, since: Date.now() });
+  }
+
+  /** Add a box's time awake since it was last counted to its owner's month. */
+  private async count(boxId: string, now = Date.now()) {
+    const a = this.awake.get(boxId);
+    if (!a || now <= a.since) return;
+    const seconds = (now - a.since) / 1000;
+    a.since = now;
+    await this.reg.addComputerSeconds(a.owner, monthOf(now), seconds).catch((e: Error) => console.warn(`[dcloud] counting ${boxId}'s time: ${e.message}`));
+  }
+
+  /** The box stopped (asleep, or gone): its last stretch is counted, and it counts no more. */
+  private async stopped(boxId: string) {
+    await this.count(boxId);
+    this.awake.delete(boxId);
+  }
+
+  /** How long an owner's computers ran this month, the time not yet counted included, of how long the plan allows. */
+  async computerTime(owner: string, now = Date.now()) {
+    const tier = await this.planOf(owner);
+    let used = await this.reg.computerSeconds(owner, monthOf(now));
+    for (const a of this.awake.values()) if (a.owner === owner) used += Math.max(0, now - a.since) / 1000;
+    return { tier, usedSeconds: Math.round(used), limitSeconds: PLANS[tier].hours * 3600, resetsAt: nextMonthStart(now) };
+  }
+
+  /** The 402 a computer gets when its owner's hours this month are used: why, with when they're back. */
+  async hoursOut(owner: string): Promise<HttpError | null> {
+    const t = await this.computerTime(owner);
+    if (t.usedSeconds < t.limitSeconds) return null;
+    const back = new Date(t.resetsAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+    const up = upgradeOf(t.tier);
+    return new HttpError(
+      402,
+      `Your Deskwisp computer has used its ${PLANS[t.tier].hours} hours this month. It's back ${back}${up ? `, or upgrade to ${PLANS[up].name} to keep it on` : ""}.`,
+      "deskwisp_free_hours",
+    );
   }
 
   private async sleep(boxId: string) {
@@ -84,6 +138,7 @@ export class Computers {
     this.asleep.add(boxId);
     this.open.delete(boxId);
     this.used.delete(boxId);
+    await this.stopped(boxId);
   }
 
   /**
@@ -99,6 +154,7 @@ export class Computers {
     if (st === "paused") {
       this.asleep.add(boxId);
       this.open.delete(boxId);
+      await this.stopped(boxId);
     }
     return st === "paused";
   }
@@ -109,6 +165,11 @@ export class Computers {
    */
   async box(c: Computer, wake = false): Promise<Box> {
     if (!wake && (await this.sleeping(c.boxId))) throw new HttpError(409, "The computer is asleep", "computer_asleep");
+    // Waking it takes hours of the plan: none left, it stays asleep.
+    if (wake && !this.awake.has(c.boxId)) {
+      const out = await this.hoursOut(c.owner);
+      if (out) throw out;
+    }
     let p = this.open.get(c.boxId);
     if (!p) {
       p = this.provider.open(c.boxId);
@@ -123,6 +184,7 @@ export class Computers {
       throw e;
     }
     this.asleep.delete(c.boxId);
+    this.woke(c.boxId, c.owner);
     if (wake) this.touch(c.boxId);
     else if (!this.used.has(c.boxId)) this.used.set(c.boxId, Date.now());
     if (!this.readied.has(c.boxId)) {
@@ -288,6 +350,7 @@ export class Computers {
         this.readied.delete(comp.boxId);
         this.used.delete(comp.boxId);
         this.asleep.delete(comp.boxId);
+        await this.stopped(comp.boxId);
         await this.reg.removeComputer(comp.id);
         return { ok: true };
       }
@@ -375,9 +438,12 @@ export class Computers {
   }
 
   private async create(owner: string, workspaceId: string, name: string) {
+    const out = await this.hoursOut(owner);
+    if (out) throw out;
     const box = await this.provider.create({ cpu: this.cfg.cpu, ramGb: this.cfg.ramGb, meta: { owner, name } });
     const c = await this.reg.addComputer({ owner, workspaceId, name, boxId: box.id, provider: this.provider.name, cpu: this.cfg.cpu, ram: this.cfg.ramGb });
     this.open.set(box.id, Promise.resolve(box));
+    this.woke(box.id, owner);
     this.touch(box.id);
     try {
       await desk.ready(box, c.vncPassword, c.viewPassword);
@@ -385,6 +451,7 @@ export class Computers {
     } catch (e) {
       // A computer whose screens never came up is no use: it goes, and the app is told why.
       await this.provider.kill(box.id).catch(() => {});
+      await this.stopped(box.id);
       await this.reg.removeComputer(c.id);
       throw new HttpError(503, (e as Error).message, "computer_failed");
     }

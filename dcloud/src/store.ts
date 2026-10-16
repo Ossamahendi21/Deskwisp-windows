@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { isTier, type Tier } from "./plans.ts";
+import { isTier, PLANS, type Tier } from "./plans.ts";
 
 /**
  * What Deskwisp Cloud keeps: its users (signed in with Clerk), the keys their apps hold, the codes of
@@ -32,6 +32,13 @@ export type Computer = {
 };
 
 export type Workspace = { id: string; owner: string; name: string; createdAt: number };
+
+/**
+ * A user's AI credit (db/005_ai_credit.sql), in micro-dollars: all that's left (below 0 when a task
+ * overran it), what's left of this period's plan credit and when it ends, what's left of the credit
+ * that never runs out (Free's one-time credit), and the kinds of the newest grants.
+ */
+export type Credit = { leftMicros: number; planLeftMicros: number; planEndsAt: number | null; freeLeftMicros: number; grants: { kind: string; tier: string; amountMicros: number; at: number }[] };
 
 /**
  * Someone the owner of a workspace let in (People): "member" watches (View only), "admin" uses the
@@ -68,8 +75,23 @@ export interface Store {
   /** The user for a Clerk account, made on their first sign-in; their email and name follow Clerk's. */
   upsertUser(u: { clerkId: string; email: string | null; name: string | null }): Promise<User>;
   user(id: string): Promise<User | null>;
+  /** A user by their email (any case), for the plan script. */
+  userByEmail(email: string): Promise<User | null>;
   /** Put a user on a plan (billing does, step 2.4). */
   setPlan(userId: string, plan: Tier): Promise<void>;
+
+  /** Seconds a user's computers ran in a month ("2026-10", UTC). */
+  computerSeconds(owner: string, month: string): Promise<number>;
+  addComputerSeconds(owner: string, month: string, seconds: number): Promise<void>;
+
+  /** A user's AI credit, giving Free's one-time credit the first time it's asked (as cloud/ does). */
+  credit(userId: string): Promise<Credit>;
+  /**
+   * A paid period's credit, once per invoice: the micros granted, or null when that invoice was granted
+   * before. The first grant of a period sets the plan credit to it (nothing carried over); a later one
+   * in the same period (an upgrade) adds what the period hasn't had yet.
+   */
+  grantPlan(userId: string, tier: Tier, invoice: string, amountMicros: number, start: number, end: number): Promise<number | null>;
 
   addKey(userId: string, keyHash: string, label: string): Promise<void>;
   /** Whose key this is (by its hash), or null. */
@@ -131,7 +153,16 @@ export class WorkspaceTaken extends Error {
   }
 }
 
+type Ledger = {
+  plan: number;
+  planEnds: number | null;
+  free: number;
+  grants: { kind: "free_signup" | "plan"; tier: string; amount: number; invoice: string | null; end: number | null; at: number }[];
+};
+
 type Data = {
+  computerTime: Record<string, number>;
+  credit: Record<string, Ledger>;
   users: User[];
   keys: { hash: string; userId: string; label: string; createdAt: number }[];
   devices: DeviceCode[];
@@ -150,7 +181,7 @@ export class JsonStore implements Store {
     this.file = file;
     mkdirSync(dirname(file), { recursive: true });
     const read = existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as Partial<Data>) : {};
-    this.data = { users: [], keys: [], devices: [], computers: [], workspaces: [], members: [], ...read };
+    this.data = { computerTime: {}, credit: {}, users: [], keys: [], devices: [], computers: [], workspaces: [], members: [], ...read };
     for (const c of this.data.computers) c.viewPassword ??= "";
   }
 
@@ -175,11 +206,59 @@ export class JsonStore implements Store {
     return u ? { ...u, plan: isTier(u.plan) ? u.plan : "free_deskwisp" } : null;
   }
 
+  async userByEmail(email: string) {
+    const u = this.data.users.find((x) => x.email?.toLowerCase() === email.toLowerCase());
+    return u ? this.user(u.id) : null;
+  }
+
   async setPlan(userId: string, plan: Tier) {
     const u = this.data.users.find((x) => x.id === userId);
     if (!u) return;
     u.plan = plan;
     this.save();
+  }
+
+  async computerSeconds(owner: string, month: string) {
+    return this.data.computerTime[`${owner} ${month}`] ?? 0;
+  }
+
+  async addComputerSeconds(owner: string, month: string, seconds: number) {
+    if (!(seconds > 0)) return;
+    const k = `${owner} ${month}`;
+    this.data.computerTime[k] = (this.data.computerTime[k] ?? 0) + Math.round(seconds);
+    this.save();
+  }
+
+  /** The same math as db/005_ai_credit.sql, for development and the tests. */
+  async credit(userId: string): Promise<Credit> {
+    const l = (this.data.credit[userId] ??= { plan: 0, planEnds: null, free: 0, grants: [] });
+    if (!l.grants.some((g) => g.kind === "free_signup")) {
+      const amount = PLANS.free_deskwisp.creditMicros;
+      l.grants.push({ kind: "free_signup", tier: "free_deskwisp", amount, invoice: null, end: null, at: Date.now() });
+      l.free += amount;
+      this.save();
+    }
+    const plan = l.planEnds && l.planEnds > Date.now() ? l.plan : 0;
+    return {
+      leftMicros: plan + l.free,
+      planLeftMicros: plan,
+      planEndsAt: plan ? l.planEnds : null,
+      freeLeftMicros: l.free,
+      grants: [...l.grants].reverse().slice(0, 10).map((g) => ({ kind: g.kind, tier: g.tier, amountMicros: g.amount, at: g.at })),
+    };
+  }
+
+  async grantPlan(userId: string, tier: Tier, invoice: string, amountMicros: number, start: number, end: number) {
+    void start;
+    const l = (this.data.credit[userId] ??= { plan: 0, planEnds: null, free: 0, grants: [] });
+    if (l.grants.some((g) => g.invoice === invoice)) return null;
+    const already = l.grants.filter((g) => g.kind === "plan" && g.end === end).reduce((n, g) => n + g.amount, 0);
+    const add = Math.max(amountMicros - already, 0);
+    l.grants.push({ kind: "plan", tier, amount: add, invoice, end, at: Date.now() });
+    l.plan = already === 0 ? add : (l.planEnds && l.planEnds > Date.now() ? l.plan : 0) + add;
+    l.planEnds = end;
+    this.save();
+    return add;
   }
 
   async addKey(userId: string, keyHash: string, label: string) {

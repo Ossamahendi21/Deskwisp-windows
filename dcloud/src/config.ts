@@ -26,6 +26,13 @@ export type Config = {
   /** Optional: invite emails sent with Resend (RESEND_API_KEY, from DESKWISP_MAIL_FROM); without it the app shows the link to send. */
   resendApiKey?: string;
   mailFrom?: string;
+  /**
+   * The app's services server (cloud/, DESKWISP_SERVICES_URL, e.g. http://127.0.0.1:8790): told when a
+   * user's plan changes (POST /v1/internal/plan-changed, signed with DESKWISP_CLOUD_PLAN_SECRET, the
+   * same secret cloud/ has), so it sets up what the plan brings at once.
+   */
+  servicesUrl?: string;
+  planSecret?: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -55,5 +62,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     ramGb: Number(env.DESKWISP_COMPUTER_RAM_GB) || 4,
     resendApiKey: env.RESEND_API_KEY || undefined,
     mailFrom: env.DESKWISP_MAIL_FROM || undefined,
+    servicesUrl: (env.DESKWISP_SERVICES_URL || "").replace(/\/+$/, "") || undefined,
+    planSecret: env.DESKWISP_CLOUD_PLAN_SECRET || undefined,
   };
 }
