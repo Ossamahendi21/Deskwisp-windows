@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { botChatId, live, sharesComputer, workBot, type AppState, type Host, type Session, type Watch } from "@/lib/types";
+import { botChatId, live, ownScreen, sharesComputer, workBot, type AppState, type Host, type Session, type Watch } from "@/lib/types";
 import { Account } from "./account";
 import { Members } from "./members";
 import { BotPanel, type Section } from "./bot-panel";
@@ -23,6 +23,7 @@ import { CloudUnreachable, SignIn, useAuthStatus } from "./sign-in";
 import { Setup, ThisMacSettings } from "./setup";
 import { TooltipLayer } from "./tooltip";
 import { VaultTab } from "./vault";
+import { EditPanel, type EditTarget } from "./edit-panel";
 import { MacPreviews } from "./mac-tab";
 import { OPEN_MAC_KEY } from "./mac-pip";
 import { MacComputer } from "./mac-computer";
@@ -290,7 +291,7 @@ function Deskwisp({ state }: { state: AppState | null }) {
   if (leadKey !== followed) {
     setFollowed(leadKey);
     const browsing =
-      tab && (tab.kind === "web" || tab.kind === "vault" || tab.kind === "crm" || tab.kind === "memory" || (tab.kind === "computer" && tab.botId !== chatBotId) || (tab.kind === "bot" && tab.id !== PROFILE_TAB));
+      tab && (tab.kind === "web" || tab.kind === "vault" || tab.kind === "edit" || tab.kind === "crm" || tab.kind === "memory" || (tab.kind === "computer" && tab.botId !== chatBotId) || (tab.kind === "bot" && tab.id !== PROFILE_TAB));
     if (lead && !browsing && !focus) {
       if (lead.runsOn === "mac") {
         // Your PC's tab, however it was opened (from a new tab it keeps that tab's id): never a second one.
@@ -343,7 +344,6 @@ function Deskwisp({ state }: { state: AppState | null }) {
     setPanelOpen(true);
     setFocus(false);
   };
-  const tabId = () => `tab_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const openComputer = (id: string) => {
     if (id === chatBotId) {
       setActive(CHAT_TAB);
@@ -358,6 +358,13 @@ function Deskwisp({ state }: { state: AppState | null }) {
       (t) => ({ ...t, section }) as PanelTab,
     );
   const openVault = () => openTab((t) => t.kind === "vault", () => ({ id: tabId(), kind: "vault" }));
+  /** Edit a bot or a group on the right: one edit tab, showing what was last asked for. */
+  const openEdit = (target: EditTarget) =>
+    openTab(
+      (t) => t.kind === "edit",
+      () => ({ id: tabId(), kind: "edit", target }),
+      (t) => ({ ...t, target }) as PanelTab,
+    );
   /** A CRM file, as a tab (one per file). */
   const openCrm = (ws: string, file: string) =>
     openTab(
@@ -371,7 +378,7 @@ function Deskwisp({ state }: { state: AppState | null }) {
    */
   const openMemory = ({ category, focus: item, query }: MemoryOpen) => {
     const ws = currentWorkspace(state);
-    const focusAt = Date.now();
+    const focusAt = clock();
     openTab(
       (t) => t.kind === "memory" && t.ws === ws,
       () => ({ id: tabId(), kind: "memory", ws, category, focus: item, focusAt, query }),
@@ -587,6 +594,7 @@ function Deskwisp({ state }: { state: AppState | null }) {
             onMembers={() => setMembers(true)}
             onOpenWatch={showWatch}
             onOpenMemory={openMemory}
+            onEdit={openEdit}
           />
           {focus && crmFocus && crm ? (
             <div className="flex min-h-0 min-w-0 flex-col bg-white">
@@ -687,6 +695,8 @@ function Deskwisp({ state }: { state: AppState | null }) {
                     />
                   ) : tab?.kind === "vault" ? (
                     <VaultTab state={state} onClose={() => leaveTab(tab.id)} />
+                  ) : tab?.kind === "edit" ? (
+                    <EditPanel key={JSON.stringify(tab.target)} state={state} target={tab.target} onClose={() => leaveTab(tab.id)} />
                   ) : tab?.kind === "crm" ? (
                     <CrmView
                       key={`${tab.id}:${tab.file}`}
@@ -1107,10 +1117,16 @@ const radio = (on: boolean) =>
     <span className="size-4 rounded-full shadow-[inset_0_0_0_1.5px_#C9C9C6]" />
   );
 
+/** The time, for handlers (outside the component, so the React compiler doesn't take it for render work). */
+const clock = () => Date.now();
+
+/** A new tab's id. */
+const tabId = () => `tab_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
 /** A bot's computer, in plain words. A bot that shares says whose computer it works on. */
 const computerNow = (state: AppState, b: AppState["bots"][number]) => {
   const c = workBot(b, state.bots);
-  if (state.host !== "mac" && c.id !== b.id) return `Works on ${c.name}'s computer`;
+  if (state.host !== "mac" && c.id !== b.id) return ownScreen(state, b) !== undefined ? `Its own screen on ${c.name}'s computer` : `Borrows a screen on ${c.name}'s computer`;
   return state.host === "mac" ? "Uses this PC" : b.computerStatus === "ready" ? "Ready" : b.computerStatus === "cloning" ? "Setting up" : b.computerStatus === "none" ? "Set up on its first task" : "Couldn't be set up yet";
 };
 

@@ -128,7 +128,7 @@ export function SignInCard({
           </button>
         </div>
         <span className="text-[11px] leading-[15px] text-[#9A9A98]">
-          Goes straight into the page on {b.name}&apos;s screen. {save ? "Saved logins stay in your PC's Keychain." : "Deskwisp doesn't keep it."} No AI sees it.
+          Goes straight into the page on {b.name}&apos;s screen. {save ? "Saved logins stay encrypted on this PC." : "Deskwisp doesn't keep it."} No AI sees it.
         </span>
       </form>
     </CardShell>

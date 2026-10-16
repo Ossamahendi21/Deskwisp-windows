@@ -19,7 +19,7 @@ import { trackServerEvent } from "./analytics";
 import { reachableFromComputers } from "./composio";
 import { computerToolOn } from "./computer-task";
 import { findDeskwispWorkspace, horafirmMembers, type HorafirmInvite, type HorafirmMember } from "./horafirm";
-import { loadHorafirmKey, horafirmOrigin } from "./horafirm-auth";
+import { loadHorafirmKey, onDeskwispCloud, horafirmOrigin } from "./horafirm-auth";
 import { getState, stateInCloud } from "./store";
 
 /*
@@ -68,7 +68,8 @@ const keysOnComputers = () => reachableFromComputers() || !computerToolOn() || !
  * removing them, is never held back.
  */
 export function fullAccessNow(): FullAccess {
-  if (!FULL_ACCESS_IN_DESKWISP && process.env.DESKWISP_MEMBERS_FULL_ACCESS !== "1") return "not_yet";
+  // Deskwisp Cloud gives the computers new passwords when someone with Full access goes (dcloud/src/people.ts).
+  if (!onDeskwispCloud() && !FULL_ACCESS_IN_DESKWISP && process.env.DESKWISP_MEMBERS_FULL_ACCESS !== "1") return "not_yet";
   return keysOnComputers() ? "off" : "on";
 }
 
@@ -179,7 +180,11 @@ function listOf(json: Record<string, unknown>, workspace: string) {
         role: roleOf(i.role),
         expiresAt,
         expired: i.expired === true || (expiresAt !== null && expiresAt <= now),
-        ...(token ? { link: `${horafirmOrigin()}/accept-invite?token=${encodeURIComponent(token)}&project_id=${encodeURIComponent(workspace)}` } : {}),
+        ...(typeof i.accept_url === "string" && /^https?:\/\//.test(i.accept_url)
+          ? { link: i.accept_url }
+          : token
+            ? { link: `${horafirmOrigin()}/accept-invite?token=${encodeURIComponent(token)}&project_id=${encodeURIComponent(workspace)}` }
+            : {}),
       };
       return { invite, at: msOf(i.created_at) ?? expiresAt ?? 0 };
     })
@@ -222,7 +227,11 @@ async function load(key: string, { fresh = false } = {}): Promise<Loaded> {
       workspace,
       info: {
         state: "ready",
-        horafirmUrl: `${horafirmOrigin()}/workspaces?project_id=${encodeURIComponent(workspace)}`,
+        // Deskwisp Cloud names its watch page (where the people added, and the user, watch the bots live).
+        horafirmUrl:
+          typeof got.json.watch_url === "string" && /^https?:\/\//.test(got.json.watch_url)
+            ? got.json.watch_url
+            : `${horafirmOrigin()}/workspaces?project_id=${encodeURIComponent(workspace)}`,
         host: getState().host === "mac" ? "mac" : "horafirm",
         fullAccess: fullAccessNow(),
         keysOnComputers: keysOnComputers(),
@@ -236,10 +245,19 @@ async function load(key: string, { fresh = false } = {}): Promise<Loaded> {
   }
 }
 
+/**
+ * Where the People sheet works: the state in Deskwisp Cloud (deskwisp.com's accounts), or the computers on
+ * Deskwisp Cloud (dcloud/), which keeps the people itself, self-hosted app or not.
+ */
+const peopleHere = () => stateInCloud() || onDeskwispCloud();
+
+/** The signed-in key; on Deskwisp Cloud, a key of the user's own for it too (HORAFIRM_API_KEY, self-hosting). */
+const keyForPeople = async () => (await loadHorafirmKey()) ?? (onDeskwispCloud() ? process.env.HORAFIRM_API_KEY || null : null);
+
 /** GET /api/members: who has access, or why the sheet can't say (self-hosted, signed out, no computer yet). */
 export async function readMembers(): Promise<Answer> {
-  if (!stateInCloud()) return ok({ state: "self_hosted", horafirmUrl: `${horafirmOrigin()}/workspaces` });
-  const key = await loadHorafirmKey();
+  if (!peopleHere()) return ok({ state: "self_hosted", horafirmUrl: `${horafirmOrigin()}/workspaces` });
+  const key = await keyForPeople();
   if (!key) return ok({ state: "signed_out", why: "no_key" });
   const loaded = await load(key);
   return loaded.kind === "refused" ? loaded.answer : ok(loaded.info);
@@ -253,8 +271,8 @@ export async function readMembers(): Promise<Answer> {
  * sign-in or sign-out never shows another account's. `state` when there's no count to show.
  */
 export async function membersCount(): Promise<Answer> {
-  if (!stateInCloud()) return ok({ state: "self_hosted" });
-  const key = await loadHorafirmKey();
+  if (!peopleHere()) return ok({ state: "self_hosted" });
+  const key = await keyForPeople();
   if (!key) return ok({ state: "signed_out" });
   const kept = g.deskwispMembersCount;
   if (kept?.key === key && Date.now() - kept.at < COUNT_MS) return ok({ count: kept.count });
@@ -274,8 +292,8 @@ export async function membersCount(): Promise<Answer> {
 
 /** The signed-in key, where the state is in Deskwisp Cloud. */
 async function signedIn(): Promise<{ key: string } | Answer> {
-  if (!stateInCloud()) return no(409, "SELF_HOSTED", WORDS.selfHosted);
-  const key = await loadHorafirmKey();
+  if (!peopleHere()) return no(409, "SELF_HOSTED", WORDS.selfHosted);
+  const key = await keyForPeople();
   return key ? { key } : no(401, "SIGNED_OUT", WORDS.noKey, { why: "no_key" });
 }
 

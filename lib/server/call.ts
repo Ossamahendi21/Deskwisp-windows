@@ -4,7 +4,7 @@ import { ABOUT_DESKWISP, SPEAKING } from "./style";
 import { appsNote, placesNote } from "./skills";
 import { dataNote } from "./treg";
 import { openaiClient } from "./openai-client";
-import { botChatId, live, type Bot } from "@/lib/types";
+import { botChatId, live, roleIsTitle, type Bot } from "@/lib/types";
 import { handleMessage } from "./chat";
 import { callEnded, callStarted } from "./attention";
 import { noteOutOfCredit, OUT_OF_CREDIT } from "./cloud";
@@ -80,7 +80,7 @@ export async function voicePrompt(b: Bot, how: "live" | "turns" = "live") {
     .map((m) => `${m.role === "user" ? owner : b.name}: ${m.text.slice(0, 300)}`)
     .join("\n");
   return [
-    `You are ${b.name}, ${b.isMain ? `${owner}'s chief of staff` : `${owner}'s ${b.role} bot`} in Deskwisp, on a phone call with ${owner}. ${ownerLine()}`,
+    `You are ${b.name}, ${b.isMain ? `${owner}'s chief of staff` : roleIsTitle(b.role) ? `${owner}'s ${b.role} bot` : `one of ${owner}'s bots (your job: ${b.role})`} in Deskwisp, on a phone call with ${owner}. ${ownerLine()}`,
     "Talk like a capable teammate on a call: short, warm, natural. One or two sentences at a time. No lists.",
     SPEAKING,
     ABOUT_DESKWISP,

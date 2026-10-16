@@ -24,7 +24,7 @@ try {
   id = box.id;
   step(`made ${id}`);
 
-  await ready(box, "smoke123");
+  await ready(box, "smoke123", "watch123");
   step(`desktop up; screens: ${JSON.stringify(await screens(box))}`);
 
   const tools = await run(box, "for t in google-chrome codex node xdotool x11vnc websockify; do printf '%s ' $t; command -v $t >/dev/null && echo ok || echo MISSING; done", 30);

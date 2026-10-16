@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
  * mountSignIn draws nothing.
  */
 
-const LOGO = (() => {
+export const LOGO = (() => {
   try {
     return readFileSync(new URL("../../assets/icon.svg", import.meta.url), "utf8");
   } catch {
@@ -18,7 +18,7 @@ const LOGO = (() => {
 })();
 
 /** For a value put inside <script type="application/json">: nothing in it can close the tag. */
-const scriptJson = (v: unknown) => JSON.stringify(v).replace(/</g, "\\u003c");
+export const scriptJson = (v: unknown) => JSON.stringify(v).replace(/</g, "\\u003c");
 
 export function approvePage(opts: { publishableKey: string | null; frontendApi: string | null }) {
   const clerkScript =
@@ -218,10 +218,10 @@ ${clerkScript}
 window.addEventListener("load", async function () {
   var line = document.getElementById("line");
   var more = document.getElementById("more");
-  // Only back to this server's own approve page.
+  // Only back to this server's own pages that sign in: approve, accept an invite, watch.
   var next = new URLSearchParams(location.search).get("next") || "";
   // (No regular expression here: inside this template string its backslashes would be eaten.)
-  if (next.indexOf("/cli/approve?") !== 0) next = "/cli/approve";
+  if (next.indexOf("/cli/approve?") !== 0 && next.indexOf("/accept-invite?") !== 0 && next !== "/watch") next = "/cli/approve";
   more.href = next;
   var gone = false;
   var go = function () { if (!gone) { gone = true; location.replace(next); } };

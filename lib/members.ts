@@ -2,6 +2,10 @@
  * People who can see the user's bots' computers, shared by the app's People sheet (components/app/
  * members.tsx) and its route (app/api/members, lib/server/members.ts). No server imports.
  *
+ * On Deskwisp Cloud (dcloud/src/people.ts) the people are kept there: they accept an invite link signed
+ * in as the email invited, and watch (or use) the bots' computers live in their browser at its /watch
+ * page, as the user can too. The rest of this comment is how it works against deskwisp.com:
+ *
  * Every Deskwisp computer of every Deskwisp workspace lives in one Horafirm workspace the user owns, named "deskwisp"
  * (lib/server/horafirm.ts deskwispWorkspace). The people the user adds are members of that Horafirm workspace:
  * they sign in on deskwisp.com and see the bots' computers there, never this PC, the chats or the vault.
@@ -119,26 +123,26 @@ export function emailOf(text: unknown): string | null {
 
 /** Everything the sheet and its route say, in one place (the tests check them for dashes). */
 export const WORDS = {
-  unreachable: "Couldn't reach Horafirm. Check your internet connection and try again.",
-  horafirmError: "Horafirm couldn't do that just now. Try again in a minute.",
-  horafirmLoadError: "Horafirm couldn't load who has access. Try again in a minute.",
+  unreachable: "Couldn't reach Deskwisp Cloud. Check your internet connection and try again.",
+  horafirmError: "Deskwisp Cloud couldn't do that just now. Try again in a minute.",
+  horafirmLoadError: "Deskwisp Cloud couldn't load who has access. Try again in a minute.",
   loadFailed: "Couldn't load who has access.",
-  noKey: "Deskwisp can't use your Horafirm sign-in right now. Sign out, then sign in again.",
-  rejected: "Horafirm didn't accept this PC's sign-in. Sign out, then sign in again.",
+  noKey: "Deskwisp can't use your sign-in right now. Sign out, then sign in again.",
+  rejected: "Deskwisp Cloud didn't accept this PC's sign-in. Sign out, then sign in again.",
   selfHosted:
-    "On a self-hosted Deskwisp, add people on deskwisp.com, in the workspace your bots use. Self-hosted setups can keep your own keys on your bots' computers, so give Full access only to people you'd trust with those keys.",
-  noComputers: "Your bots don't have a computer on Horafirm yet. Once they do, you can add people to watch it here.",
+    "Adding people needs Deskwisp Cloud: point DESKWISP_HORAFIRM_ORIGIN at it. Self-hosted setups can keep your own keys on your bots' computers, so give Full access only to people you'd trust with those keys.",
+  noComputers: "Your bots don't have a computer yet. Once they do, you can add people to watch it here.",
   planUnavailable: "Couldn't check your plan just now, so adding people is paused. Try again in a minute.",
   planUnavailableShort: "Couldn't check your plan just now. Try again in a minute.",
-  horafirmNotReady: "Adding people isn't ready on Horafirm yet. Once it is, you can add them here.",
-  horafirmNotReadyShort: "Adding people isn't ready on Horafirm yet.",
+  horafirmNotReady: "Adding people isn't ready yet. Once it is, you can add them here.",
+  horafirmNotReadyShort: "Adding people isn't ready yet.",
   upgradeRequired: "Your plan doesn't include adding people right now.",
   seatLimit: "Your plan has no room for more people right now.",
   rateLimited: "That's a lot of invites for now. Try again in an hour.",
   self: "That's your own email.",
   badEmail: "Check the email address.",
   gone: "They don't have access anymore.",
-  notOwner: "Horafirm says only the owner can do that.",
+  notOwner: "Only the owner can do that.",
   windowOnly: "People can only be added in the Deskwisp app.",
   fullAccessOff: "Full access is off while your bots' computers hold keys from this PC.",
   fullAccessOffTip: "Off while your bots' computers hold keys from this PC.",

@@ -52,12 +52,29 @@ the app ──► Deskwisp Cloud ──► E2B sandbox (one per computer)
 ```
 
 - A **provider** only gives a Linux box with a shell (`src/providers/`). Everything a desktop needs
-  runs inside the box with `template/deskwisp-screens`: the four screens, screenshots, the mouse and
+  runs inside the box with `template/deskwisp-display`: the four screens, screenshots, the mouse and
   keyboard. So the same API works on E2B, on a server of your own, or here for tests.
 - An E2B computer **pauses** when nobody used it for `DESKWISP_IDLE_MINUTES` and wakes, with its
   memory, on the next use. Paused, it costs nothing; running, E2B bills by the second.
-- What's not there yet: WebRTC (the app uses VNC), forks (a "clone" is a fresh computer), sharing a
-  workspace with other people, and the residential proxy.
+- What's not there yet: WebRTC (the app uses VNC), forks (a "clone" is a fresh computer), and the
+  residential proxy.
+
+## People: watching the bots from anywhere
+
+`/watch` is a page for any browser, a phone too: sign in (Clerk) and watch your bots' computers
+live, or take control. People you let in see the ones you shared with them (`src/people.ts`,
+`src/watch-pages.ts`):
+
+- The app's **People** sheet invites someone by email, with **View only** or **Full access**. Free
+  lets nobody in, Pro 2 people, Max 5 (an invite counts until it's cancelled or runs out, in 7 days).
+- The invite is a link to `/accept-invite`. Only someone signed in with the email invited can take
+  it. With `RESEND_API_KEY` and `DESKWISP_MAIL_FROM` the link is emailed; without, the app shows it
+  for you to send.
+- Each computer has two VNC passwords: the full one, and a watch-only one that x11vnc itself holds
+  to watching (no clicks, no keys). View only gets the watch-only one, through a ticket this server
+  signs for two minutes.
+- Taking someone's access away closes their open views at once. When someone with Full access goes
+  (or is moved to View only), the computers get new passwords, so one they copied stops working.
 
 ## Try it
 
@@ -110,6 +127,6 @@ node --experimental-strip-types --test dcloud/test/*.test.ts
 
 The computers tests run the whole API with the local provider on real X displays: Xvfb, xdotool,
 ImageMagick, x11vnc and websockify need to be installed (`apt install xvfb xdotool imagemagick
-x11vnc websockify x11-utils xfwm4`). The accounts tests run on the JSON store, and on Postgres too
+x11vnc websockify x11-utils xfwm4`). The accounts and people tests run on the JSON store, and on Postgres too
 when `DESKWISP_TEST_DATABASE_URL` names a throwaway database (they drop and remake its `deskwisp`
 schema).

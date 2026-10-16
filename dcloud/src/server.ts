@@ -12,6 +12,7 @@ import { clerkVerifier, type Verifier } from "./clerk.ts";
 import { JsonStore, type Store } from "./store.ts";
 import { PgStore } from "./store-pg.ts";
 import { isTier } from "./plans.ts";
+import { People } from "./people.ts";
 
 /**
  * Deskwisp Cloud: the app's sign-in (accounts.ts, with Clerk), its users, keys and computers (in Neon,
@@ -40,14 +41,23 @@ export function makeVerifier(cfg: Config): Verifier | null {
 
 export async function startServer(
   cfg: Config,
-  opts: { provider?: Provider; store?: Store; verifier?: Verifier | null; accounts?: ConstructorParameters<typeof Accounts>[3] } = {},
+  opts: {
+    provider?: Provider;
+    store?: Store;
+    verifier?: Verifier | null;
+    accounts?: ConstructorParameters<typeof Accounts>[3];
+    people?: ConstructorParameters<typeof People>[5];
+  } = {},
 ) {
   const provider = opts.provider ?? makeProvider(cfg);
   const store = opts.store ?? (await openStore(cfg));
-  const accounts = new Accounts(cfg, store, opts.verifier !== undefined ? opts.verifier : makeVerifier(cfg), opts.accounts);
+  const verifier = opts.verifier !== undefined ? opts.verifier : makeVerifier(cfg);
+  const accounts = new Accounts(cfg, store, verifier, opts.accounts);
   // A signed-in user's plan; a development key (DESKWISP_API_KEYS) is on DESKWISP_DEV_PLAN, Max unless set.
   const devPlan = isTier(process.env.DESKWISP_DEV_PLAN) ? process.env.DESKWISP_DEV_PLAN : "max_deskwisp";
-  const computers = new Computers(cfg, store, provider, async (owner) => (await store.user(owner).catch(() => null))?.plan ?? devPlan);
+  const planOf = async (owner: string) => (await store.user(owner).catch(() => null))?.plan ?? devPlan;
+  const computers = new Computers(cfg, store, provider, planOf);
+  const people = new People(cfg, store, computers, verifier, planOf, opts.people);
 
   const send = (res: ServerResponse, status: number, body: unknown) => {
     if (res.headersSent) return void res.end();
@@ -62,6 +72,7 @@ export async function startServer(
       let body: Promise<unknown> | undefined;
       const readOnce = () => (body ??= readBody(req));
       if (await accounts.public(req, res, url, readOnce, (status, out) => send(res, status, out))) return;
+      if (await people.public(req, res, url, readOnce, (status, out) => send(res, status, out))) return;
       if (!url.pathname.startsWith("/api/")) throw new HttpError(404, "Not found", "not_found");
       const owner = await accounts.ownerOf(req);
       if (!owner) {
@@ -75,6 +86,8 @@ export async function startServer(
       }
       const parts = url.pathname.slice("/api/".length).split("/").filter(Boolean).map(decodeURIComponent);
       if (parts.join("/") === "user/profile" && req.method === "GET") return send(res, 200, await accounts.profile(owner));
+      const shared = await people.handle(owner, (req.method ?? "GET").toUpperCase(), parts, readOnce);
+      if (shared !== false) return send(res, 200, shared);
       const out = await computers.handle({
         owner,
         method: (req.method ?? "GET").toUpperCase(),
@@ -90,17 +103,21 @@ export async function startServer(
       const err =
         e instanceof HttpError ? e : typeof status === "number" && status >= 400 && status < 500 ? new HttpError(status, (e as Error).message) : new HttpError(500, (e as Error)?.message ?? "error", "internal");
       if (err.status >= 500) console.warn(`[dcloud] ${req.method} ${url.pathname}: ${err.message}`);
-      send(res, err.status, { error: err.message, ...(err.code ? { code: err.code } : {}) });
+      send(res, err.status, { error: err.message, ...(err.code ? { code: err.code } : {}), ...((err as { extra?: object }).extra ?? {}) });
     }
   });
 
   // The live view: the app's noVNC opens /desktops/<id>/ws/websockify?token=<vnc password>[&screen=<id>],
-  // and it's piped to that screen's websockify bridge inside the computer.
+  // and it's piped to that screen's websockify bridge inside the computer. The watch page (people.ts)
+  // comes with ?ticket= instead: someone signed in, allowed to see that computer for now.
   const wss = new WebSocketServer({ noServer: true, handleProtocols: (protocols) => (protocols.has("binary") ? "binary" : false) });
   server.on("upgrade", async (req, socket, head) => {
     const url = new URL(req.url ?? "/", "http://dcloud");
     const m = /^\/desktops\/([^/]+)\/ws\/websockify$/.exec(url.pathname);
-    const target = m ? await computers.bridge(decodeURIComponent(m[1]), url.searchParams.get("token") ?? "", url.searchParams.get("screen")).catch(() => null) : null;
+    const ticket = url.searchParams.get("ticket");
+    const id = m ? decodeURIComponent(m[1]) : "";
+    const viewer = m && ticket ? await people.bridge(ticket, id, url.searchParams.get("screen")).catch(() => null) : null;
+    const target = ticket ? viewer : m ? await computers.bridge(id, url.searchParams.get("token") ?? "", url.searchParams.get("screen")).catch(() => null) : null;
     if (!target) {
       socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
       return socket.destroy();
@@ -122,7 +139,9 @@ export async function startServer(
         client.close();
         upstream.close();
       };
-      client.on("close", close);
+      // A watcher's view ends when their access changes (people.ts).
+      const forget = viewer?.opened(close);
+      client.on("close", () => (close(), forget?.()));
       upstream.on("close", close);
       upstream.on("error", close);
       client.on("error", close);
@@ -134,7 +153,7 @@ export async function startServer(
     void store.close().catch(() => {});
   });
   server.listen(cfg.port, cfg.host);
-  return { server, store, accounts, computers };
+  return { server, store, accounts, computers, people };
 }
 
 // Run directly (not imported by the tests). Node 24 says so in import.meta.main; on 22, compare paths,

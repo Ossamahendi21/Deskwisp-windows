@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { botChatId, live, MAIN_WORKSPACE, sharesComputer, workBot, workspaceOf, type AppState, type Bot, type Routine, type Session } from "@/lib/types";
+import { botChatId, live, MAIN_WORKSPACE, ownScreen, sharesComputer, workBot, workspaceOf, type AppState, type Bot, type Routine, type Session } from "@/lib/types";
 import { mainOwnShort, ownComputerShort } from "@/lib/horafirm-plans";
 import { emailShort, numberShort, upgradeLabel, type PlanRoomShort } from "@/lib/plan-includes";
 import type { DeskwispTier } from "@/cloud/protocol";
@@ -344,7 +344,9 @@ function ComputerChoice({ state, bot: b, className, onUpgrade }: { state: AppSta
             {b.isMain
               ? `Works on your free Deskwisp computer, which ${main.name} has, with ${b.name}'s team`
               : shared
-                ? `Works on ${main.name}'s computer, on screens no one else is using`
+                ? ownScreen(state, b) !== undefined
+                  ? `Its own screen on ${main.name}'s computer: no other bot works there`
+                  : `Borrows a free screen on ${main.name}'s computer: a bigger plan gives it its own`
                 : plan?.plan?.deskwisp
                   ? "Its own Deskwisp computer"
                   : "Its own cloud computer, a copy of the main bot's"}

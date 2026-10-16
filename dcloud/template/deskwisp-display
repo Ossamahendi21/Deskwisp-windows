@@ -3,17 +3,19 @@
 # desktop, a VNC server and a websockify bridge for the live view. Deskwisp Cloud pushes this script into
 # every computer and calls it over the provider's shell (dcloud/src/desktop.ts).
 #
-#   deskwisp-screens boot <vnc-password> [WxH]   the boot screen and the VNC password (idempotent)
-#   deskwisp-screens up <display> [WxH]          start another screen (idempotent)
-#   deskwisp-screens down <display>              stop a screen (never the boot screen)
-#   deskwisp-screens list                        the running screens, as JSON
-#   deskwisp-screens shot <display> <scale> <png|jpeg> <out>   a screenshot, scaled, to a file
+#   deskwisp-display boot <vnc-password> [WxH] [view-password]
+#                                                the boot screen and the VNC passwords (idempotent): the
+#                                                full one, and one that can only watch (x11vnc view-only)
+#   deskwisp-display up <display> [WxH]          start another screen (idempotent)
+#   deskwisp-display down <display>              stop a screen (never the boot screen)
+#   deskwisp-display list                        the running screens, as JSON
+#   deskwisp-display shot <display> <scale> <png|jpeg> <out>   a screenshot, scaled, to a file
 #
 # Process patterns are bracketed ("[X]vfb") so they never match a shell whose command line names them.
 # Ports: VNC on 5900 + display, websockify on 5981 + display (6080 for :99, 6081-6083 for the others).
 set -u
 STATE="$HOME/.deskwisp"
-LOG=/tmp/deskwisp-screens
+LOG=/tmp/deskwisp-display
 mkdir -p "$STATE" "$LOG"
 
 running() { pgrep -f "[X]vfb :$1 " >/dev/null 2>&1; }
@@ -30,11 +32,11 @@ desktop() {
 
 vnc() {
   local n="$1"
-  [ -f "$STATE/vncpass" ] || return 0
+  [ -f "$STATE/vncpasswd" ] || return 0
   # The braces matter: "a || b &" would put the whole list, and the caller's output pipe, in the
   # background for as long as the daemon runs, and the call would never return.
   pgrep -f "[x]11vnc .*-display :$n " >/dev/null 2>&1 ||
-    { setsid nohup x11vnc -display ":$n" -rfbport $((5900 + n)) -rfbauth "$STATE/vncpass" -forever -shared -noxdamage -quiet -o "$LOG/vnc-$n.log" </dev/null >/dev/null 2>&1 & }
+    { setsid nohup x11vnc -display ":$n" -rfbport $((5900 + n)) -passwdfile "read:$STATE/vncpasswd" -forever -shared -noxdamage -quiet -o "$LOG/vnc-$n.log" </dev/null >/dev/null 2>&1 & }
   pgrep -f "[w]ebsockify.* $((5981 + n)) " >/dev/null 2>&1 ||
     { setsid nohup websockify $((5981 + n)) "127.0.0.1:$((5900 + n))" </dev/null >"$LOG/ws-$n.log" 2>&1 & }
 }
@@ -60,13 +62,17 @@ down() {
 
 case "${1:-list}" in
   boot)
-    pw="${2:?vnc password}"
-    if [ ! -f "$STATE/vncpass" ] || [ "$(cat "$STATE/vncpass.txt" 2>/dev/null)" != "$pw" ]; then
-      x11vnc -storepasswd "$pw" "$STATE/vncpass" >/dev/null 2>&1
-      printf '%s' "$pw" >"$STATE/vncpass.txt"
-      chmod 600 "$STATE/vncpass" "$STATE/vncpass.txt"
-      # A new password: the VNC servers start again with it.
+    pw="${2:?vnc password}" view="${4:-}"
+    # x11vnc's password file: the full password, then (after __BEGIN_VIEWONLY__) the watch-only one.
+    want="$(printf '%s\n__BEGIN_VIEWONLY__\n%s\n' "$pw" "${view:-__SKIP__}")"
+    if [ "$(cat "$STATE/vncpasswd" 2>/dev/null)" != "$want" ]; then
+      umask 077
+      printf '%s\n' "$want" >"$STATE/vncpasswd"
+      chmod 600 "$STATE/vncpasswd"
+      rm -f "$STATE/vncpass" "$STATE/vncpass.txt"
+      # New passwords: the VNC servers start again with them, and whoever was connected reconnects.
       pkill -f "^[x]11vnc " 2>/dev/null
+      sleep 0.3
     fi
     up 99 "${3:-1280x960}"
     for n in 100 101 102; do running "$n" && vnc "$n"; done
@@ -96,5 +102,5 @@ case "${1:-list}" in
     rm -f "$raw"
     echo ok
     ;;
-  *) echo "usage: deskwisp-screens boot|up|down|list|shot" >&2; exit 2 ;;
+  *) echo "usage: deskwisp-display boot|up|down|list|shot" >&2; exit 2 ;;
 esac

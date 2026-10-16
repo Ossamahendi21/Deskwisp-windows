@@ -1,7 +1,7 @@
 import { createBot, renameBot, setComputer } from "@/lib/server/bots";
 import { deleteBot } from "@/lib/server/remove";
 import { requestInbox } from "@/lib/server/mail";
-import type { AppLevel, Effort } from "@/lib/types";
+import { ROLE_MAX, type AppLevel, type Effort } from "@/lib/types";
 import { bot, update } from "@/lib/server/store";
 import { notReady } from "@/lib/server/ready";
 import { fromDeskwispWindow } from "@/lib/server/ui-token";
@@ -27,7 +27,11 @@ export async function POST(request: Request) {
   return Response.json(made);
 }
 
-/** Give or take access to an account (a null level takes it away), rename the bot, set how hard it thinks, where it works, whether it asks first and whether it has business data, or get it an email. */
+/**
+ * Give or take access to an account (a null level takes it away), rename the bot, say what it does,
+ * set how hard it thinks, where it works, whether it asks first and whether it has business data,
+ * archive it or bring it back, or get it an email.
+ */
 export async function PATCH(request: Request) {
   const unready = notReady() ?? notFromWindow(request);
   if (unready) return unready;
@@ -47,6 +51,10 @@ export async function PATCH(request: Request) {
     computer?: "shared" | "own";
     /** Get this bot an email (Max: up to 5; see requestInbox). */
     email?: true;
+    /** What it does, in the user's words (a word or a sentence). */
+    role?: string;
+    /** Put it away (out of the sidebar, no screen of its own) or bring it back. Not the main bot. */
+    archived?: boolean;
   };
   const b = body.botId ? bot(body.botId) : undefined;
   if (!b) return Response.json({ error: "no such bot" }, { status: 404 });
@@ -61,6 +69,15 @@ export async function PATCH(request: Request) {
   if (body.name !== undefined) {
     const r = renameBot(b.id, body.name);
     if ("error" in r) return Response.json(r, { status: 400 });
+  }
+  if (body.role !== undefined) {
+    const role = body.role.replace(/\s+/g, " ").trim().slice(0, ROLE_MAX);
+    if (!role) return Response.json({ error: "Say what it does" }, { status: 400 });
+    if (!b.isMain) update(() => (b.role = role));
+  }
+  if (typeof body.archived === "boolean") {
+    if (b.isMain) return Response.json({ error: "The main bot runs the team, so it can't be archived." }, { status: 400 });
+    update(() => (b.archived = body.archived || undefined));
   }
   update(() => {
     if (body.access) {

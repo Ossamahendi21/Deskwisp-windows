@@ -3,7 +3,7 @@ import type { Config } from "./config.ts";
 import * as desk from "./desktop.ts";
 import { BoxGone, type Box, type Provider } from "./providers/types.ts";
 import { PLANS, type Tier } from "./plans.ts";
-import type { Computer, Store } from "./store.ts";
+import { newVncPassword, type Computer, type Store } from "./store.ts";
 
 /**
  * The computers API, in the shape the app already speaks (Horafirm's REST API, lib/server/horafirm.ts), so the
@@ -126,10 +126,39 @@ export class Computers {
     if (wake) this.touch(c.boxId);
     else if (!this.used.has(c.boxId)) this.used.set(c.boxId, Date.now());
     if (!this.readied.has(c.boxId)) {
-      await desk.ready(box, c.vncPassword);
+      // A computer from before watch-only passwords gets one now.
+      if (!c.viewPassword) {
+        c.viewPassword = newVncPassword();
+        await this.reg.setPasswords(c.id, c.vncPassword, c.viewPassword);
+      }
+      await desk.ready(box, c.vncPassword, c.viewPassword);
       this.readied.add(c.boxId);
     }
     return box;
+  }
+
+  /**
+   * New VNC passwords for a computer (someone with Full access left, or was moved to View only): kept,
+   * and put on the box now if it's awake (its VNC servers restart, so everyone connected reconnects
+   * with what they're allowed now), else when it next wakes.
+   */
+  async repassword(c: Computer) {
+    c.vncPassword = newVncPassword();
+    c.viewPassword = newVncPassword();
+    await this.reg.setPasswords(c.id, c.vncPassword, c.viewPassword);
+    this.readied.delete(c.boxId);
+    if (this.open.has(c.boxId) && !this.asleep.has(c.boxId)) await this.box(c).catch(() => {});
+  }
+
+  /** Whether a computer is asleep, without waking it (the watch page's list). */
+  async asleepNow(c: Computer) {
+    return this.sleeping(c.boxId).catch(() => false);
+  }
+
+  /** A computer, awake, with its screens: for the watch page, once someone opens it. */
+  async wakeFor(c: Computer) {
+    const box = await this.box(c, true);
+    return desk.screens(box);
   }
 
   /** The user's plan, as the app reads it (GET /api/user/subscription). */
@@ -205,7 +234,18 @@ export class Computers {
 
     // ---- Workspaces: each owner's own; nobody else's, and no sharing yet.
     if (a === "workspaces") {
-      if (!b && method === "GET") return { workspaces: (await this.reg.workspaces(owner)).map((w) => ({ id: w.id, name: w.name, role: "owner", member_count: 1 })) };
+      if (!b && method === "GET")
+        return {
+          workspaces: await Promise.all(
+            (await this.reg.workspaces(owner)).map(async (w) => ({
+              id: w.id,
+              name: w.name,
+              role: "owner",
+              // The owner and everyone they let in (People; invites aren't in yet).
+              member_count: 1 + (await this.reg.members(w.id)).filter((m) => m.userId).length,
+            })),
+          ),
+        };
       if (!b && method === "POST") {
         const body = (await ctx.body()) as { name?: string };
         const w = await this.reg.addWorkspace(owner, String(body?.name ?? "deskwisp").slice(0, 60));
@@ -214,7 +254,7 @@ export class Computers {
       const w = b ? await this.reg.workspace(owner, b) : null;
       if (!w) throw new HttpError(404, "Workspace not found", "not_found");
       if (!c && method === "GET") return { id: w.id, name: w.name, desktops: (await this.reg.computers(owner, w.id)).map((x) => ({ id: x.id, name: x.name })) };
-      throw new HttpError(403, "Sharing a workspace isn't available yet", "not_available");
+      throw new HttpError(404, "Not found", "not_found");
     }
 
     if (a === "egress-devices") throw new HttpError(403, "Not available", "not_available");
@@ -341,7 +381,7 @@ export class Computers {
     this.open.set(box.id, Promise.resolve(box));
     this.touch(box.id);
     try {
-      await desk.ready(box, c.vncPassword);
+      await desk.ready(box, c.vncPassword, c.viewPassword);
       this.readied.add(box.id);
     } catch (e) {
       // A computer whose screens never came up is no use: it goes, and the app is told why.
@@ -356,6 +396,11 @@ export class Computers {
   async bridge(computerId: string, token: string, screenId: string | null) {
     const c = await this.reg.anyComputer(computerId);
     if (!c || !token || token !== c.vncPassword) return null;
+    return this.bridgeFor(c, screenId);
+  }
+
+  /** The bridge for a computer someone may already watch (the watch page's ticket says so). */
+  async bridgeFor(c: Computer, screenId: string | null) {
     const display = desk.displayOf(screenId);
     if (display === null) return null;
     // Opening the live view is someone at the computer: it wakes, and stays awake while they're on it.

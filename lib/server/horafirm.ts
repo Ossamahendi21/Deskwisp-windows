@@ -269,7 +269,7 @@ export async function findDeskwispWorkspace(key: string, { fresh = false } = {})
 /** A member of a workspace as horafirm-web lists it: the owner first, then everyone else (guests have no email). */
 export type HorafirmMember = { id?: unknown; alt?: unknown; role?: unknown; email?: unknown };
 /** An invite as horafirm-web lists it (the token only for the owner; the times from an horafirm-web that sends them). */
-export type HorafirmInvite = { email?: unknown; role?: unknown; status?: unknown; token?: unknown; created_at?: unknown; expires_at?: unknown; expired?: unknown };
+export type HorafirmInvite = { email?: unknown; role?: unknown; status?: unknown; token?: unknown; accept_url?: unknown; created_at?: unknown; expires_at?: unknown; expired?: unknown };
 
 /**
  * Who has access to a workspace, and changes to that (horafirm-web's member routes; /api/workspaces/{id}/…
@@ -280,7 +280,7 @@ export type HorafirmInvite = { email?: unknown; role?: unknown; status?: unknown
 export const horafirmMembers = {
   /** The members (the owner first) and the invites still waiting; horafirm-web with plan rules adds `seats`. */
   list: (key: string, workspace: string) =>
-    callHorafirm<{ members?: unknown; invites?: unknown; seats?: unknown; seats_error?: unknown; error?: unknown; code?: unknown }>(key, `/api/workspaces/${encodeURIComponent(workspace)}/members`),
+    callHorafirm<{ members?: unknown; invites?: unknown; seats?: unknown; seats_error?: unknown; watch_url?: unknown; error?: unknown; code?: unknown }>(key, `/api/workspaces/${encodeURIComponent(workspace)}/members`),
   /**
    * Invite someone by email: "viewer" (View only) or "admin" (Full access). Again for the same email,
    * Horafirm replaces the invite: a new email, a new link and 7 more days, and the old link stops working.

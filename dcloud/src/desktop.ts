@@ -3,13 +3,13 @@ import { randomBytes } from "node:crypto";
 import type { Box } from "./providers/types.ts";
 
 /**
- * A computer's desktop, through its shell: the screens script (dcloud/template/deskwisp-screens, pushed
+ * A computer's desktop, through its shell: the screens script (dcloud/template/deskwisp-display, pushed
  * into the box on first use) and xdotool. Screens are X displays: 99 is the boot screen ("default"),
  * 100-102 are the others ("screen-100"...), as the app names them (lib/server/horafirm.ts screenId).
  */
 
 // Without "\r": a Windows checkout may have given the script CRLF endings, which bash rejects.
-const SCRIPT = Buffer.from(readFileSync(new URL("../template/deskwisp-screens", import.meta.url), "utf8").replace(/\r\n/g, "\n"));
+const SCRIPT = Buffer.from(readFileSync(new URL("../template/deskwisp-display", import.meta.url), "utf8").replace(/\r\n/g, "\n"));
 const SCRIPT_HASH = (() => {
   let h = 0;
   for (const b of SCRIPT) h = (h * 31 + b) >>> 0;
@@ -35,20 +35,23 @@ export async function run(box: Box, command: string, timeoutSec = 60) {
   return box.exec(`${PRELUDE} ${command}`, timeoutSec);
 }
 
-/** Puts this version of the screens script in the box, and the boot screen up with the computer's VNC password. */
-export async function ready(box: Box, vncPassword: string) {
+/**
+ * Puts this version of the screens script in the box, and the boot screen up with the computer's VNC
+ * passwords: the full one, and the one that only lets someone watch (People with View only).
+ */
+export async function ready(box: Box, vncPassword: string, viewPassword: string) {
   const install =
     `mkdir -p "$HOME/.deskwisp/bin" && ` +
-    `if [ "$(cat "$HOME/.deskwisp/bin/.v" 2>/dev/null)" != "${SCRIPT_HASH}" ]; then ` +
-    `echo ${SCRIPT.toString("base64")} | base64 -d > "$HOME/.deskwisp/bin/deskwisp-screens" && chmod 755 "$HOME/.deskwisp/bin/deskwisp-screens" && echo ${SCRIPT_HASH} > "$HOME/.deskwisp/bin/.v"; fi`;
-  const r = await run(box, `${install} && deskwisp-screens boot ${sh(vncPassword)} ${SCREEN.width}x${SCREEN.height}`, 90);
+    `if [ "$(cat "$HOME/.deskwisp/bin/.display-version" 2>/dev/null)" != "${SCRIPT_HASH}" ]; then ` +
+    `echo ${SCRIPT.toString("base64")} | base64 -d > "$HOME/.deskwisp/bin/deskwisp-display" && chmod 755 "$HOME/.deskwisp/bin/deskwisp-display" && echo ${SCRIPT_HASH} > "$HOME/.deskwisp/bin/.display-version"; fi`;
+  const r = await run(box, `${install} && deskwisp-display boot ${sh(vncPassword)} ${SCREEN.width}x${SCREEN.height} ${sh(viewPassword)}`, 90);
   if (r.exitCode !== 0) throw new Error(`the computer's screens didn't start: ${r.output.trim().slice(-300)}`);
 }
 
 export type Screen = { display: number; width: number; height: number };
 
 export async function screens(box: Box): Promise<Screen[]> {
-  const r = await run(box, "deskwisp-screens list", 20);
+  const r = await run(box, "deskwisp-display list", 20);
   try {
     const list = JSON.parse(r.output.trim().split("\n").pop() ?? "[]") as Screen[];
     return Array.isArray(list) ? list : [];
@@ -62,20 +65,20 @@ export async function addScreen(box: Box, width = SCREEN.width, height = SCREEN.
   const up = new Set((await screens(box)).map((s) => s.display));
   const n = DISPLAYS.find((d) => !up.has(d));
   if (n === undefined) return null;
-  const r = await run(box, `deskwisp-screens up ${n} ${width}x${height}`, 60);
+  const r = await run(box, `deskwisp-display up ${n} ${width}x${height}`, 60);
   if (r.exitCode !== 0) throw new Error(`screen :${n} didn't start: ${r.output.trim().slice(-200)}`);
   return { display: n, width, height };
 }
 
 export async function removeScreen(box: Box, display: number) {
-  await run(box, `deskwisp-screens down ${display}`, 20);
+  await run(box, `deskwisp-display down ${display}`, 20);
 }
 
 export async function screenshot(box: Box, display: number, scale: number, format: "png" | "jpeg"): Promise<Uint8Array> {
   const s = Math.min(Math.max(Number.isFinite(scale) ? scale : 1, 0.1), 1);
   const out = `/tmp/deskwisp-shot-${randomBytes(4).toString("hex")}.${format === "png" ? "png" : "jpg"}`;
   if (box.readFile) {
-    const r = await run(box, `deskwisp-screens shot ${display} ${s} ${format} ${out}`, 30);
+    const r = await run(box, `deskwisp-display shot ${display} ${s} ${format} ${out}`, 30);
     if (r.exitCode !== 0) throw new Error(r.output.trim() || "no screenshot");
     try {
       return await box.readFile(out);
@@ -83,7 +86,7 @@ export async function screenshot(box: Box, display: number, scale: number, forma
       void run(box, `rm -f ${out}`, 10).catch(() => {});
     }
   }
-  const r = await run(box, `deskwisp-screens shot ${display} ${s} ${format} ${out} >/dev/null && base64 -w0 ${out}; rm -f ${out}`, 30);
+  const r = await run(box, `deskwisp-display shot ${display} ${s} ${format} ${out} >/dev/null && base64 -w0 ${out}; rm -f ${out}`, 30);
   if (r.exitCode !== 0) throw new Error(r.output.trim() || "no screenshot");
   return new Uint8Array(Buffer.from(r.output.trim(), "base64"));
 }

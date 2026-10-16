@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { trackEvent } from "@/lib/analytics";
 import {
   emailOf,
-  FULL_ACCESS_IN_DESKWISP,
   ROLE_LINES,
   ROLE_NAMES,
   WORDS,
@@ -21,12 +20,13 @@ import { peopleAside, peopleShort, upgradeLabel } from "@/lib/plan-includes";
 import type { AppState } from "@/lib/types";
 import { initialsFrom, LoadFailed, Notice, Placeholder, Section, signOutOfHorafirm } from "./account";
 import { Spinner } from "./mascot";
-import { usePlan } from "./plan-note";
 import { CloseButton, NeedsYouDot } from "./ui";
 import { Badge } from "./vault";
 
 /*
- * People: who can see the user's bots' computers on deskwisp.com, from the button at the bottom left of the
+ * People: who can see the user's bots' computers (on Deskwisp Cloud, live in their browser at its watch
+ * page; see lib/members.ts), from the button at the bottom left of the sidebar. Against deskwisp.com, the
+ * rest of this holds. People: who can see the user's bots' computers on deskwisp.com, from the button at the bottom left of the
  * sidebar. They're the members of the user's Horafirm workspace named "deskwisp", which holds the computers of
  * every Deskwisp workspace: the user invites people by email, sends an invite again or cancels it, changes
  * what someone can do (View only, or Full access when the app offers it) and removes people. Deskwisp keeps
@@ -129,7 +129,7 @@ const quiet = `${pill} shrink-0 bg-[#F2F2F0] hover:bg-[#EAEAE7]`;
  * every 30 seconds while it's open, showing what it has meanwhile. `onUpgrade` opens the plans (Account),
  * on top of it.
  */
-export function Members({ state, onClose, onUpgrade }: { state: AppState; onClose: () => void; onUpgrade: () => void }) {
+export function Members({ onClose, onUpgrade }: { state: AppState; onClose: () => void; onUpgrade: () => void }) {
   const [read, setRead] = useState<Read | null>(null);
   const [loading, setLoading] = useState(true);
   // The route itself failed (a 500, or not JSON): the sheet says so and offers a retry.
@@ -229,14 +229,14 @@ export function Members({ state, onClose, onUpgrade }: { state: AppState; onClos
             </>
           )
         ) : read.state === "ready" ? (
-          <ReadyView info={read} state={state} act={act} onRetry={retry} onUpgrade={onUpgrade} />
+          <ReadyView info={read} act={act} onRetry={retry} onUpgrade={onUpgrade} />
         ) : (
           <Section title="Add someone">
             {read.state === "self_hosted" ? (
               <Notice
                 action={
                   <a href={read.horafirmUrl} target="_blank" rel="noreferrer" className={quiet}>
-                    Open deskwisp.com
+                    Open
                   </a>
                 }
               >
@@ -270,10 +270,10 @@ export function Members({ state, onClose, onUpgrade }: { state: AppState; onClos
 
         {read?.state === "ready" ? (
           <div className="px-[22px] pb-5 pt-5 text-[12px] leading-4 text-[#9A9A98]">
-            People you add sign in on deskwisp.com with the email you invite. They see whatever is on your bots&apos; screens, like an open inbox, but never this PC, your chats or
-            your vault.{" "}
+            People you add open their invite link and sign in with the email you invited, then watch your bots live in their browser, on a phone too. They see whatever
+            is on your bots&apos; screens, like an open inbox, but never this PC, your chats or your vault. You can watch your bots from anywhere there too.{" "}
             <a href={read.horafirmUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ink">
-              Open on deskwisp.com
+              Open the watch page
             </a>
           </div>
         ) : (
@@ -285,7 +285,7 @@ export function Members({ state, onClose, onUpgrade }: { state: AppState; onClos
 }
 
 /** Who has access, and adding people: the sheet once Horafirm has said. */
-function ReadyView({ info, state, act, onRetry, onUpgrade }: { info: Ready; state: AppState; act: Act; onRetry: () => void; onUpgrade: () => void }) {
+function ReadyView({ info, act, onRetry, onUpgrade }: { info: Ready; act: Act; onRetry: () => void; onUpgrade: () => void }) {
   const someoneFull = info.people.some((p) => p.role === "admin");
   // Deskwisp's own keys on the computers: said whenever someone with Full access can read them, whether or not
   // the app offers it (people added on deskwisp.com have it too), and when they're why the app doesn't.
@@ -298,7 +298,7 @@ function ReadyView({ info, state, act, onRetry, onUpgrade }: { info: Ready; stat
           {info.host === "mac" && <Notice>Right now your bots work on this PC, which people you add never see. They&apos;d only see your bots&apos; cloud computers.</Notice>}
         </div>
       )}
-      <AddSomeone info={info} state={state} act={act} onRetry={onRetry} onUpgrade={onUpgrade} />
+      <AddSomeone info={info} act={act} onRetry={onRetry} onUpgrade={onUpgrade} />
       <WhoHasAccess info={info} act={act} />
       {info.invites.length > 0 && <Invited info={info} act={act} />}
     </>
@@ -314,7 +314,7 @@ function ReadyView({ info, state, act, onRetry, onUpgrade }: { info: Ready; stat
  * rule. What the last invite did is kept here, not in the form: the invite that takes the last seat swaps
  * the form for the plan's block, and its line (an email that didn't go out, with its link) stays under it.
  */
-function AddSomeone({ info, state, act, onRetry, onUpgrade }: { info: Ready; state: AppState; act: Act; onRetry: () => void; onUpgrade: () => void }) {
+function AddSomeone({ info, act, onRetry, onUpgrade }: { info: Ready; act: Act; onRetry: () => void; onUpgrade: () => void }) {
   const [said, setSaid] = useState<Said | null>(null);
   // "Sent" for a moment on the button, and "Invite sent to …" for a few seconds under it.
   const [sent, setSent] = useState(false);
@@ -380,18 +380,11 @@ function AddSomeone({ info, state, act, onRetry, onUpgrade }: { info: Ready; sta
       >
         {short?.text ?? WORDS.upgradeRequired}
         {short?.note && <span className="block text-[#6B6B6B]">{short.note}</span>}
-        {s.plan === "free_deskwisp" && <HorafirmPlanLine state={state} />}
+
       </Notice>
       {line}
     </Section>
   );
-}
-
-/** On Free, for someone who pays for Horafirm: that plan is for their other Horafirm workspaces, not the bots' computers. */
-function HorafirmPlanLine({ state }: { state: AppState }) {
-  const tier = usePlan(state)?.plan?.tier;
-  if (!tier || tier.toLowerCase() === "free") return null;
-  return <span className="block text-[#6B6B6B]">Your Horafirm plan covers your other Horafirm workspaces, not your bots&apos; computers.</span>;
 }
 
 /** What the last invite did (muted, or red for a problem), with the invite's link when the email didn't go out. */
@@ -578,8 +571,9 @@ function PersonRow({ person: p, fullAccess, act }: { person: Person; fullAccess:
   const [asking, setAsking] = useState<"remove" | "full" | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const hadFull = p.role === "admin" || demoted;
-  // A computer password they copied with Full access outlasts it (FULL_ACCESS_IN_DESKWISP).
-  const copied = hadFull && !FULL_ACCESS_IN_DESKWISP;
+  // A computer password they copied with Full access outlasts it, unless Full access is on: then the
+  // computers get new passwords when it ends (Deskwisp Cloud; FULL_ACCESS_IN_DESKWISP).
+  const copied = hadFull && fullAccess !== "on";
   const change = async (role: MemberRole) => {
     setBusy(true);
     setError(null);
@@ -611,7 +605,7 @@ function PersonRow({ person: p, fullAccess, act }: { person: Person; fullAccess:
             {p.guest && <Badge>Guest</Badge>}
           </span>
           {p.guest ? (
-            <span className="truncate text-[12.5px] leading-4 text-[#6B6B6B]">Joined with a link on deskwisp.com</span>
+            <span className="truncate text-[12.5px] leading-4 text-[#6B6B6B]">Joined with a link</span>
           ) : (
             p.email && p.email !== p.name && <span className="truncate text-[12.5px] leading-4 text-[#6B6B6B]">{p.email}</span>
           )}
@@ -786,7 +780,7 @@ function InviteRow({ invite: i, fullAccess, canSend, act }: { invite: Invite; fu
                 {busy === "resend" ? "Sending…" : sent ? "Sent" : i.expired ? "Send again" : "Resend"}
               </button>
             )}
-            {i.link && <CopyLink link={i.link} tip={`Works only for someone signed in to Horafirm as ${i.email}`} />}
+            {i.link && <CopyLink link={i.link} tip={`Works only for someone who signs in as ${i.email}`} />}
             <button disabled={!!busy} onClick={() => setSure(true)} className="rounded-full px-2.5 py-1 text-[12px] font-medium leading-4 text-[#B42318] hover:bg-[#FEF3F2]">
               Cancel
             </button>

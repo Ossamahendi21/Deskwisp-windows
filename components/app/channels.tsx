@@ -151,7 +151,7 @@ function TokenSetup({ bot: b, kind }: { bot: Bot; kind: "telegram" | "discord" }
         </button>
       </div>
       {error && <span className="text-[12px] leading-4 text-[#B42318]">{error}</span>}
-      <span className="text-[11.5px] leading-4 text-[#9A9A98]">The token stays in your PC&apos;s Keychain. {b.name} takes requests only from you there.</span>
+      <span className="text-[11.5px] leading-4 text-[#9A9A98]">The token stays encrypted on this PC. {b.name} takes requests only from you there.</span>
     </div>
   );
 }

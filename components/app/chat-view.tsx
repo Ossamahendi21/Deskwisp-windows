@@ -1676,7 +1676,7 @@ export function ToPicker({ state, onOpenChat, onCancel }: { state: AppState; onO
   const [role, setRole] = useState("");
   const [error, setError] = useState<string | null>(null);
   const q = query.trim().toLowerCase();
-  const bots = teamOf(state).filter((b) => !q || `${b.name} ${b.role}`.toLowerCase().includes(q));
+  const bots = teamOf(state).filter((b) => !b.archived).filter((b) => !q || `${b.name} ${b.role}`.toLowerCase().includes(q));
 
   const openBot = (botId: string) => onOpenChat(`bot:${botId}`);
   const createBot = async () => {

@@ -38,7 +38,7 @@ export function VaultTab({ state, onClose }: { state: AppState; onClose: () => v
         <div className="flex items-end justify-between gap-3 pt-2">
           <div className="flex flex-col gap-0.5">
             <span className="text-[15px] font-semibold leading-5">Logins</span>
-            <span className="text-[12.5px] leading-[17px] text-[#6B6B6B]">Passwords and 2FA keys stay in your PC&apos;s Keychain and go straight into the sign-in page. No AI ever sees them.</span>
+            <span className="text-[12.5px] leading-[17px] text-[#6B6B6B]">Passwords and 2FA keys stay on this PC, encrypted for your Windows user, and go straight into the sign-in page. No AI ever sees them.</span>
           </div>
           {editing !== "new" && (
             <button onClick={() => setEditing("new")} className="shrink-0 rounded-full bg-ink px-3.5 py-2 text-[13px] font-semibold leading-4 text-white">
@@ -234,7 +234,7 @@ function LoginForm({ state, login, onDone }: { state: AppState; login?: VaultLog
           Cancel
         </button>
         <span className="flex-1" />
-        <span className="text-[11.5px] leading-4 text-[#9A9A98]">Stored in your PC&apos;s Keychain</span>
+        <span className="text-[11.5px] leading-4 text-[#9A9A98]">Encrypted on this PC</span>
       </div>
     </form>
   );

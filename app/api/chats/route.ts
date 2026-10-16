@@ -14,6 +14,20 @@ export async function POST(request: Request) {
   return Response.json({ chatId: chat.id });
 }
 
+/** Rename a group chat (an empty title goes back to its bots' names), or archive it / bring it back. */
+export async function PATCH(request: Request) {
+  const unready = notReady();
+  if (unready) return unready;
+  const { chatId, title, archived } = (await request.json().catch(() => ({}))) as { chatId?: string; title?: string; archived?: boolean };
+  const c = getState().chats.find((x) => x.id === chatId);
+  if (!c || c.kind !== "group") return Response.json({ error: "no such group" }, { status: 404 });
+  update(() => {
+    if (typeof title === "string") c.title = title.replace(/\s+/g, " ").trim().slice(0, 60) || undefined;
+    if (typeof archived === "boolean") c.archived = archived || undefined;
+  });
+  return Response.json({ ok: true });
+}
+
 /** Delete a group chat and its messages. (A bot's own chat goes when the bot does.) */
 export async function DELETE(request: Request) {
   const unready = notReady();

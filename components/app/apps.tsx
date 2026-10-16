@@ -158,7 +158,14 @@ export function AppsSection({ state }: { state: AppState }) {
 
 /** Nothing connected yet: the apps most teams start with, one tap each. */
 function QuickStart({ onPick }: { onPick: (app: string) => void }) {
-  const { apps } = useCatalog();
+  const { apps, error } = useCatalog();
+  if (error)
+    return (
+      <div className="flex flex-col gap-1 rounded-2xl bg-[#FFFAEB] px-4 py-3.5 shadow-[0_0_0_1px_#FEDF89]">
+        <span className="text-[13px] font-semibold leading-[18px]">Apps aren&apos;t connected yet</span>
+        <span className="text-[12.5px] leading-[17px] text-[#6B6B6B]">{error}</span>
+      </div>
+    );
   // Once the catalog is in, only apps it offers (signed in with Horafirm, the ones that can connect through Deskwisp Cloud).
   const pick = (apps ? FEATURED_APPS.map((a) => apps.find((x) => x.app === a)).filter((x): x is CatalogApp => !!x) : FEATURED_APPS.map((a) => ({ app: a, name: a }))).slice(0, 8);
   return (

@@ -11,7 +11,7 @@ import { openaiClient } from "./openai-client";
 import { contactLine, createBot } from "./bots";
 import { creditsOut, noteOutOfCredit, OUT_OF_CREDIT } from "./cloud";
 import { noOwnComputer } from "./plan";
-import { botChatId, live, pairChatId, TAPBACK_EMOJI, TAPBACKS, workspaceOf, type Bot, type Message, type Schedule, type Session, type Tapback } from "@/lib/types";
+import { botChatId, live, pairChatId, roleIsTitle, TAPBACK_EMOJI, TAPBACKS, workspaceOf, type Bot, type Message, type Schedule, type Session, type Tapback } from "@/lib/types";
 import { computerBriefing, teamBriefing } from "./briefing";
 import { ABOUT_DESKWISP, ASKING, tidyAnswer, WRITING } from "./style";
 import { savePage } from "./pages";
@@ -102,7 +102,7 @@ const WHERE = {
 function persona(b: Bot, others: Bot[]) {
   const owner = ownerName();
   return [
-    `You are ${b.name}, ${b.isMain ? `${owner}'s chief of staff` : `the ${b.role} bot`} in Deskwisp. ${ownerLine()}`,
+    `You are ${b.name}, ${b.isMain ? `${owner}'s chief of staff` : roleIsTitle(b.role) ? `the ${b.role} bot` : `one of ${owner}'s bots (your job: ${b.role})`} in Deskwisp. ${ownerLine()}`,
     "This is a text conversation, like iMessage. Write short, plain, friendly replies: usually one to three sentences, no headings or tables.",
     WRITING,
     ASKING,
@@ -588,7 +588,7 @@ async function botTurn(botId: string, chatId: string, opts: TurnOptions = {}): P
   const outsideFrom = opts.outside ? (opts.from ?? "someone outside Deskwisp") : undefined;
   setTyping(chatId, botId, true);
   try {
-    const others = getState().bots.filter((x) => x.id !== botId && workspaceOf(x) === workspaceOf(b));
+    const others = getState().bots.filter((x) => x.id !== botId && !x.archived && workspaceOf(x) === workspaceOf(b));
     const answering = opts.answering ? getState().messages.find((m) => m.id === opts.answering) : undefined;
     // Whether a new bot could have a computer of its own on the user's Horafirm plan, so the main bot doesn't promise one.
     // Read quickly or not at all: createBot checks again anyway. Not asked when the bots work on this PC.

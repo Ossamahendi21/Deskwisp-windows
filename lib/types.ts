@@ -3,6 +3,12 @@ import type { DeskwispTier } from "@/cloud/protocol";
 
 export type BotId = string;
 
+/** How long a bot's role ("what it does") may be. */
+export const ROLE_MAX = 160;
+
+/** A role that reads as a title ("Sales", "Research assistant") rather than a sentence. */
+export const roleIsTitle = (role: string) => role.trim().split(/\s+/).length <= 3 && !/[.,;:!?]/.test(role);
+
 export type Bot = {
   id: BotId;
   name: string;
@@ -30,6 +36,8 @@ export type Bot = {
    */
   freeComputer?: boolean;
   computerStatus: "none" | "cloning" | "ready" | "error";
+  /** Put away by the user (right-click → Archive): out of the sidebar until brought back, and given no screen. */
+  archived?: boolean;
   /**
    * Its computer's id while Deskwisp has made it and never had it ready: nothing has run on it, so a setup
    * that fails may delete it (ensureComputer). Cleared once it's ready. A computer Deskwisp didn't make (the
@@ -185,6 +193,8 @@ export type Chat = {
   asking?: Record<BotId, BotId>;
   /** The workspace it belongs to (a bot's own chat follows its bot). Unset means the first one. */
   workspaceId?: string;
+  /** A group put away by the user (right-click → Archive): out of the sidebar until brought back. */
+  archived?: boolean;
 };
 
 export type Message = {
@@ -792,6 +802,21 @@ export const DISPLAYS = [100, 101, 102, 99];
  * The screens a plan lets the bots use (`screens` of them, all four when it isn't known): the boot
  * screen always, since it's there from the start, and the created ones before it in order.
  */
+/**
+ * Each bot's own screen on the computer it works on, so bots never share one: the main bot has the
+ * boot screen, the others the created ones in the order they were made, as many as the plan's screens.
+ * A bot past them (or archived) has none of its own and borrows a free one when it needs to.
+ */
+export function botScreens(state: Pick<AppState, "bots" | "deskwispPlan">, computerBot: Bot): Map<BotId, number> {
+  const open = planDisplays(state.deskwispPlan?.screens);
+  const order = [99, ...open.filter((d) => d !== 99)];
+  const on = state.bots.filter((x) => !x.archived && workBot(x, state.bots).id === computerBot.id).sort((a, b) => Number(b.isMain) - Number(a.isMain));
+  return new Map(on.slice(0, order.length).map((x, i) => [x.id, order[i]] as const));
+}
+
+/** A bot's own screen (botScreens), if it has one. */
+export const ownScreen = (state: Pick<AppState, "bots" | "deskwispPlan">, b: Bot) => botScreens(state, workBot(b, state.bots)).get(b.id);
+
 export const planDisplays = (screens?: number): number[] =>
   !screens || screens >= MAX_SCREENS ? [...DISPLAYS] : [...DISPLAYS.slice(0, Math.max(0, Math.floor(screens) - 1)), 99];
 

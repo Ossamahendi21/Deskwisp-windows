@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { DISPLAYS, live, workspaceOf, type AppState, type Chat, type Session, type Watch } from "@/lib/types";
+import { DISPLAYS, live, sharesComputer, workspaceOf, type AppState, type Chat, type Session, type Watch } from "@/lib/types";
+import { PencilIcon, type EditTarget } from "./edit-panel";
 import { initialsOf, signOutOfHorafirm } from "./account";
 import { categoriesOpen } from "@/lib/memory-categories";
 import { KeyIcon } from "./screen-cards";
@@ -33,6 +34,7 @@ export function Sidebar({
   onMembers,
   onOpenWatch,
   onOpenMemory,
+  onEdit,
 }: {
   state: AppState;
   chatId: string;
@@ -50,8 +52,12 @@ export function Sidebar({
   onOpenWatch: (watch: Watch) => void;
   /** Open a category of what Deskwisp knows on the right, at one of its items (memory-categories.tsx). */
   onOpenMemory: (open: MemoryOpen) => void;
+  /** Edit a bot or a group on the right (right-click it → Edit; edit-panel.tsx). */
+  onEdit: (target: EditTarget) => void;
 }) {
   const [query, setQuery] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ chat: Chat; x: number; y: number } | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const q = query?.trim().toLowerCase();
   // The "5m" next to each chat stays current.
   useNow(30_000);
@@ -68,6 +74,8 @@ export function Sidebar({
       return pin(b) - pin(a) || activity(b) - activity(a);
     });
 
+  const archived = (c: Chat) => !!c.archived || (c.kind === "bot" && !!state.bots.find((b) => b.id === c.botIds[0])?.archived);
+  const shelf = chats.filter(archived);
   const mainBot = team.find((b) => b.isMain);
   const mainChat = mainBot ? state.chats.find((c) => c.kind === "bot" && c.botIds[0] === mainBot.id) : undefined;
 
@@ -107,14 +115,45 @@ export function Sidebar({
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {/* The main bot runs the team, so it sits above it (once you type a search, everything lists together). */}
-        {!q && mainChat && <MainBot chat={mainChat} state={state} selected={mainChat.id === chatId} onClick={() => onOpenChat(mainChat.id)} last={lastMessage(mainChat)} />}
+        {!q && mainChat && (
+          <MainBot
+            chat={mainChat}
+            state={state}
+            selected={mainChat.id === chatId}
+            onClick={() => onOpenChat(mainChat.id)}
+            onMenu={(x, y) => setMenu({ chat: mainChat, x, y })}
+            last={lastMessage(mainChat)}
+          />
+        )}
         <div className="flex flex-col gap-0.5">
           {chats
-            .filter((c) => !!q || c !== mainChat)
+            .filter((c) => (!!q || c !== mainChat) && (!!q || !archived(c)))
             .map((c) => (
-              <ChatRow key={c.id} chat={c} state={state} selected={c.id === chatId} onClick={() => onOpenChat(c.id)} last={lastMessage(c)} />
+              <ChatRow key={c.id} chat={c} state={state} selected={c.id === chatId} onClick={() => onOpenChat(c.id)} onMenu={(x, y) => setMenu({ chat: c, x, y })} last={lastMessage(c)} />
             ))}
         </div>
+
+        {/* Put away (right-click → Archive): out of the list, a click away. */}
+        {!q && shelf.length > 0 && (
+          <div className="flex flex-col pt-3">
+            <button
+              onClick={() => setShowArchived(!showArchived)}
+              className="flex h-[30px] items-center gap-1.5 rounded-[10px] px-2.5 text-left text-[13px] font-medium leading-4 text-[#9A9A98] hover:bg-black/[0.03]"
+            >
+              <svg width="10" height="10" viewBox="0 0 12 12" className={`shrink-0 transition-transform ${showArchived ? "" : "-rotate-90"}`}>
+                <path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Archived · {shelf.length}
+            </button>
+            {showArchived && (
+              <div className="flex flex-col gap-0.5 opacity-70">
+                {shelf.map((c) => (
+                  <ChatRow key={c.id} chat={c} state={state} selected={c.id === chatId} onClick={() => onOpenChat(c.id)} onMenu={(x, y) => setMenu({ chat: c, x, y })} last={lastMessage(c)} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {!q && <Watching state={state} onOpen={onOpenWatch} />}
 
@@ -142,6 +181,8 @@ export function Sidebar({
           <MemorySections state={state} query={query ?? ""} onOpen={onOpenMemory} />
         </div>
       )}
+
+      {menu && <RowMenu key={`${menu.chat.id}:${menu.x}:${menu.y}`} state={state} chat={menu.chat} x={menu.x} y={menu.y} onEdit={onEdit} onClose={() => setMenu(null)} />}
 
       {/* A newer Deskwisp on deskwisp.bot (the PC app checks; Deskwisp doesn't update itself). */}
       <UpdateNotice />
@@ -276,7 +317,45 @@ function YouMenu({ state, onAccount, onSettings, onSetup }: { state: AppState; o
  * The main bot (Sam) as the head of the team, like Grok's: big, starred, with how the team is doing
  * at a glance. Click it to talk to Sam.
  */
-function MainBot({ chat: c, state, selected, onClick, last }: { chat: Chat; state: AppState; selected: boolean; onClick: () => void; last?: AppState["messages"][number] }) {
+type RowProps = { chat: Chat; state: AppState; selected: boolean; onClick: () => void; onMenu: (x: number, y: number) => void; last?: AppState["messages"][number] };
+
+/** Right-click opens a row's menu (RowMenu); so does its "⋯" button, for a click. */
+const menuOn = (onMenu: RowProps["onMenu"]) => (e: React.MouseEvent) => {
+  e.preventDefault();
+  onMenu(e.clientX, e.clientY);
+};
+
+function MoreButton({ label, onMenu, className = "" }: { label: string; onMenu: RowProps["onMenu"]; className?: string }) {
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      aria-label={label}
+      title={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        const r = e.currentTarget.getBoundingClientRect();
+        onMenu(r.left, r.bottom + 4);
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        e.stopPropagation();
+        const r = e.currentTarget.getBoundingClientRect();
+        onMenu(r.left, r.bottom + 4);
+      }}
+      className={`flex size-6 shrink-0 items-center justify-center rounded-md text-[#6B6B6B] opacity-0 hover:bg-black/[0.06] hover:text-ink focus:opacity-100 ${className}`}
+    >
+      <svg width="13" height="13" viewBox="0 0 16 16">
+        <circle cx="3.5" cy="8" r="1.4" fill="currentColor" />
+        <circle cx="8" cy="8" r="1.4" fill="currentColor" />
+        <circle cx="12.5" cy="8" r="1.4" fill="currentColor" />
+      </svg>
+    </span>
+  );
+}
+
+function MainBot({ chat: c, state, selected, onClick, onMenu, last }: RowProps) {
   const b = state.bots.find((x) => x.id === c.botIds[0])!;
   const unread = !!last && last.role !== "user" && last.at > (c.readAt ?? 0) && !selected;
   const mine = new Set(teamOf(state).map((x) => x.id));
@@ -288,8 +367,10 @@ function MainBot({ chat: c, state, selected, onClick, last }: { chat: Chat; stat
   return (
     <button
       onClick={onClick}
-      className={`relative mb-2 flex flex-col items-center gap-1.5 rounded-[18px] px-3 pb-3 pt-4 text-center ${selected ? "bg-[#EEEEEC]" : "hover:bg-black/[0.03]"}`}
+      onContextMenu={menuOn(onMenu)}
+      className={`group/main relative mb-2 flex flex-col items-center gap-1.5 rounded-[18px] px-3 pb-3 pt-4 text-center ${selected ? "bg-[#EEEEEC]" : "hover:bg-black/[0.03]"}`}
     >
+      <MoreButton label={`More for ${b.name}`} onMenu={onMenu} className="absolute right-2 top-2 group-hover/main:opacity-100" />
       <span className="relative">
         <Mascot botId={b.id} color={b.color} size={64} />
         <span className="absolute -bottom-0.5 -right-0.5 flex size-[22px] items-center justify-center rounded-full bg-highlighter shadow-[0_0_0_2.5px_#F9F9F8,0_0_0_3.5px_#16132B]" title="Runs the team">
@@ -307,7 +388,7 @@ function MainBot({ chat: c, state, selected, onClick, last }: { chat: Chat; stat
   );
 }
 
-function ChatRow({ chat: c, state, selected, onClick, last }: { chat: Chat; state: AppState; selected: boolean; onClick: () => void; last?: AppState["messages"][number] }) {
+function ChatRow({ chat: c, state, selected, onClick, onMenu, last }: RowProps) {
   const members = state.bots.filter((b) => c.botIds.includes(b.id));
   const solo = c.kind === "bot" ? members[0] : undefined;
   const unread = !!last && last.role !== "user" && last.at > (c.readAt ?? 0) && !selected;
@@ -323,22 +404,31 @@ function ChatRow({ chat: c, state, selected, onClick, last }: { chat: Chat; stat
       : solo
         ? solo.isMain
           ? "Your chief of staff. Ask for anything."
-          : `${solo.role}. Say hi.`
+          : `${solo.role.replace(/[.!?]+$/, "")}. Say hi.`
         : `${members.map((m) => m.name).join(", ")} and you`;
 
   return (
-    <button onClick={onClick} className={`flex items-center gap-3 rounded-[14px] p-2.5 text-left ${selected ? "bg-[#EEEEEC]" : "hover:bg-black/[0.03]"}`}>
+    <button
+      onClick={onClick}
+      onContextMenu={menuOn(onMenu)}
+      className={`group/row flex items-center gap-3 rounded-[14px] p-2.5 text-left ${selected ? "bg-[#EEEEEC]" : "hover:bg-black/[0.03]"}`}
+    >
       <ChatAvatar chat={c} bots={state.bots} size={44} />
       <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
         <div className="flex items-center gap-1.5">
           <span className="truncate text-[15px] font-semibold leading-[18px]">{c.title ?? (solo ? solo.name : members.map((m) => m.name).join(", "))}</span>
           {solo && (
-            <span className={`shrink-0 rounded-[5px] px-1.5 py-px text-[11px] leading-[14px] text-[#6B6B6B] ${selected ? "bg-white" : "bg-[#EEEEEC]"}`}>
+            // A role can be a sentence ("finds leads on LinkedIn…"): the chip takes a short bit of it, never the name's room.
+            <span
+              title={solo.role}
+              className={`max-w-[110px] shrink-0 truncate rounded-[5px] px-1.5 py-px text-[11px] leading-[14px] text-[#6B6B6B] ${selected ? "bg-white" : "bg-[#EEEEEC]"}`}
+            >
               {solo.role}
             </span>
           )}
           <span className="flex-1" />
-          <span className="shrink-0 text-[12px] leading-4 text-[#9A9A98]">{last ? ago(last.at) : ""}</span>
+          <span className="shrink-0 text-[12px] leading-4 text-[#9A9A98] group-hover/row:hidden">{last ? ago(last.at) : ""}</span>
+          <MoreButton label={`More for ${chatName(c, state.bots)}`} onMenu={onMenu} className="-my-1 hidden group-hover/row:flex group-hover/row:opacity-100" />
         </div>
         <div className="flex items-center gap-2">
           <span className={`min-w-0 flex-1 truncate text-[13px] leading-[17px] ${unread ? "font-medium text-ink" : typing ? "text-[#6B6B6B] italic" : "text-[#6B6B6B]"}`}>{preview}</span>
@@ -346,6 +436,116 @@ function ChatRow({ chat: c, state, selected, onClick, last }: { chat: Chat; stat
         </div>
       </div>
     </button>
+  );
+}
+
+/**
+ * A bot's or a group's menu, where it was right-clicked: Edit (on the right), Archive or bring it
+ * back, Delete (asks first). The main bot runs the team, so it only has Edit.
+ */
+function RowMenu({ state, chat: c, x, y, onEdit, onClose }: { state: AppState; chat: Chat; x: number; y: number; onEdit: (t: EditTarget) => void; onClose: () => void }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [sure, setSure] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const away = (e: MouseEvent) => !box.current?.contains(e.target as Node) && onClose();
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && (e.preventDefault(), onClose());
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", esc);
+    window.addEventListener("blur", onClose);
+    return () => {
+      document.removeEventListener("mousedown", away);
+      document.removeEventListener("keydown", esc);
+      window.removeEventListener("blur", onClose);
+    };
+  }, [onClose]);
+  const b = c.kind === "bot" ? state.bots.find((x) => x.id === c.botIds[0]) : undefined;
+  if (c.kind === "bot" && !b) return null;
+  const isArchived = b ? !!b.archived : !!c.archived;
+  const name = b ? b.name : chatName(c, state.bots);
+  const act = async (fn: () => Promise<Response>, close = true) => {
+    setBusy(true);
+    setError(null);
+    const res = await fn().catch(() => null);
+    setBusy(false);
+    if (res?.ok) return close && onClose();
+    setError(((await res?.json().catch(() => ({}))) as { error?: string } | undefined)?.error ?? "That didn't work");
+  };
+  const archive = () =>
+    act(() => (b ? post("/api/bots", { botId: b.id, archived: !isArchived }, "PATCH") : post("/api/chats", { chatId: c.id, archived: !isArchived }, "PATCH")));
+  const remove = () => act(() => (b ? post("/api/bots", { botId: b.id }, "DELETE") : post("/api/chats", { chatId: c.id }, "DELETE")));
+  const item = "flex h-9 items-center gap-2.5 rounded-[10px] px-2.5 text-left text-[14px] font-medium hover:bg-black/[0.04] disabled:opacity-50";
+  // Kept on screen: it opens down and right of the click unless there's no room.
+  const left = Math.min(x, (typeof window === "undefined" ? 1e4 : window.innerWidth) - 248);
+  const top = Math.min(y, (typeof window === "undefined" ? 1e4 : window.innerHeight) - (sure ? 220 : 160));
+  return (
+    <div
+      ref={box}
+      role="menu"
+      style={{ left, top }}
+      className="fixed z-50 flex w-[236px] flex-col rounded-[14px] bg-white p-1.5 shadow-[0_0_0_1px_#E6E6E3,0_12px_32px_rgba(0,0,0,0.12)]"
+    >
+      <div className="truncate px-2.5 pb-1 pt-1.5 text-[12px] font-medium text-[#9A9A98]">{name}</div>
+      {!sure ? (
+        <>
+          <button
+            role="menuitem"
+            className={item}
+            onClick={() => {
+              onEdit(b ? { bot: b.id } : { group: c.id });
+              onClose();
+            }}
+          >
+            <PencilIcon size={14} />
+            Edit
+          </button>
+          {!b?.isMain && (
+            <>
+              <button role="menuitem" className={item} disabled={busy} onClick={() => void archive()}>
+                <ArchiveIcon />
+                {isArchived ? "Unarchive" : "Archive"}
+              </button>
+              <div className="mx-2 my-1 h-px bg-[#ECECEA]" />
+              <button role="menuitem" className={`${item} text-[#B42318]`} onClick={() => setSure(true)}>
+                <svg width="14" height="14" viewBox="0 0 16 16" className="shrink-0">
+                  <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Delete
+              </button>
+            </>
+          )}
+        </>
+      ) : (
+        <div className="flex flex-col gap-2.5 px-2.5 pb-1.5 pt-1">
+          <span className="text-[13px] leading-[18px] text-[#3A3A38]">
+            {b
+              ? sharesComputer(b)
+                ? `Delete ${b.name}? Its chat, threads and routines go with it; the computer it works on stays. This can't be undone.`
+                : `Delete ${b.name}? Its computer, chat, threads and routines go with it. This can't be undone.`
+              : `Delete this group and its messages? Its bots stay. This can't be undone.`}
+          </span>
+          <div className="flex gap-2">
+            <button onClick={() => void remove()} disabled={busy} className="rounded-full bg-[#B42318] px-3.5 py-1.5 text-[13px] font-semibold text-white disabled:opacity-60">
+              {busy ? "Deleting…" : "Delete"}
+            </button>
+            <button onClick={() => setSure(false)} disabled={busy} className="rounded-full px-3.5 py-1.5 text-[13px] font-medium shadow-[0_0_0_1px_#E6E6E3]">
+              Keep
+            </button>
+          </div>
+        </div>
+      )}
+      {error && <span className="px-2.5 pb-1.5 text-[12px] text-[#B42318]">{error}</span>}
+    </div>
+  );
+}
+
+function ArchiveIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" className="shrink-0">
+      <rect x="2" y="3" width="12" height="3.2" rx="0.8" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M3.2 6.2V12a1 1 0 001 1h7.6a1 1 0 001-1V6.2M6.5 9h3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
   );
 }
 

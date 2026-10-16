@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { AI_CREDIT_EMPTY, AI_CREDIT_LOW } from "@/cloud/protocol";
-import { BLOCKER_LABEL, botChatId, DISPLAYS, live, MAIN_WORKSPACE, MAX_SCREENS, planDisplays, workBot, workspaceOf, type Bot, type Effort, type Session, type ThreadReply } from "@/lib/types";
+import { BLOCKER_LABEL, botChatId, DISPLAYS, botScreens, live, MAIN_WORKSPACE, MAX_SCREENS, ownScreen, planDisplays, workBot, workspaceOf, type Bot, type Effort, type Session, type ThreadReply } from "@/lib/types";
 import { CloudError, creditsOut, executorKey, noteOutOfCredit, OUT_OF_CREDIT, outOfCreditError, shortOfCredit } from "./cloud";
 import { appsMcp, appsSocket, browserMcp, cdpPort, cuaDriverHere, currentUrl, ensureChrome, MAC_BROWSER_TOOLS, MAC_UI_TOOLS, macTaskPort, macUiMcp, navigate, startExecutor, stopExecutor, taskDir, taskSockets } from "./local";
 import { relayNewComputer } from "./relay";
@@ -603,6 +603,22 @@ async function pump() {
       // which stays on its site: then it starts over on another (run: a fresh agent session).
       const own = s.agentSessionId ? s.env?.display : undefined;
       if (own !== undefined && !mine && held.includes(own) && !watched.some((w) => w.display === own)) continue;
+      // A bot with a screen of its own (botScreens: one per bot, as many as the plan's screens) works
+      // there and nowhere else, so bots never share one; it waits while that screen is busy. One without
+      // a screen of its own borrows a free one that isn't another bot's.
+      const myScreen = !mine && own === undefined ? ownScreen(getState(), b) : undefined;
+      if (myScreen !== undefined) {
+        if (held.includes(myScreen)) continue;
+        siteWait.delete(s.id);
+        patchSession(s.id, { status: "starting", display: myScreen, lastDisplay: myScreen, startedAt: s.startedAt ?? Date.now() });
+        void run(s.id).finally(() => {
+          patchSession(s.id, { display: undefined });
+          void pump();
+        });
+        continue;
+      }
+      if (!mine && own === undefined) held = [...new Set([...held, ...othersScreens(b)])];
+      if (!mine && held.length >= MAX_SCREENS) continue;
       // Pick up where it left off when that screen is free.
       let display = mine
         ? mine.display
@@ -616,7 +632,7 @@ async function pump() {
         const pages = await screenPages(b);
         // Reading took a moment: what's in use now.
         const now = screensInUse(b.id);
-        held = withLocked([...now.held, ...now.watched.map((w) => w.display)]);
+        held = [...new Set([...withLocked([...now.held, ...now.watched.map((w) => w.display)]), ...othersScreens(b)])];
         if (held.length >= MAX_SCREENS || session(s.id)?.status !== "queued") continue;
         const pick = pickBySite(
           s,
@@ -1122,6 +1138,12 @@ export async function ensureScreens(computerId: string) {
     return d !== 99 && !open.includes(d);
   });
   for (const x of extra) await horafirm.deleteScreen(computerId, x.id).catch((e: Error) => console.warn(`[computer] closing screen ${x.id}: ${e.message}`));
+}
+
+/** The screens other bots own on the computer this bot works on (botScreens): never borrowed. */
+function othersScreens(b: Bot) {
+  const st = getState();
+  return [...botScreens(st, workBot(b, st.bots)).entries()].filter(([id]) => id !== b.id).map(([, d]) => d);
 }
 
 /**

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import pg from "pg";
 import { isTier, type Tier } from "./plans.ts";
-import { newVncPassword, WorkspaceTaken, type Computer, type DeviceCode, type Store, type User, type Workspace } from "./store.ts";
+import { newVncPassword, WorkspaceTaken, type Computer, type DeviceCode, type Member, type Store, type User, type Workspace } from "./store.ts";
 
 /**
  * The store in Postgres (Neon): DATABASE_URL. At start it applies dcloud/db/*.sql that haven't run,
@@ -30,9 +30,20 @@ const computer = (r: Row): Computer => ({
   boxId: r.box_id as string,
   provider: r.provider as string,
   vncPassword: r.vnc_password as string,
+  viewPassword: (r.view_password as string) ?? "",
   cpu: r.cpu as number,
   ram: r.ram as number,
   createdAt: ms(r.created_at as Date),
+});
+const member = (r: Row): Member => ({
+  id: r.id as string,
+  workspaceId: r.workspace_id as string,
+  email: r.email as string,
+  role: r.role === "admin" ? "admin" : "member",
+  userId: (r.user_id as string) ?? null,
+  token: (r.token as string) ?? null,
+  createdAt: ms(r.created_at as Date),
+  expiresAt: r.expires_at ? ms(r.expires_at as Date) : null,
 });
 const device = (r: Row): DeviceCode => ({
   id: r.id as string,
@@ -225,11 +236,11 @@ export class PgStore implements Store {
     return r ? computer(r) : null;
   }
 
-  async addComputer(c: Omit<Computer, "id" | "createdAt" | "vncPassword">) {
+  async addComputer(c: Omit<Computer, "id" | "createdAt" | "vncPassword" | "viewPassword">) {
     const [r] = await this.rows(
-      `INSERT INTO deskwisp.computers (id, owner, workspace_id, name, box_id, provider, vnc_password, cpu, ram)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [randomUUID(), c.owner, c.workspaceId, c.name, c.boxId, c.provider, newVncPassword(), c.cpu, c.ram],
+      `INSERT INTO deskwisp.computers (id, owner, workspace_id, name, box_id, provider, vnc_password, view_password, cpu, ram)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [randomUUID(), c.owner, c.workspaceId, c.name, c.boxId, c.provider, newVncPassword(), newVncPassword(), c.cpu, c.ram],
     );
     return computer(r);
   }
@@ -237,6 +248,76 @@ export class PgStore implements Store {
   async removeComputer(id: string) {
     if (!isUuid(id)) return;
     await this.rows("DELETE FROM deskwisp.computers WHERE id = $1", [id]);
+  }
+
+  async setPasswords(id: string, vncPassword: string, viewPassword: string) {
+    if (!isUuid(id)) return;
+    await this.rows("UPDATE deskwisp.computers SET vnc_password = $2, view_password = $3 WHERE id = $1", [id, vncPassword, viewPassword]);
+  }
+
+  async anyWorkspace(id: string) {
+    if (!isUuid(id)) return null;
+    const [r] = await this.rows("SELECT * FROM deskwisp.workspaces WHERE id = $1", [id]);
+    return r ? workspace(r) : null;
+  }
+
+  async members(workspaceId: string) {
+    if (!isUuid(workspaceId)) return [];
+    return (await this.rows("SELECT * FROM deskwisp.members WHERE workspace_id = $1 ORDER BY created_at", [workspaceId])).map(member);
+  }
+
+  async putInvite(workspaceId: string, email: string, role: Member["role"], token: string, expiresAt: number) {
+    const c = await this.pool.connect();
+    try {
+      await c.query("BEGIN");
+      const taken = await c.query("SELECT 1 FROM deskwisp.members WHERE workspace_id = $1 AND lower(email) = lower($2) AND user_id IS NOT NULL", [workspaceId, email]);
+      if (taken.rowCount) throw new Error("already a member");
+      await c.query("DELETE FROM deskwisp.members WHERE workspace_id = $1 AND lower(email) = lower($2)", [workspaceId, email]);
+      const r = await c.query(
+        "INSERT INTO deskwisp.members (id, workspace_id, email, role, token, expires_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+        [randomUUID(), workspaceId, email, role, token, new Date(expiresAt)],
+      );
+      await c.query("COMMIT");
+      return member(r.rows[0] as Row);
+    } catch (e) {
+      await c.query("ROLLBACK").catch(() => {});
+      throw e;
+    } finally {
+      c.release();
+    }
+  }
+
+  async dropInvite(workspaceId: string, email: string) {
+    if (!isUuid(workspaceId)) return false;
+    const r = await this.pool.query("DELETE FROM deskwisp.members WHERE workspace_id = $1 AND lower(email) = lower($2) AND user_id IS NULL", [workspaceId, email]);
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  async dropMember(workspaceId: string, userId: string) {
+    if (!isUuid(workspaceId) || !isUuid(userId)) return null;
+    const [r] = await this.rows("DELETE FROM deskwisp.members WHERE workspace_id = $1 AND user_id = $2 RETURNING *", [workspaceId, userId]);
+    return r ? member(r) : null;
+  }
+
+  async setMemberRole(workspaceId: string, userId: string, role: Member["role"]) {
+    if (!isUuid(workspaceId) || !isUuid(userId)) return null;
+    const [r] = await this.rows("UPDATE deskwisp.members SET role = $3 WHERE workspace_id = $1 AND user_id = $2 RETURNING *", [workspaceId, userId, role]);
+    return r ? member(r) : null;
+  }
+
+  async inviteByToken(token: string) {
+    const [r] = await this.rows("SELECT * FROM deskwisp.members WHERE token = $1 AND user_id IS NULL", [token]);
+    return r ? member(r) : null;
+  }
+
+  async acceptInvite(id: string, userId: string) {
+    const r = await this.pool.query("UPDATE deskwisp.members SET user_id = $2, token = NULL, expires_at = NULL WHERE id = $1 AND user_id IS NULL", [id, userId]);
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  async memberships(userId: string) {
+    if (!isUuid(userId)) return [];
+    return (await this.rows("SELECT * FROM deskwisp.members WHERE user_id = $1 ORDER BY created_at", [userId])).map(member);
   }
 }
 

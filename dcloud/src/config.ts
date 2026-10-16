@@ -23,6 +23,9 @@ export type Config = {
   maxComputers: number;
   cpu: number;
   ramGb: number;
+  /** Optional: invite emails sent with Resend (RESEND_API_KEY, from DESKWISP_MAIL_FROM); without it the app shows the link to send. */
+  resendApiKey?: string;
+  mailFrom?: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -50,5 +53,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     maxComputers: Number(env.DESKWISP_MAX_COMPUTERS) || 3,
     cpu: Number(env.DESKWISP_COMPUTER_CPU) || 2,
     ramGb: Number(env.DESKWISP_COMPUTER_RAM_GB) || 4,
+    resendApiKey: env.RESEND_API_KEY || undefined,
+    mailFrom: env.DESKWISP_MAIL_FROM || undefined,
   };
 }

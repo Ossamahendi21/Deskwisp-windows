@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BLOCKER_LABEL, computerAsleep, computerCheckMs, computerInUse, DISPLAYS, live, MAX_SCREENS, planDisplays, streamsLive, workBot, workspaceOf, type AppState, type Bot, type Session } from "@/lib/types";
+import { BLOCKER_LABEL, computerAsleep, computerCheckMs, computerInUse, DISPLAYS, live, MAX_SCREENS, botScreens, ownScreen, planDisplays, streamsLive, workBot, workspaceOf, type AppState, type Bot, type Session } from "@/lib/types";
 import { DESKWISP_TIERS, type DeskwispTier } from "@/cloud/protocol";
 import { freeComputerOpen, setupShort } from "@/lib/horafirm-plans";
 import { BotCursor } from "./bot-cursor";
@@ -88,7 +88,10 @@ export function defaultDisplay(state: AppState, botId: string, picked?: number) 
   if (picked !== undefined) return picked;
   if (state.takeover?.botId === botId && state.takeover.display !== undefined) return state.takeover.display;
   const held = state.sessions.filter((s) => s.botId === botId && s.display !== undefined);
-  return held[held.length - 1]?.display ?? DISPLAYS[0];
+  if (held.length) return held[held.length - 1].display!;
+  // Its own screen (one per bot), else the first.
+  const b = state.bots.find((x) => x.id === botId);
+  return (b && state.host !== "mac" ? ownScreen(state, b) : undefined) ?? DISPLAYS[0];
 }
 
 /** Following the action: whether the panel picks the screen for you, and how it switches. */
@@ -197,6 +200,8 @@ export function ComputerView({
   };
   // The screens the plan includes (Free 1, Pro 2, Max all four); the others show as a (+) to get more.
   const open = mac ? DISPLAYS : planDisplays(state.deskwispPlan?.screens);
+  // Whose each screen is (one per bot): shown under its thumbnail when nobody's working on it.
+  const owners = new Map(mac ? [] : [...botScreens(state, c).entries()].map(([id, d]) => [d, state.bots.find((x) => x.id === id)!] as const));
   const [paywall, setPaywall] = useState(false);
   const [stopping, setStopping] = useState<{ busy: boolean; error?: string }>({ busy: false });
   const stopComputer = async () => {
@@ -894,6 +899,12 @@ export function ComputerView({
                       <span className="shrink-0 font-semibold">{w.site}</span>
                       {alert && <span className="truncate rounded-[4px] bg-highlighter px-1 text-ink">{w.alert!.text}</span>}
                     </>
+                  ) : owners.get(d) ? (
+                    <>
+                      <Mascot botId={owners.get(d)!.id} color={owners.get(d)!.color} size={14} antenna={false} />
+                      <span className="shrink-0 font-semibold">{owners.get(d)!.name}</span>
+                      <span className="truncate text-[#9A9A98]">{pageOn(d)}</span>
+                    </>
                   ) : (
                     <span className="truncate pl-0.5 text-[#9A9A98]">{pageOn(d)}</span>
                   )}
@@ -1325,7 +1336,9 @@ export function ComputerSummary({ state, bot: b, className = "", onOpen }: { sta
             : b.isMain
               ? `${b.name}'s cloud computer`
               : c.id !== b.id
-                ? `Works on ${c.name}'s cloud computer`
+                ? ownScreen(state, b) !== undefined
+                  ? `Its own screen on ${c.name}'s cloud computer`
+                  : `Borrows a free screen on ${c.name}'s cloud computer`
                 : b.computerId
                   ? "Its own cloud computer, set up like the main bot's"
                   : "Its own, set up on its first task"}

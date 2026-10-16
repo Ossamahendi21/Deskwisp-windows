@@ -5,6 +5,7 @@ import { categoryOf, type CategoryId } from "@/lib/memory-categories";
 import { live, type AppState } from "@/lib/types";
 import type { Section } from "./bot-panel";
 import { CrmFileIcon } from "./crm";
+import { PencilIcon, type EditTarget } from "./edit-panel";
 import { Mascot } from "./mascot";
 import { MacIcon } from "./mac-tab";
 import { CategoryIcon } from "./memory-categories";
@@ -24,6 +25,8 @@ export type PanelTab =
   | { id: string; kind: "new" }
   | { id: string; kind: "vault" }
   | { id: string; kind: "mac" }
+  /** Edit a bot, or a group and its bots (edit-panel.tsx; right-click in the sidebar). */
+  | { id: string; kind: "edit"; target: EditTarget }
   /** A CRM file (crm.tsx), in the workspace it belongs to. */
   | { id: string; kind: "crm"; ws: string; file: string }
   /**
@@ -110,7 +113,9 @@ function Tab({ state, tab: t, on, closable, onPick, onClose }: { state: AppState
                 ? t.file
                 : t.kind === "memory"
                   ? (categoryOf(t.category)?.label ?? "Memory")
-                  : "New tab";
+                  : t.kind === "edit"
+                    ? `Edit ${"bot" in t.target ? (state.bots.find((x) => "bot" in t.target && x.id === t.target.bot)?.name ?? "bot") : "group"}`
+                    : "New tab";
   return (
     <div
       onClick={onPick}
@@ -132,6 +137,8 @@ function Tab({ state, tab: t, on, closable, onPick, onClose }: { state: AppState
         <CrmFileIcon />
       ) : t.kind === "memory" ? (
         <CategoryIcon id={t.category} />
+      ) : t.kind === "edit" ? (
+        <PencilIcon />
       ) : (
         <GlobeIcon />
       )}

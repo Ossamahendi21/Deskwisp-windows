@@ -2,7 +2,7 @@
 *.sh text eol=lf
 *.py text eol=lf
 vm/bin/* text eol=lf
-dcloud/template/deskwisp-screens text eol=lf
+dcloud/template/deskwisp-display text eol=lf
 dcloud/template/*.Dockerfile text eol=lf
 vm/** text eol=lf
 dcloud/** text eol=lf
