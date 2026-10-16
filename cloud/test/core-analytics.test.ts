@@ -1,3 +1,4 @@
+import { POSTHOG_PROJECT } from "../analytics-rules.ts";
 import assert from "node:assert/strict";
 import { createHmac, randomBytes } from "node:crypto";
 import { gunzipSync } from "node:zlib";
@@ -5,6 +6,9 @@ import { after, before, beforeEach, test } from "node:test";
 import { shutdownTelemetry } from "../analytics.ts";
 import { closeDb, query } from "../db.ts";
 import { call, dropUsers, fakeHorafirm, fakeProvider, keyOf, newUserId, prepareDb, startCloud, type Got, type Listening } from "./core-fakes.ts";
+
+/** No PostHog project of Deskwisp's yet (analytics-rules.ts): nothing is sent, so there's nothing to see. */
+const noProject = POSTHOG_PROJECT ? false : "no PostHog project of Deskwisp's yet";
 
 /**
  * Usage events from Deskwisp Cloud (analytics.ts, README "Usage events"): a new user's first session is
@@ -74,7 +78,7 @@ async function notice(body: Record<string, unknown>) {
   return r.status;
 }
 
-test("a new user's first session is one deskwisp_signup_completed; a second session sends none", async () => {
+test("a new user's first session is one deskwisp_signup_completed; a second session sends none", { skip: noProject }, async () => {
   const id = newUser("signup");
   assert.equal((await call(cloud.url, "POST", "/v1/session", { key: keyOf(id), headers: { "x-deskwisp-version": "0.0.22" } })).status, 200);
   const [e] = await until(() => {
@@ -99,7 +103,7 @@ test("a new user's session marked x-deskwisp-telemetry: off sends nothing", asyn
   assert.equal(events().filter((e) => e.distinct_id === id).length, 0);
 });
 
-test("a free to pro notice is one deskwisp_plan_changed with the person's plan; the same notice again sends none", async () => {
+test("a free to pro notice is one deskwisp_plan_changed with the person's plan; the same notice again sends none", { skip: noProject }, async () => {
   const id = newUser("plan");
   const at = new Date().toISOString();
   assert.equal(await notice({ userId: id, tier: "pro_deskwisp", at }), 200);

@@ -67,8 +67,8 @@ const user = async (what: string) => {
 };
 
 test("signed as horafirm-web signs it: the shared test vector", () => {
-  // horafirm-web's lib/ops/deskwisp-handles.test.ts checks the same signature from its side.
-  const sig = "sha256=e65457bdfe6cd74486472f0e3d16150373b0e5f7e55d9eb6c92754c3f7e068c1";
+  // The signature for this secret, route and time (horafirm-web checked the same vector with its own secret name).
+  const sig = "sha256=c3196c342a2a2c1ea8dfcc4aac18b510b5d1d3839663e221f1cd15f654c649be";
   assert.equal(OPS_HANDLES_SIGNED, "GET /v1/internal/ops/handles");
   assert.equal(planSigned("deskwisp-ops-test-secret", "1760000000", Buffer.from(OPS_HANDLES_SIGNED), sig, 1760000000_000), true);
   assert.equal(planSigned("deskwisp-ops-test-secret", "1760000000", Buffer.from(OPS_HANDLES_SIGNED), sig, 1760000000_000 + 6 * 60_000), false, "more than 5 minutes off");

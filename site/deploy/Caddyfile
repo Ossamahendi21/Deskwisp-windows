@@ -1,7 +1,7 @@
 # deskwisp.bot: the landing page (site/), as plain files, on the Deskwisp VM. scripts/site-deploy.sh installs
 # this as /etc/caddy/Caddyfile; Caddy gets and renews the certificates itself. HTML is always fresh,
 # everything else is cached a day (as nginx.conf did on Fly). The backend API is not here: it's
-# deskwisp.deskwisp.com/api (cloud/, scripts/cloud-deploy.sh).
+# cloud.deskwisp.bot/api (cloud/, scripts/cloud-deploy.sh).
 deskwisp.bot {
 	root * /opt/deskwisp/site
 	encode zstd gzip

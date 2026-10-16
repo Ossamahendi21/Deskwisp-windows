@@ -28,7 +28,7 @@ export function telemetryEnvironment(): "production" | "staging" | "development"
   if (process.env.NODE_ENV !== "production") return "development";
   const cloud = cloudUrl();
   if (/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(cloud)) return "development";
-  return cloud === "https://deskwisp.deskwisp.com/api" && horafirmOrigin() === "https://app.deskwisp.com" ? "production" : "staging";
+  return cloud === "https://cloud.deskwisp.bot/api" && horafirmOrigin() === "https://app.deskwisp.com" ? "production" : "staging";
 }
 
 function client(): Client {

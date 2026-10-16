@@ -37,7 +37,7 @@ throwaway Postgres (the core tests in `horafirm_core`, the edge tests in `horafi
 or `DESKWISP_TEST_DATABASE_URL`). CI runs them on every push (`.github/workflows/ci.yml`, `cloud-tests`).
 
 It listens on 127.0.0.1 (`DESKWISP_CLOUD_PORT`, default 8790) behind a TLS proxy (Caddy) at
-`DESKWISP_CLOUD_PUBLIC_URL` (at Horafirm: `https://deskwisp.deskwisp.com/api`; Caddy strips the `/api`, so the routes
+`DESKWISP_CLOUD_PUBLIC_URL` (at Horafirm: `https://cloud.deskwisp.bot/api`; Caddy strips the `/api`, so the routes
 here are `/v1/…`, `/proxy/…`, `/hooks/…`). Every public address the cloud hands out (webhook URLs,
 pages) is made from `DESKWISP_CLOUD_PUBLIC_URL`. At start it applies `db/migrations/*.sql` that haven't run.
 
@@ -72,7 +72,7 @@ the answer for 5 minutes by the key's SHA-256 (`cloud/auth.ts`). It never stores
 Every request from the app (0.0.18 on) also says its version, `x-deskwisp-version: 0.0.18`
 (`lib/server/app-version.ts`; apps before it say nothing). The cloud keeps the latest with the user's
 account, `deskwisp.cloud_accounts.app_version` (NULL: an app that didn't say) and `app_seen_at`
-(`cloud/app-version.ts`). With `deskwisp.app_policy.block_below` set (`Horafirm's scripts/notices.sh (Horafirm/deskwisp-secrets) block
+(`cloud/app-version.ts`). With `deskwisp.app_policy.block_below` set (`Horafirm's scripts/notices.sh (Ossamahendi21/deskwisp-secrets) block
 0.0.18`; read every minute, no deploy), an app older than that, or one that doesn't say, is answered
 426 (`app_update_required`, with a line telling the user to update) on every call and socket but its
 state's (`/v1/state`, `/v1/messages`), which still go through so nothing it holds is lost.
@@ -91,7 +91,7 @@ What Horafirm tells users (`cloud/notices.ts`): rows in `deskwisp.notices` (a ti
 any, from when until when, and optionally only for apps older than a version). The app (0.0.19 on)
 asks `GET /v1/notices` at launch and every 15 minutes and shows each one once as a pop-up, until the
 user puts it away (`POST /v1/notices/dismiss { id }`, kept in `deskwisp.notice_dismissals`, so it stays away
-on all their Macs). Posted, listed and ended with `Horafirm's scripts/notices.sh (Horafirm/deskwisp-secrets)`.
+on all their Macs). Posted, listed and ended with `Horafirm's scripts/notices.sh (Ossamahendi21/deskwisp-secrets)`.
 
 Webhooks are public and proven by the provider's signature instead.
 

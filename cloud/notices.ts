@@ -7,7 +7,7 @@ import type { CloudNotice } from "./protocol.ts";
  * What Horafirm tells Deskwisp users: notices in deskwisp.notices, each shown once to each user as a pop-up in the
  * app (0.0.19 on: components/app/notice-popup.tsx) until they put it away, on whichever Mac. A notice can
  * be for apps older than a version only (below_version: "update Deskwisp"), and runs from starts_at until
- * ends_at. Posted and ended with Horafirm's scripts/notices.sh (Horafirm/deskwisp-secrets).
+ * ends_at. Posted and ended with Horafirm's scripts/notices.sh (Ossamahendi21/deskwisp-secrets).
  */
 
 type Row = { id: string; title: string; body: string; link_url: string | null; link_label: string | null; below_version: string | null };

@@ -41,7 +41,7 @@ before(async () => {
   cloud = await startCloud();
 });
 
-/** Set the oldest app served, as Horafirm's scripts/notices.sh (Horafirm/deskwisp-secrets) does, and read it now. */
+/** Set the oldest app served, as Horafirm's scripts/notices.sh (Ossamahendi21/deskwisp-secrets) does, and read it now. */
 const block = async (version: string | null) => {
   await query("UPDATE deskwisp.app_policy SET block_below = $1, updated_at = now() WHERE id", [version]);
   await refreshAppPolicy();

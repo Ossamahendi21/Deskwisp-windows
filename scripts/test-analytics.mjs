@@ -433,7 +433,7 @@ console.log("ok - the window");
 process.env.NODE_ENV = "production";
 process.env.DESKWISP_APP_VERSION = "0.0.22";
 globalThis.deskwispHorafirmKey = "sk_test_one";
-const SESSION = { userId: "u-1", publicUrl: "https://deskwisp.deskwisp.com/api", agentmail: null, agentphone: null, honcho: null, composio: null, openai: null, typesafe: false, verify: { sms: false, email: false }, slack: null, plan: { tier: "pro_deskwisp", limits: false } };
+const SESSION = { userId: "u-1", publicUrl: "https://cloud.deskwisp.bot/api", agentmail: null, agentphone: null, honcho: null, composio: null, openai: null, typesafe: false, verify: { sms: false, email: false }, slack: null, plan: { tier: "pro_deskwisp", limits: false } };
 globalThis.deskwispCloud = { session: { key: "sk_test_one", value: SESSION } };
 const S = await import(`${root}/lib/server/store.ts`);
 const M = await import(`${root}/lib/server/analytics.ts`);
@@ -566,7 +566,7 @@ console.log("ok - the Mac's server");
 
 /* ---------------- 4. Deskwisp Cloud (cloud/analytics.ts) ---------------- */
 
-process.env.DESKWISP_CLOUD_PUBLIC_URL = "https://deskwisp.deskwisp.com/api";
+process.env.DESKWISP_CLOUD_PUBLIC_URL = "https://cloud.deskwisp.bot/api";
 const db = { off: {}, asked: 0 };
 globalThis.__cloudQuery = async (text, values) => {
   assert.match(text, /FROM deskwisp\.app_state WHERE user_id = \$1/);

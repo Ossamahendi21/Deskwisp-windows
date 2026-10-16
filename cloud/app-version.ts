@@ -9,7 +9,7 @@ import { APP_CLIENT_HEADER, APP_UPDATE_REQUIRED, APP_VERSION_HEADER, IOS_CLIENT 
  * with the user's account: deskwisp.cloud_accounts.app_version (NULL for an app that didn't say) and
  * app_seen_at, written when it changes and otherwise at most every few minutes.
  *
- * With deskwisp.app_policy's block_below set (Horafirm's scripts/notices.sh (Horafirm/deskwisp-secrets) block 0.0.18), an app older than
+ * With deskwisp.app_policy's block_below set (Horafirm's scripts/notices.sh (Ossamahendi21/deskwisp-secrets) block 0.0.18), an app older than
  * that, or one that doesn't say, is answered 426 (APP_UPDATE_REQUIRED) on every call but its state's
  * (/v1/state, /v1/messages): those still go through, so nothing the old app holds is lost, and the updated
  * app picks it up. Read again every minute, so it takes effect without a deploy.

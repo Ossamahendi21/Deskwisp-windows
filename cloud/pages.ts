@@ -14,7 +14,7 @@ import { HttpError, type Route } from "./http.ts";
  * - GET /mascot/<name>.png|jpg, /brand/<name>.png: the bots' pictures (Slack shows them as each bot's
  *   icon_url) and the Deskwisp logo, fixed files in cloud/public.
  *
- * Behind the proxy the public path has a prefix (https://deskwisp.deskwisp.com/api/connected), so the pages
+ * Behind the proxy the public path has a prefix (https://cloud.deskwisp.bot/api/connected), so the pages
  * point at their pictures with relative addresses: "/brand/…" would leave the prefix out.
  */
 

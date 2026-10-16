@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Puts a release's Mac app on deskwisp.bot for the landing page's download buttons:
 # https://deskwisp.bot/download/Deskwisp.dmg (always the newest release) and /download/Deskwisp-<version>-arm64.dmg.
-# Takes the DMG from the GitHub release on Horafirm/deskwisp, checks it against the release's latest-mac.yml,
+# Takes the DMG from the GitHub release on Ossamahendi21/Deskwisp-windows, checks it against the release's latest-mac.yml,
 # copies it to the Deskwisp VM (DESKWISP_SITE_BOX), then checks the VM serves the same bytes. Then it writes
 # /download/latest.json, which the Mac app reads to tell its users a newer version is out and what's new
 # in it (Deskwisp doesn't update itself; see "New versions" in desktop/main.cjs), and deskwisp.bot's download card
 # reads for its "What's new". Run from the repo after a release:
 #   scripts/download-publish.sh           # the newest release
 #   scripts/download-publish.sh v0.0.2    # a given one
-# Needs Horafirm's private Horafirm/deskwisp-secrets next to this repo (its prod/deskwisp-public.env names the VM;
+# Needs Horafirm's private Ossamahendi21/deskwisp-secrets next to this repo (its prod/deskwisp-public.env names the VM;
 # DESKWISP_SECRETS points elsewhere), gh, jq, and SSH to the VM as root (default key: z-legacy-fleet's
 # ci-staging.key; DESKWISP_SITE_SSH_KEY picks another).
 set -euo pipefail
@@ -18,7 +18,7 @@ command -v jq >/dev/null || { echo "latest.json is made with jq: install it firs
 # Horafirm's prod settings and the legacy key sit next to the main checkout (this may be a worktree elsewhere).
 main="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
 prod="${DESKWISP_SECRETS:-$main/../deskwisp-secrets}/prod"
-[ -f "$prod/deskwisp-public.env" ] || { echo "No $prod/deskwisp-public.env: clone Horafirm/deskwisp-secrets next to $main, or set DESKWISP_SECRETS." >&2; exit 1; }
+[ -f "$prod/deskwisp-public.env" ] || { echo "No $prod/deskwisp-public.env: clone Ossamahendi21/deskwisp-secrets next to $main, or set DESKWISP_SECRETS." >&2; exit 1; }
 set -a
 . "$prod/deskwisp-public.env"
 set +a
@@ -29,13 +29,13 @@ key="${DESKWISP_SITE_SSH_KEY:-$main/../z-legacy-fleet/.ssh/ci-staging.key}"
 [ -f "$key" ] && ssh_opts+=(-i "$key" -o IdentitiesOnly=yes)
 box() { ssh "${ssh_opts[@]}" "$DESKWISP_SITE_BOX" "$@"; }
 
-tag="${1:-$(gh release list -R Horafirm/deskwisp --exclude-drafts --exclude-pre-releases --limit 1 --json tagName -q '.[0].tagName')}"
+tag="${1:-$(gh release list -R Ossamahendi21/Deskwisp-windows --exclude-drafts --exclude-pre-releases --limit 1 --json tagName -q '.[0].tagName')}"
 dmg="Deskwisp-${tag#v}-arm64.dmg"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 echo "1/4 $dmg from the $tag release"
-gh release download "$tag" -R Horafirm/deskwisp -p "$dmg" -p latest-mac.yml -D "$tmp" >/dev/null
+gh release download "$tag" -R Ossamahendi21/Deskwisp-windows -p "$dmg" -p latest-mac.yml -D "$tmp" >/dev/null
 # latest-mac.yml (written by electron-builder) lists each file's sha512, base64.
 want="$(awk -v f="$dmg" '$0 ~ "url: "f"$" {getline; sub(/^ *sha512: */, ""); print; exit}' "$tmp/latest-mac.yml")"
 got="$(openssl dgst -sha512 -binary "$tmp/$dmg" | base64 | tr -d '\n')"
@@ -46,12 +46,12 @@ fi
 
 # latest.json, made now, so nothing changes on the VM when it can't be: the version, where to get it, when
 # it came out, and "notes", what's new in it. Those are the "- " lines of docs/releases/<tag>.md as tagged
-# on Horafirm/deskwisp, else of this checkout's (a tag from before those files); with neither, the file has no
+# on Ossamahendi21/Deskwisp-windows, else of this checkout's (a tag from before those files); with neither, the file has no
 # "notes", as before. Not the release's own notes: older ones have long lines and details that aren't for
 # the app or the page. jq writes it, so quotes and any script in the notes come through intact (as \u
 # escapes: the file is plain ASCII).
-released="$(gh release view "$tag" -R Horafirm/deskwisp --json publishedAt -q .publishedAt 2>/dev/null || true)"
-if ! md="$(gh api -H "Accept: application/vnd.github.raw" "repos/Horafirm/deskwisp/contents/docs/releases/$tag.md?ref=$tag" 2>/dev/null)"; then
+released="$(gh release view "$tag" -R Ossamahendi21/Deskwisp-windows --json publishedAt -q .publishedAt 2>/dev/null || true)"
+if ! md="$(gh api -H "Accept: application/vnd.github.raw" "repos/Ossamahendi21/Deskwisp-windows/contents/docs/releases/$tag.md?ref=$tag" 2>/dev/null)"; then
   md="$(cat "docs/releases/$tag.md" 2>/dev/null || true)"
 fi
 printf '%s\n' "$md" | tr -d '\r' | sed -nE 's/^-[[:space:]]+//p' > "$tmp/notes.txt"

@@ -3,7 +3,7 @@
 # (cloud/, db/), its settings, and the horafirm-relay rendezvous; then restarts both and checks the cloud
 # answers. The box is set up once with cloud/deploy/install.sh. Run from the repo:
 #   scripts/cloud-deploy.sh
-# Needs: Horafirm's private Horafirm/deskwisp-secrets next to this repo (DESKWISP_SECRETS points elsewhere) and sops,
+# Needs: Horafirm's private Ossamahendi21/deskwisp-secrets next to this repo (DESKWISP_SECRETS points elsewhere) and sops,
 # which decrypts its prod/deskwisp-secrets.env; gh (fetches horafirm-relay from its private releases); and SSH
 # to the box as root (default key: z-legacy-fleet's id_ed25519; DESKWISP_CLOUD_SSH_KEY picks another).
 set -euo pipefail
@@ -12,7 +12,7 @@ cd "$root"
 # Horafirm's prod settings and secrets sit next to the main checkout (this may be a worktree elsewhere).
 main="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
 prod="${DESKWISP_SECRETS:-$main/../deskwisp-secrets}/prod"
-[ -f "$prod/deskwisp-public.env" ] || { echo "No $prod/deskwisp-public.env: clone Horafirm/deskwisp-secrets next to $main, or set DESKWISP_SECRETS." >&2; exit 1; }
+[ -f "$prod/deskwisp-public.env" ] || { echo "No $prod/deskwisp-public.env: clone Ossamahendi21/deskwisp-secrets next to $main, or set DESKWISP_SECRETS." >&2; exit 1; }
 set -a
 . "$prod/deskwisp-public.env"
 set +a

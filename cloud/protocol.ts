@@ -10,7 +10,7 @@ export type CloudSession = {
   userId: string;
   email?: string;
   /**
-   * Where this cloud is reached from the internet, e.g. "https://deskwisp.deskwisp.com/api". Its public pages
+   * Where this cloud is reached from the internet, e.g. "https://cloud.deskwisp.bot/api". Its public pages
    * are there too: <publicUrl>/connected (after an app's sign-in), <publicUrl>/oauth/callback (Horafirm's
    * own OAuth apps send people back here), <publicUrl>/mascot/<name>.png and /brand/deskwisp-512.png.
    */

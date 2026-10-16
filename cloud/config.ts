@@ -10,7 +10,7 @@ const env = (name: string) => process.env[name]?.trim() || "";
 export const config = {
   port: () => Number(env("DESKWISP_CLOUD_PORT") || 8790),
   /**
-   * Where the internet reaches this cloud ("https://deskwisp.deskwisp.com/api"; the proxy in front strips the
+   * Where the internet reaches this cloud ("https://cloud.deskwisp.bot/api"; the proxy in front strips the
    * path, so routes here are /v1/…, /proxy/…, /hooks/…): every public address is made from it.
    */
   publicUrl: () => env("DESKWISP_CLOUD_PUBLIC_URL").replace(/\/+$/, ""),

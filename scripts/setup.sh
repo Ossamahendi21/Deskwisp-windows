@@ -6,10 +6,10 @@
 #      README), or leave it as it is and sign in with Horafirm.
 #   3. The relay agent (scripts/fetch-relay.sh), when your GitHub login can read Horafirm's relay releases.
 #      Without it everything works but "Route through this Mac".
-#   4. A git hook that refuses to push history that isn't this repo's to github.com/Horafirm/deskwisp. (A clone
+#   4. A git hook that refuses to push history that isn't this repo's to github.com/Ossamahendi21/Deskwisp-windows. (A clone
 #      made before Horafirm's private repo was renamed still holds its history, and its old address now
 #      reaches this public repo.)
-# Horafirm's team: with the private Horafirm/deskwisp-secrets cloned next to this repo, it also says how to put
+# Horafirm's team: with the private Ossamahendi21/deskwisp-secrets cloned next to this repo, it also says how to put
 # Horafirm's development keys in .env.local.
 #
 #   npm run setup                 (or scripts/setup.sh)
@@ -18,7 +18,7 @@ set -euo pipefail
 root="$(git rev-parse --show-toplevel)"
 cd "$root"
 
-# Everything in Horafirm/deskwisp descends from its first commit, and nothing of the private repo's does.
+# Everything in Ossamahendi21/Deskwisp-windows descends from its first commit, and nothing of the private repo's does.
 public_root=7ce4136c68a2a6e1c5c93f0be68aa82e55aac4de
 
 install_hook() {
@@ -32,7 +32,7 @@ install_hook() {
   mkdir -p "$hooks"
   cat > "$hook" <<EOF
 #!/usr/bin/env bash
-# deskwisp-public-history-guard, installed by scripts/setup.sh: refuses to push history that isn't Horafirm/deskwisp's
+# deskwisp-public-history-guard, installed by scripts/setup.sh: refuses to push history that isn't Ossamahendi21/Deskwisp-windows's
 # to it. Everything in that repo descends from its first commit, $public_root.
 shopt -s nocasematch
 [[ "\$2" =~ github\\.com[:/](horafirm/deskwisp|horafirm/deskwisp-oss|nickvasilescu/deskwisp)(\\.git)?/?\$ ]] || exit 0
@@ -41,15 +41,15 @@ shopt -s nocasematch
 while read -r local_ref local_sha _ _; do
   [ "\$local_sha" = 0000000000000000000000000000000000000000 ] && continue
   if ! git merge-base --is-ancestor $public_root "\$local_sha" 2>/dev/null; then
-    echo "Not pushing \$local_ref to \$2: it isn't Horafirm/deskwisp's history (it may be Horafirm's private repo's)." >&2
-    echo "Work in a fresh clone of https://github.com/Horafirm/deskwisp (or a branch made from its main)." >&2
+    echo "Not pushing \$local_ref to \$2: it isn't Ossamahendi21/Deskwisp-windows's history (it may be Horafirm's private repo's)." >&2
+    echo "Work in a fresh clone of https://github.com/Ossamahendi21/Deskwisp-windows (or a branch made from its main)." >&2
     exit 1
   fi
 done
 exit 0
 EOF
   chmod +x "$hook"
-  echo "  - git hook: pushes to github.com/Horafirm/deskwisp only carry its own history ($hook)."
+  echo "  - git hook: pushes to github.com/Ossamahendi21/Deskwisp-windows only carry its own history ($hook)."
 }
 
 if [ "${1:-}" = "--hook" ]; then

@@ -11,11 +11,11 @@
 # - The horafirm-relay rendezvous for "Route through this Mac" as horafirm-relay-rendezvous.service (:8443,
 #   its own TLS with a copy of the certificate Caddy already has for app.deskwisp.com, as on staging).
 # - Its own site in horafirm-web's Caddy (/etc/horafirm/web/Caddyfile; Caddy runs in Docker on the host
-#   network): deskwisp.deskwisp.com, with /api/* going to 127.0.0.1:8790 (prefix stripped). A site of its own
+#   network): cloud.deskwisp.bot, with /api/* going to 127.0.0.1:8790 (prefix stripped). A site of its own
 #   leaves app.deskwisp.com's block untouched. 127.0.0.1, never "localhost:<port>": horafirm-web's deploy
 #   rewrites every "reverse_proxy localhost:…" line to its own replicas.
 set -euo pipefail
-DESKWISP_SITE="${DESKWISP_SITE:-deskwisp.deskwisp.com}"
+DESKWISP_SITE="${DESKWISP_SITE:-cloud.deskwisp.bot}"
 DESKWISP_CLOUD_PATH="${DESKWISP_CLOUD_PATH:-/api}"
 NODE_MAJOR=24
 CADDYFILE=/etc/horafirm/web/Caddyfile

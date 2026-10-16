@@ -60,6 +60,7 @@ export function approvePage(opts: { publishableKey: string | null; frontendApi: 
 <main>
   <div class="logo" aria-hidden="true">${LOGO}</div>
   <div id="sign-in" hidden></div>
+  <div id="clerk-captcha"></div>
   <div class="card" id="card">
     <h1 id="title">Loading…</h1>
     <p id="line"></p>
@@ -203,22 +204,37 @@ export function ssoCallbackPage(opts: { publishableKey: string | null; frontendA
   body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px;
          font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #16132B; background: #F3F0FF; }
   .logo svg { width: 48px; height: 48px; display: block; }
-  p { margin: 0; color: #6B6880; }
+  p { margin: 0; color: #6B6880; max-width: 420px; text-align: center; }
+  #more { color: #16132B; font-weight: 600; }
 </style>
 </head>
 <body>
 <div class="logo" aria-hidden="true">${LOGO}</div>
 <p id="line">Signing you in…</p>
+<a id="more" hidden>Continue</a>
+<div id="clerk-captcha"></div>
 ${clerkScript}
 <script>
 window.addEventListener("load", async function () {
   var line = document.getElementById("line");
+  var more = document.getElementById("more");
   // Only back to this server's own approve page.
   var next = new URLSearchParams(location.search).get("next") || "";
-  if (!/^\/cli\/approve\?/.test(next)) next = "/cli/approve";
-  if (!window.Clerk) { line.textContent = "Couldn't load sign-in. Check your connection, then try again from the app."; return; }
+  // (No regular expression here: inside this template string its backslashes would be eaten.)
+  if (next.indexOf("/cli/approve?") !== 0) next = "/cli/approve";
+  more.href = next;
+  var gone = false;
+  var go = function () { if (!gone) { gone = true; location.replace(next); } };
+  var say = function (text) { line.textContent = text; more.hidden = false; };
+  window.addEventListener("unhandledrejection", function (e) { say("That didn't work: " + (e.reason && e.reason.message || e.reason)); });
+  if (!window.Clerk) return say("Couldn't load sign-in. Check your connection, then try again from the app.");
+  // However Clerk finishes (it may not move on by itself), the browser goes on once someone is signed in,
+  // and a way on shows if it takes too long.
+  var watch = setInterval(function () { if (window.Clerk.user) { clearInterval(watch); go(); } }, 400);
+  setTimeout(function () { if (!gone) say("This is taking longer than it should."); }, 10000);
   try {
     await window.Clerk.load();
+    if (window.Clerk.user) return go();
     await window.Clerk.handleRedirectCallback({
       signInForceRedirectUrl: next,
       signUpForceRedirectUrl: next,
@@ -228,9 +244,9 @@ window.addEventListener("load", async function () {
       firstFactorUrl: next,
       secondFactorUrl: next
     });
+    setTimeout(function () { if (window.Clerk.user) go(); }, 300);
   } catch (e) {
-    line.textContent = "That didn't work: " + (e && e.message || e) + ". Going back…";
-    setTimeout(function () { location.replace(next); }, 2500);
+    say("That didn't work: " + (e && (e.errors && e.errors[0] && (e.errors[0].longMessage || e.errors[0].message)) || e.message || e));
   }
 });
 </script>

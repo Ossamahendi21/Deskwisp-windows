@@ -1,5 +1,5 @@
 -- What Horafirm tells Deskwisp users, and which Deskwisp apps the cloud serves (cloud/notices.ts, cloud/app-version.ts),
--- both written with Horafirm's scripts/notices.sh (Horafirm/deskwisp-secrets). Run as deskwisp_app after 0011 (cloud/db.ts migrate() does it
+-- both written with Horafirm's scripts/notices.sh (Ossamahendi21/deskwisp-secrets). Run as deskwisp_app after 0011 (cloud/db.ts migrate() does it
 -- at start). Safe to run again.
 
 BEGIN;

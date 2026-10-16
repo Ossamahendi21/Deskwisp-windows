@@ -8,6 +8,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, describe, test } from "node:test";
+import vm from "node:vm";
 import pg from "pg";
 import { NotSignedIn, type Verifier } from "../src/clerk.ts";
 import { loadConfig } from "../src/config.ts";
@@ -150,6 +151,16 @@ for (const kind of stores) {
       assert.equal((await call("POST", "/api/cli/auth/poll", { body: { device_code } })).json.status, "denied");
       assert.equal((await call("POST", "/api/cli/auth/poll", { body: { device_code: "made-up" } })).json.status, "expired");
       assert.equal((await call("POST", "/api/cli/auth/approve", { bearer: "tok-bob", body: { user_code: "AAAA-BBBB", approve: true } })).status, 410);
+    });
+
+    test("the pages' own scripts are valid JavaScript", async () => {
+      // A script that doesn't parse leaves a page stuck on its first words, with nothing said.
+      for (const path of ["/cli/approve?code=ABCD-EFGH", "/cli/sso-callback?next=%2Fcli%2Fapprove%3Fcode%3DABCD-EFGH"]) {
+        const page = await call("GET", path);
+        const scripts = [...page.text.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+        assert.ok(scripts.length > 0, path);
+        for (const js of scripts) assert.doesNotThrow(() => new vm.Script(js), `${path} has a script that doesn't parse`);
+      }
     });
 
     test("the approve page loads Clerk from the instance's own host", async () => {

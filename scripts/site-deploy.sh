@@ -2,9 +2,9 @@
 # Deploys the landing page (site/) to deskwisp.bot: the Deskwisp VM (DESKWISP_SITE_BOX) serves it with Caddy.
 # Copies the page's files and site/deploy/Caddyfile, reloads Caddy, and checks that deskwisp.bot on the VM
 # serves this index.html. The VM is set up once with site/deploy/install.sh. The backend API
-# (deskwisp.deskwisp.com/api) is separate: scripts/cloud-deploy.sh. Run from the repo:
+# (cloud.deskwisp.bot/api) is separate: scripts/cloud-deploy.sh. Run from the repo:
 #   scripts/site-deploy.sh
-# Needs Horafirm's private Horafirm/deskwisp-secrets next to this repo (its prod/deskwisp-public.env names the VM;
+# Needs Horafirm's private Ossamahendi21/deskwisp-secrets next to this repo (its prod/deskwisp-public.env names the VM;
 # DESKWISP_SECRETS points elsewhere) and SSH to the VM as root (default key: z-legacy-fleet's
 # ci-staging.key; DESKWISP_SITE_SSH_KEY picks another).
 set -euo pipefail
@@ -13,7 +13,7 @@ cd "$root"
 # Horafirm's prod settings and the legacy key sit next to the main checkout (this may be a worktree elsewhere).
 main="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
 prod="${DESKWISP_SECRETS:-$main/../deskwisp-secrets}/prod"
-[ -f "$prod/deskwisp-public.env" ] || { echo "No $prod/deskwisp-public.env: clone Horafirm/deskwisp-secrets next to $main, or set DESKWISP_SECRETS." >&2; exit 1; }
+[ -f "$prod/deskwisp-public.env" ] || { echo "No $prod/deskwisp-public.env: clone Ossamahendi21/deskwisp-secrets next to $main, or set DESKWISP_SECRETS." >&2; exit 1; }
 set -a
 . "$prod/deskwisp-public.env"
 set +a
