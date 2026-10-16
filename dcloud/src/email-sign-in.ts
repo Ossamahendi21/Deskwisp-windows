@@ -58,7 +58,7 @@ export class EmailSignIn {
     this.fetchImpl = opts.fetchImpl ?? fetch;
   }
 
-  private async fapi(method: "GET" | "POST", path: string, token: string | null, form?: Record<string, string>): Promise<Answer> {
+  private async fapi(method: "GET" | "POST" | "PATCH", path: string, token: string | null, form?: Record<string, string>): Promise<Answer> {
     const url = new URL(`https://${this.host}/v1${path}`);
     url.searchParams.set("_is_native", "1");
     url.searchParams.set("_clerk_js_version", JS_VERSION);
@@ -159,14 +159,23 @@ export class EmailSignIn {
     f.token = a.token;
     if (a.status >= 300) this.refused(a, f.mode === "sign_in" ? "check sign-in code" : "check sign-up code");
 
-    const r = a.body.response as { status?: string; created_session_id?: string | null; created_user_id?: string | null; missing_fields?: string[] };
+    type Done = { status?: string; created_session_id?: string | null; created_user_id?: string | null; missing_fields?: string[] };
+    let r = a.body.response as Done;
+    // Clerk set up to want a password with every account: the account gets a long random one nobody
+    // types (it signs in by email code), and the sign-up completes.
+    if (f.mode === "sign_up" && r.status === "missing_requirements" && r.missing_fields?.length === 1 && r.missing_fields[0] === "password") {
+      const pw = await this.fapi("PATCH", `/client/sign_ups/${f.attemptId}`, f.token, { password: `${randomBytes(24).toString("base64url")}!Aa1` });
+      f.token = pw.token;
+      if (pw.status >= 300) this.refused(pw, "set the sign-up's password");
+      r = pw.body.response as Done;
+    }
     if (r.status !== "complete") {
       const missing = r.missing_fields?.length ? ` (${r.missing_fields.join(", ")})` : "";
       console.warn(`[email sign-in] not complete after the code: ${r.status}${missing}`);
       throw new EmailSignInError(
         503,
         "not_complete",
-        `Clerk wants more than an email${missing}. In Clerk, make the email the only thing an account needs (no password, no name).`,
+        `Clerk wants more than an email for a new account${missing}. In Clerk (Configure → User & authentication), make the email the only thing an account needs.`,
       );
     }
     this.flows.delete(flowId);

@@ -14,7 +14,9 @@ import { startServer } from "../src/server.ts";
 import { JsonStore } from "../src/store.ts";
 
 /** Clerk's Frontend API, as much of it as the flow uses. Codes are always 424242. */
-function fakeClerk(opts: { noClient?: boolean } = {}) {
+function fakeClerk(opts: { noClient?: boolean; wantsPassword?: boolean } = {}) {
+  const wantsPassword = !!opts.wantsPassword;
+  const passwordSet = new Set<string>();
   const seen: { method: string; path: string; native: boolean; auth: string | null; form: Record<string, string> }[] = [];
   const users: Record<string, string> = { "ana@example.com": "user_ana" };
   const attempts = new Map<string, { email: string; kind: "in" | "up" }>();
@@ -47,6 +49,15 @@ function fakeClerk(opts: { noClient?: boolean } = {}) {
       if (form.code !== "424242") return json(422, { errors: [{ code: "form_code_incorrect", message: "Incorrect code" }] });
       if (a.kind === "in")
         return json(200, { response: { status: "complete", created_session_id: "sess_1" }, ...(opts.noClient ? {} : { client: { sessions: [{ id: "sess_1", user: { id: users[a.email] } }] } }) });
+      if (wantsPassword && !passwordSet.has(m[2])) return json(200, { response: { status: "missing_requirements", missing_fields: ["password"] } });
+      users[a.email] = "user_new";
+      return json(200, { response: { status: "complete", created_user_id: "user_new", created_session_id: "sess_2" } });
+    }
+    const up = /^\/client\/sign_ups\/([^/]+)$/.exec(path);
+    if (up && init?.method === "PATCH") {
+      assert.ok((form.password ?? "").length >= 32, "a long password");
+      passwordSet.add(up[1]);
+      const a = attempts.get(up[1])!;
       users[a.email] = "user_new";
       return json(200, { response: { status: "complete", created_user_id: "user_new", created_session_id: "sess_2" } });
     }
@@ -79,6 +90,14 @@ test("a new email gets an account, verified by the same kind of code", async () 
   assert.equal(s.mode, "sign_up");
   assert.deepEqual(clerk.seen.find((c) => c.path.endsWith("/prepare_verification"))?.form, { strategy: "email_code" });
   assert.equal((await e.verify(s.flow, "424242")).clerkId, "user_new");
+});
+
+test("a Clerk that wants a password with each account: the new account gets a random one", async () => {
+  const clerk = fakeClerk({ wantsPassword: true });
+  const e = new EmailSignIn({ host: "fine-ant-12.clerk.accounts.dev", fetchImpl: clerk.fetch });
+  const s = await e.start("new@example.com", "PC");
+  assert.equal((await e.verify(s.flow, "424242")).clerkId, "user_new");
+  assert.ok(clerk.seen.some((c) => c.method === "PATCH" && c.path === "/client/sign_ups/sua_1"));
 });
 
 test("what isn't an email, and too many wrong codes, are turned down", async () => {
