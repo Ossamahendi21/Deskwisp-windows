@@ -4,7 +4,7 @@ import type { Computers } from "./computers.ts";
 import { HttpError } from "./computers.ts";
 import type { Config } from "./config.ts";
 import { PLANS, type Tier } from "./plans.ts";
-import { creditCheckout, planCheckout, portalLink, readCheckout, readSubscription, RecurringProduct, subscriptionsOf, webhookIsPolars, type PolarSubscription } from "./polar.ts";
+import { creditCheckout, planCheckout, portalLink, readCheckout, readSubscription, RecurringProduct, subscriptionsOf, subscriptionsOfCheckout, webhookIsPolars, type PolarSubscription } from "./polar.ts";
 import type { Store, Subscription } from "./store.ts";
 
 /**
@@ -115,12 +115,17 @@ export class Billing {
     if (c.status === "open" || c.status === "confirmed") return "waiting";
     if (c.status !== "succeeded") return "not_paid";
     let subscription = c.subscriptionId;
+    // Not on the checkout: its order names it, else the customer's newest subscription to Pro or Max.
+    if (!subscription) subscription = (await subscriptionsOfCheckout(polar, c.id).catch((e: Error) => (console.warn(`[billing] the orders of checkout ${c.id}: ${e.message}`), [])))[0] ?? null;
     if (!subscription) {
       const userId = typeof c.metadata.deskwisp_user === "string" ? c.metadata.deskwisp_user : c.externalCustomerId;
       const ours = new Set(Object.values(plans));
-      const found = userId ? (await subscriptionsOf(polar, userId)).find((s) => s.productId && ours.has(s.productId) && PAYING.has(s.status)) : undefined;
+      const all = await subscriptionsOf(polar, { userId, customerId: c.customerId });
+      const found = all.find((s) => s.productId && ours.has(s.productId) && PAYING.has(s.status));
       if (!found) {
-        console.log(`[billing] checkout ${c.id} is paid; its subscription isn't on Polar yet`);
+        // What Polar has for this customer, to tell why (no ids but the checkout's, nothing personal).
+        const seen = all.map((s) => `${s.status}${s.productId && ours.has(s.productId) ? "" : " (another product)"}`).join(", ") || "none";
+        console.log(`[billing] checkout ${c.id} is paid; no subscription to Pro or Max for its customer on Polar yet (has: ${seen}; customer ${c.customerId ? "known" : "not on the checkout"})`);
         return "waiting";
       }
       subscription = found.id;

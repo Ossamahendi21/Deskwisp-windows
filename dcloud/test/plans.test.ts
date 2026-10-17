@@ -47,6 +47,8 @@ type Sub = { id: string; status: string; product_id: string; external_id: string
 const checkouts = new Map<string, Co>();
 const subs = new Map<string, Sub>();
 const portals: string[] = [];
+/** A checkout's order, and the subscription it names (Polar's /v1/orders). */
+const orderSubs = new Map<string, string>();
 let n = 0;
 const iso = (t: number) => new Date(t).toISOString();
 const polar = createServer((req, res) => {
@@ -65,6 +67,12 @@ const polar = createServer((req, res) => {
     if (req.method === "POST" && req.url === "/v1/customer-sessions/") {
       portals.push(body.external_customer_id as string);
       return send(201, { token: "t", customer_portal_url: `https://sandbox.polar.sh/portal/${body.external_customer_id}`, expires_at: iso(Date.now() + DAY) });
+    }
+    const orders = /^\/v1\/orders\/\?(.*)$/.exec(req.url ?? "");
+    if (req.method === "GET" && orders) {
+      const co = new URLSearchParams(orders[1]).get("checkout_id");
+      const sub = co ? orderSubs.get(co) : undefined;
+      return send(200, { items: sub ? [{ id: `ord_${co}`, checkout_id: co, subscription_id: sub }] : [], pagination: { total_count: sub ? 1 : 0, max_page: 1 } });
     }
     const list = /^\/v1\/subscriptions\/\?(.*)$/.exec(req.url ?? "");
     if (req.method === "GET" && list) {
@@ -256,6 +264,20 @@ test("paid before Polar names the subscription: the page waits, and the app's lo
   assert.match(await (await fetch(`${base}/billing/plan/done?checkout_id=${co.id}`)).text(), /You're on Deskwisp Max/);
 });
 
+test("a paid checkout's order names its subscription", async () => {
+  await app.billing.changePlan(ana, "free_deskwisp");
+  await app.store.setSubscription({ ...(await app.store.subscription(ana))!, status: "canceled" });
+  await call("POST", "/deskwisp/checkout", { tier: "pro_deskwisp" });
+  const co = [...checkouts.values()].at(-1)!;
+  co.status = "succeeded";
+  const start = Date.now();
+  subs.set("sub_4", { id: "sub_4", status: "active", product_id: PRO, external_id: "not-on-the-subscription", start, end: start + 30 * DAY, cancel: false });
+  orderSubs.set(co.id, "sub_4");
+  // The subscription's customer isn't named by our id here, so only the order finds it.
+  subs.get("sub_4")!.external_id = ana;
+  assert.match(await (await fetch(`${base}/billing/plan/done?checkout_id=${co.id}`)).text(), /You're on Deskwisp Pro/);
+});
+
 test("what isn't Pro's or Max's, or isn't this user's, moves no plan", async () => {
   subs.set("sub_x", { id: "sub_x", status: "active", product_id: "prod_other", external_id: ana, start: Date.now(), end: Date.now() + DAY, cancel: false });
   assert.equal(await app.billing.syncSubscription("sub_x"), null);
@@ -264,7 +286,7 @@ test("what isn't Pro's or Max's, or isn't this user's, moves no plan", async () 
   // An old subscription ending doesn't take a newer one's plan away.
   subs.get("sub_1")!.status = "canceled";
   await webhook({ type: "subscription.canceled", data: { id: "sub_1" } });
-  assert.equal((await plan()).tier, "max_deskwisp");
+  assert.equal((await plan()).tier, "pro_deskwisp");
 });
 
 test("without Pro's and Max's products, upgrades open soon", () => {

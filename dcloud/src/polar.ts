@@ -15,6 +15,8 @@ export type Checkout = {
   status: string;
   metadata: Record<string, unknown>;
   externalCustomerId: string | null;
+  /** Polar's own id for the customer, once the checkout has one. */
+  customerId: string | null;
   /** The subscription a plan's checkout made, once paid. */
   subscriptionId: string | null;
   productId: string | null;
@@ -56,6 +58,7 @@ const checkoutFrom = (j: Record<string, unknown>): Checkout => ({
   status: typeof j.status === "string" ? j.status : "",
   metadata: j.metadata && typeof j.metadata === "object" ? (j.metadata as Record<string, unknown>) : {},
   externalCustomerId: typeof j.external_customer_id === "string" ? j.external_customer_id : null,
+  customerId: typeof j.customer_id === "string" ? j.customer_id : null,
   subscriptionId: typeof j.subscription_id === "string" ? j.subscription_id : null,
   productId: typeof j.product_id === "string" ? j.product_id : null,
   recurring: !!(j.product && typeof j.product === "object" && (j.product as { is_recurring?: unknown }).is_recurring === true),
@@ -125,6 +128,7 @@ export type PolarSubscription = {
   productId: string | null;
   /** The user: Polar's customer by our id, else the metadata its checkout carried. */
   userId: string | null;
+  customerId: string | null;
   periodStart: number | null;
   periodEnd: number | null;
   cancelAtPeriodEnd: boolean;
@@ -140,9 +144,20 @@ export async function readSubscription(p: PolarSettings, id: string): Promise<Po
  * A user's subscriptions (Polar's customer by our id), newest first: for a checkout Polar says is paid
  * before it names the subscription it made. Only theirs, whatever Polar's filter did.
  */
-export async function subscriptionsOf(p: PolarSettings, userId: string): Promise<PolarSubscription[]> {
-  const j = await call<{ items?: unknown }>(p, "GET", `/subscriptions/?external_customer_id=${encodeURIComponent(userId)}&limit=20&sorting=-started_at`);
-  return (Array.isArray(j.items) ? (j.items as Record<string, unknown>[]) : []).map(subscriptionFrom).filter((s) => s.userId === userId);
+export async function subscriptionsOf(p: PolarSettings, who: { userId: string | null; customerId: string | null }): Promise<PolarSubscription[]> {
+  const by = who.customerId ? `customer_id=${encodeURIComponent(who.customerId)}` : `external_customer_id=${encodeURIComponent(who.userId ?? "")}`;
+  const j = await call<{ items?: unknown }>(p, "GET", `/subscriptions/?${by}&limit=20&sorting=-started_at`);
+  return (Array.isArray(j.items) ? (j.items as Record<string, unknown>[]) : [])
+    .map(subscriptionFrom)
+    .filter((s) => (who.customerId && s.customerId === who.customerId) || (who.userId && s.userId === who.userId));
+}
+
+/** The subscriptions a checkout's orders name (Polar makes the order, and its subscription, from the checkout). */
+export async function subscriptionsOfCheckout(p: PolarSettings, checkoutId: string): Promise<string[]> {
+  const j = await call<{ items?: unknown }>(p, "GET", `/orders/?checkout_id=${encodeURIComponent(checkoutId)}&limit=10`);
+  return (Array.isArray(j.items) ? (j.items as { checkout_id?: unknown; subscription_id?: unknown }[]) : [])
+    .filter((o) => o.checkout_id === checkoutId && typeof o.subscription_id === "string")
+    .map((o) => o.subscription_id as string);
 }
 
 function subscriptionFrom(j: Record<string, unknown>): PolarSubscription {
@@ -153,6 +168,7 @@ function subscriptionFrom(j: Record<string, unknown>): PolarSubscription {
     status: typeof j.status === "string" ? j.status : "",
     productId: typeof j.product_id === "string" ? j.product_id : null,
     userId: typeof customer.external_id === "string" ? customer.external_id : typeof metadata.deskwisp_user === "string" ? metadata.deskwisp_user : null,
+    customerId: typeof j.customer_id === "string" ? j.customer_id : null,
     periodStart: msOf(j.current_period_start),
     periodEnd: msOf(j.current_period_end),
     cancelAtPeriodEnd: j.cancel_at_period_end === true,
