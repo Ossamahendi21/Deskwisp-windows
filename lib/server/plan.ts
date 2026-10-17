@@ -128,13 +128,30 @@ export async function readDeskwispPlan(key: string): Promise<DeskwispPlan | null
 export type DeskwispBillingLink = { url: string } | { error: string; status: number; soon?: true };
 
 /**
+ * A page the browser may open for billing: https, or the account server's own page (dcloud's plan
+ * change, on a PC: http://localhost) when that server is reached over http on this machine.
+ */
+function billingPage(url: string) {
+  if (/^https:\/\//.test(url)) return true;
+  try {
+    const u = new URL(url);
+    const own = new URL(horafirmOrigin());
+    // localhost and 127.0.0.1 are the same machine: the server's public address may name either.
+    const loopback = (h: string) => ["localhost", "127.0.0.1", "[::1]"].includes(h);
+    return u.protocol === "http:" && loopback(u.hostname) && loopback(own.hostname) && u.port === own.port;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Where to pay for Pro or Max (Stripe Checkout, through horafirm-web's POST /api/deskwisp/checkout), or to
  * change or cancel the plan (its POST /api/deskwisp/portal): a page for the user's browser.
  */
 export async function deskwispBillingLink(key: string, what: { tier: "pro_deskwisp" | "max_deskwisp" } | "manage"): Promise<DeskwispBillingLink> {
   const got = await postHorafirm<{ url?: unknown; error?: unknown; code?: unknown }>(key, what === "manage" ? "/api/deskwisp/portal" : "/api/deskwisp/checkout", what === "manage" ? {} : what);
   if (!got) return { error: "Couldn't reach Deskwisp. Check your internet connection and try again.", status: 502 };
-  if (got.status >= 200 && got.status < 300 && typeof got.json.url === "string" && /^https:\/\//.test(got.json.url)) return { url: got.json.url };
+  if (got.status >= 200 && got.status < 300 && typeof got.json.url === "string" && billingPage(got.json.url)) return { url: got.json.url };
   if (got.status === 401 || got.status === 403) return { error: "Deskwisp didn't accept this PC's sign-in. Sign out, then sign in again.", status: 401 };
   if (got.status === 404 || got.json.code === "deskwisp_plans_off") return { error: "Upgrades open soon.", status: got.status === 404 ? 404 : 503, soon: true };
   if (got.json.code === "no_deskwisp_plan") return { error: "You don't have a paid plan to manage yet.", status: 409 };
