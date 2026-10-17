@@ -22,6 +22,8 @@ export type Bot = {
    * room for). Unknown until Deskwisp has seen it up; only meaningful while computerId is set.
    */
   computerRam?: number;
+  /** The version of Deskwisp's scripts its computer was last dressed with (lib/server/desktop.ts desktopRev): another is brought up to date. */
+  desktopRev?: string;
   /**
    * Which computer it works on: the main bot's ("shared", the default for new bots: no computer of
    * its own to pay for or set up) or its own. Unset on bots from before the choice: they keep the

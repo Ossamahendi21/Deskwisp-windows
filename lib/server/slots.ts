@@ -147,7 +147,13 @@ export async function sweepSlots(now = Date.now()) {
       continue;
     }
     if (!x.idleSince) update(() => (x.idleSince = now));
-    else if (now - x.idleSince >= CLOSE_AFTER_MS) await closeSlot(x.botId, x.n);
+    else if (now - x.idleSince >= CLOSE_AFTER_MS) {
+      await closeSlot(x.botId, x.n);
+      // Its last screen closed and nothing is at work on it: a computer dressed by an older Deskwisp is brought up to date now.
+      const host = workComputer(b);
+      const quiet = !(getState().slots ?? []).some((y) => sameComputer(y.botId, host.id)) && !getState().sessions.some((s) => live(s) && s.runsOn !== "mac" && sameComputer(s.botId, host.id));
+      if (quiet && host.computerId && getState().host === "horafirm") void import("./desktop").then(({ refreshDesktop }) => refreshDesktop(host));
+    }
   }
 }
 

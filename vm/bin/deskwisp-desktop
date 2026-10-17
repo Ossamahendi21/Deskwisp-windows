@@ -63,7 +63,7 @@ fi
 EXT_ID=$(openssl rsa -in "$E/key.pem" -pubout -outform DER 2>/dev/null | sha256sum | cut -c1-32 | tr '0-9a-f' 'a-p')
 printf "<?xml version='1.0' encoding='UTF-8'?>\n<gupdate xmlns='http://www.google.com/update2/response' protocol='2.0'><app appid='%s'><updatecheck codebase='http://127.0.0.1:7600/ext/home.crx' version='%s' /></app></gupdate>\n" "$EXT_ID" "$VERSION" > "$E/updates.xml"
 mkdir -p /etc/opt/chrome/policies/managed
-printf '{ "BrowserThemeColor": "%s", "ExtensionInstallForcelist": ["%s;http://127.0.0.1:7600/ext/updates.xml"], "HomepageIsNewTabPage": true, "RestoreOnStartup": 5, "BookmarkBarEnabled": false, "PromotionsEnabled": false, "DefaultBrowserSettingEnabled": false, "BrowserSignin": 0, "SyncDisabled": true, "NTPCustomBackgroundEnabled": false, "NTPFooterExtensionAttributionEnabled": false, "NTPFooterManagementNoticeEnabled": false }\n' "$THEME" "$EXT_ID" > /etc/opt/chrome/policies/managed/deskwisp.json
+printf '{ "BrowserThemeColor": "%s", "ExtensionInstallForcelist": ["%s;http://127.0.0.1:7600/ext/updates.xml"], "HomepageIsNewTabPage": true, "RestoreOnStartup": 5, "BookmarkBarEnabled": false, "PromotionsEnabled": false, "DefaultBrowserSettingEnabled": false, "BrowserSignin": 0, "SyncDisabled": true, "NTPCustomBackgroundEnabled": false, "NTPFooterExtensionAttributionEnabled": false, "NTPFooterManagementNoticeEnabled": false, "CommandLineFlagSecurityWarningsEnabled": false }\n' "$THEME" "$EXT_ID" > /etc/opt/chrome/policies/managed/deskwisp.json
 
 # 3. Dock: Browser, Terminal, Files, Text editor, launched on the screen they're clicked on.
 cat > /usr/share/applications/deskwisp-browser.desktop <<'EOF'

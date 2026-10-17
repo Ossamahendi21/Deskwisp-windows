@@ -1,11 +1,12 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { mascotSvg } from "@/lib/mascot";
 import { botWash } from "@/lib/look";
 import { live, type Bot } from "@/lib/types";
 import { chose, decide } from "./decide";
 import { horafirm } from "./horafirm";
 import { sameComputer } from "./screens";
-import { getState } from "./store";
+import { getState, update } from "./store";
 import { vmFile } from "./vm-file";
 
 /**
@@ -177,6 +178,31 @@ const b64 = (s: string | Buffer) => Buffer.from(s).toString("base64");
  * mid-task, or `restartChrome` is false (then each screen picks the changes up the next time its
  * Chrome starts, e.g. a screen reset).
  */
+/** What Deskwisp puts on a computer from vm/ (applyDesktop): a computer dressed with other versions of these is dressed again (refreshDesktop). */
+const VM_FILES = ["deskwisp-home.py", "bin/deskwisp-desktop", "bin/deskwisp-chrome", "screen_mcp.py", "bin/deskwisp-screens"];
+let rev: string | undefined;
+/** This Deskwisp's version of what's on the computers, as Bot.desktopRev records it. */
+export function desktopRev() {
+  return (rev ??= createHash("sha256").update(Buffer.concat(VM_FILES.map((f) => vmFile(f)))).digest("hex").slice(0, 12));
+}
+
+const refreshing = new Set<string>();
+/**
+ * A computer dressed by an older Deskwisp (its desktop and screen scripts, Chrome's settings) is
+ * dressed again by this one, its Chrome restarted onto the home screen: called when nothing is at work
+ * on it and nobody is looking (its last screen just closed: slots.ts sweepSlots), so it never
+ * interrupts anyone. In the background; once at a time per computer.
+ */
+export function refreshDesktop(b: Bot) {
+  const id = b.computerId;
+  if (!id || b.desktopRev === desktopRev() || refreshing.has(id)) return;
+  refreshing.add(id);
+  void applyDesktop(b)
+    .then(() => console.log(`[desktop] ${b.name}'s computer brought up to date`))
+    .catch((e: Error) => console.warn(`[desktop] ${b.id}: bringing it up to date: ${e.message}`))
+    .finally(() => refreshing.delete(id));
+}
+
 export async function applyDesktop(b: Bot, { restartChrome = true }: { restartChrome?: boolean } = {}) {
   if (!b.computerId) return;
   const motif = await motifFor(b);
@@ -222,7 +248,15 @@ export async function applyDesktop(b: Bot, { restartChrome = true }: { restartCh
   for (let i = 0; i < 40; i++) {
     await new Promise((r) => setTimeout(r, 3000));
     const out = (await run("tail -3 /var/log/deskwisp/desktop.log")).output.trim();
-    if (out.includes("dressed as")) return out;
+    if (out.includes("dressed as")) {
+      // Dressed by this version: nothing to bring up to date (refreshDesktop) until Deskwisp's scripts change.
+      const done = desktopRev();
+      update((st) => {
+        const x = st.bots.find((y) => y.id === b.id && y.computerId === b.computerId);
+        if (x) x.desktopRev = done;
+      });
+      return out;
+    }
   }
   throw new Error("the desktop setup didn't finish in two minutes");
 }
