@@ -66,23 +66,30 @@ const polar = createServer((req, res) => {
       portals.push(body.external_customer_id as string);
       return send(201, { token: "t", customer_portal_url: `https://sandbox.polar.sh/portal/${body.external_customer_id}`, expires_at: iso(Date.now() + DAY) });
     }
+    const list = /^\/v1\/subscriptions\/\?(.*)$/.exec(req.url ?? "");
+    if (req.method === "GET" && list) {
+      const who = new URLSearchParams(list[1]).get("external_customer_id");
+      const items = [...subs.values()].filter((s) => s.external_id === who).reverse().map(subView);
+      return send(200, { items, pagination: { total_count: items.length, max_page: 1 } });
+    }
     let m = /^\/v1\/checkouts\/([^/]+)$/.exec(req.url ?? "");
     if (req.method === "GET" && m && checkouts.has(m[1])) return send(200, checkouts.get(m[1]));
     m = /^\/v1\/subscriptions\/([^/]+)$/.exec(req.url ?? "");
     const s = m && subs.get(m[1]);
-    if (req.method === "GET" && s)
-      return send(200, {
-        id: s.id,
-        status: s.status,
-        product_id: s.product_id,
-        customer: { external_id: s.external_id },
-        metadata: {},
-        current_period_start: iso(s.start),
-        current_period_end: iso(s.end),
-        cancel_at_period_end: s.cancel,
-      });
+    if (req.method === "GET" && s) return send(200, subView(s));
     send(404, { detail: "not found" });
   });
+});
+
+const subView = (s: Sub) => ({
+  id: s.id,
+  status: s.status,
+  product_id: s.product_id,
+  customer: { external_id: s.external_id },
+  metadata: {},
+  current_period_start: iso(s.start),
+  current_period_end: iso(s.end),
+  cancel_at_period_end: s.cancel,
 });
 
 const dir = mkdtempSync(join(tmpdir(), "dcloud-plans-"));
@@ -229,6 +236,26 @@ test("a renewal with no webhook (a PC): the app's look at the plan reads Polar a
   assert.equal(p.credit.plan_left_micros, 10_000_000);
 });
 
+test("paid before Polar names the subscription: the page waits, and the app's look sees it through", async () => {
+  // Back on Free, then a new checkout for Max.
+  subs.get("sub_2")!.status = "canceled";
+  await app.billing.syncSubscription("sub_2");
+  assert.equal((await plan()).tier, "free_deskwisp");
+  await call("POST", "/deskwisp/checkout", { tier: "max_deskwisp" });
+  const co = [...checkouts.values()].at(-1)!;
+  co.status = "succeeded"; // paid, but the checkout doesn't say which subscription yet
+  const page = await (await fetch(`${base}/billing/plan/done?checkout_id=${co.id}`)).text();
+  assert.match(page, /going through/);
+  assert.match(page, /http-equiv="refresh"/, "it looks again by itself");
+  // Polar has the subscription now (still not on the checkout): the app's next look finds it.
+  const start = Date.now();
+  subs.set("sub_3", { id: "sub_3", status: "active", product_id: MAX, external_id: ana, start, end: start + 30 * DAY, cancel: false });
+  await new Promise((r) => setTimeout(r, 15_100));
+  const p = await plan();
+  assert.equal(p.tier, "max_deskwisp");
+  assert.match(await (await fetch(`${base}/billing/plan/done?checkout_id=${co.id}`)).text(), /You're on Deskwisp Max/);
+});
+
 test("what isn't Pro's or Max's, or isn't this user's, moves no plan", async () => {
   subs.set("sub_x", { id: "sub_x", status: "active", product_id: "prod_other", external_id: ana, start: Date.now(), end: Date.now() + DAY, cancel: false });
   assert.equal(await app.billing.syncSubscription("sub_x"), null);
@@ -237,7 +264,7 @@ test("what isn't Pro's or Max's, or isn't this user's, moves no plan", async () 
   // An old subscription ending doesn't take a newer one's plan away.
   subs.get("sub_1")!.status = "canceled";
   await webhook({ type: "subscription.canceled", data: { id: "sub_1" } });
-  assert.equal((await plan()).tier, "pro_deskwisp");
+  assert.equal((await plan()).tier, "max_deskwisp");
 });
 
 test("without Pro's and Max's products, upgrades open soon", () => {

@@ -4,7 +4,7 @@ import type { Computers } from "./computers.ts";
 import { HttpError } from "./computers.ts";
 import type { Config } from "./config.ts";
 import { PLANS, type Tier } from "./plans.ts";
-import { creditCheckout, planCheckout, portalLink, readCheckout, readSubscription, RecurringProduct, webhookIsPolars, type PolarSubscription } from "./polar.ts";
+import { creditCheckout, planCheckout, portalLink, readCheckout, readSubscription, RecurringProduct, subscriptionsOf, webhookIsPolars, type PolarSubscription } from "./polar.ts";
 import type { Store, Subscription } from "./store.ts";
 
 /**
@@ -42,6 +42,11 @@ export class Billing {
   private readonly store: Store;
   private readonly computers: Computers;
   private readonly planOf: (owner: string) => Promise<Tier>;
+  /**
+   * Plan checkouts opened and not yet seen through, by user: the app's look at the plan checks them, so
+   * a payment counts even when the buyer never comes back to dcloud's page and no webhook reaches it.
+   */
+  private readonly pendingPlans = new Map<string, { checkout: string; at: number; checkedAt: number }>();
 
   constructor(cfg: Config, store: Store, computers: Computers, planOf: (owner: string) => Promise<Tier>) {
     this.cfg = cfg;
@@ -94,7 +99,33 @@ export class Billing {
       throw new HttpError(502, "Couldn't open checkout. Try again in a minute.", "checkout_unavailable");
     });
     if (!c.url) throw new HttpError(502, "Couldn't open checkout. Try again in a minute.", "checkout_unavailable");
+    this.pendingPlans.set(user.id, { checkout: c.id, at: Date.now(), checkedAt: 0 });
     return { url: c.url };
+  }
+
+  /**
+   * See a plan's checkout through: the plan once it's paid. Polar may say it's paid (sending the buyer
+   * back) a moment before it names the subscription it made, so then the user's newest subscription to
+   * Pro or Max is the one. "waiting" until Polar has it, "not_paid" when it won't be.
+   */
+  async confirmPlanCheckout(checkoutId: string): Promise<{ userId: string; tier: Tier; status: string } | "waiting" | "not_paid" | null> {
+    const { polar, plans } = this.plansOn();
+    const c = await readCheckout(polar, checkoutId);
+    if (c.metadata.deskwisp_kind !== "plan") return null;
+    if (c.status === "open" || c.status === "confirmed") return "waiting";
+    if (c.status !== "succeeded") return "not_paid";
+    let subscription = c.subscriptionId;
+    if (!subscription) {
+      const userId = typeof c.metadata.deskwisp_user === "string" ? c.metadata.deskwisp_user : c.externalCustomerId;
+      const ours = new Set(Object.values(plans));
+      const found = userId ? (await subscriptionsOf(polar, userId)).find((s) => s.productId && ours.has(s.productId) && PAYING.has(s.status)) : undefined;
+      if (!found) {
+        console.log(`[billing] checkout ${c.id} is paid; its subscription isn't on Polar yet`);
+        return "waiting";
+      }
+      subscription = found.id;
+    }
+    return this.syncSubscription(subscription);
   }
 
   /** Polar's customer portal: the plan, the card, invoices, cancelling. Only for someone who's had a paid plan. */
@@ -271,14 +302,11 @@ export class Billing {
     if (url.pathname === "/billing/plan/done" && req.method === "GET") {
       const id = url.searchParams.get("checkout_id") ?? "";
       let said = "Nothing to see here.";
+      let refresh = false;
       if (this.cfg.polar?.plans && /^[A-Za-z0-9_-]{1,100}$/.test(id)) {
-        const got = await (async () => {
-          const c = await readCheckout(this.cfg.polar!, id);
-          if (c.metadata.deskwisp_kind !== "plan") return null;
-          if (c.status === "open" || c.status === "confirmed" || (c.status === "succeeded" && !c.subscriptionId)) return "waiting" as const;
-          if (c.status !== "succeeded" || !c.subscriptionId) return "not_paid" as const;
-          return this.syncSubscription(c.subscriptionId);
-        })().catch((e: Error) => (console.warn(`[billing] checking plan checkout ${id}: ${e.message}`), "waiting" as const));
+        const got = await this.confirmPlanCheckout(id).catch((e: Error) => (console.warn(`[billing] checking plan checkout ${id}: ${e.message}`), "waiting" as const));
+        // Still going through: the page looks again in a few seconds, by itself.
+        if (got === "waiting") refresh = true;
         said =
           got && typeof got === "object" && got.tier !== "free_deskwisp"
             ? `You're on Deskwisp ${PLANS[got.tier].name}. Its credit is in, and your bots have more room. You can go back to Deskwisp.`
@@ -287,7 +315,7 @@ export class Billing {
               : "Your payment is going through. Your plan changes in Deskwisp as soon as it's done.";
       }
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
-      res.end(donePage(said));
+      res.end(donePage(said, refresh));
       return true;
     }
     if (url.pathname === "/billing/credit/done" && req.method === "GET") {
@@ -319,6 +347,17 @@ export class Billing {
       await Promise.race([this.syncSubscription(sub.subscriptionId).catch((e: Error) => console.warn(`[billing] ${e.message}`)), new Promise((r) => setTimeout(r, 4000))]);
       sub = await this.store.subscription(sub.userId).catch(() => sub);
     }
+    // A plan checkout opened from here and not seen through yet: looked at again (every 15 seconds at most, for a day).
+    const pending = user && this.cfg.polar?.plans ? this.pendingPlans.get(user.id) : undefined;
+    if (user && pending && Date.now() - pending.at < 86_400_000 && Date.now() - pending.checkedAt > 15_000) {
+      pending.checkedAt = Date.now();
+      const got = await Promise.race([
+        this.confirmPlanCheckout(pending.checkout).catch((e: Error) => (console.warn(`[billing] checking plan checkout ${pending.checkout}: ${e.message}`), "waiting" as const)),
+        new Promise<"waiting">((r) => setTimeout(() => r("waiting"), 4000)),
+      ]);
+      if (got !== "waiting") this.pendingPlans.delete(user.id);
+      if (got && typeof got === "object") sub = await this.store.subscription(user.id).catch(() => sub);
+    } else if (user && pending && Date.now() - pending.at >= 86_400_000) this.pendingPlans.delete(user.id);
     const tier = await this.planOf(owner);
     const p = PLANS[tier];
     const billed = sub && sub.tier === tier && tier !== "free_deskwisp" ? sub : null;
@@ -415,9 +454,9 @@ function rawBody(req: IncomingMessage): Promise<Buffer> {
 
 const escape = (t: string) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
-/** The page Polar's checkout sends the buyer back to. */
-function donePage(said: string) {
-  return `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Deskwisp</title>
+/** The page Polar's checkout sends the buyer back to; `refresh`: it looks again in a few seconds. */
+function donePage(said: string, refresh = false) {
+  return `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${refresh ? '<meta http-equiv="refresh" content="3">' : ""}<title>Deskwisp</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:#F7F6F3;color:#1A1A1A}
 main{max-width:420px;margin:24px;padding:32px;border-radius:20px;background:#fff;box-shadow:0 0 0 1px #E6E6E3;text-align:center}h1{font-size:20px;margin:0 0 8px}p{margin:0;color:#4A4A4A}</style>
 <main><h1>Deskwisp</h1><p>${escape(said)}</p></main>`;

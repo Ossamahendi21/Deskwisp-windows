@@ -133,7 +133,19 @@ export type PolarSubscription = {
 const msOf = (v: unknown) => (typeof v === "string" && Number.isFinite(Date.parse(v)) ? Date.parse(v) : null);
 
 export async function readSubscription(p: PolarSettings, id: string): Promise<PolarSubscription> {
-  const j = await call<Record<string, unknown>>(p, "GET", `/subscriptions/${encodeURIComponent(id)}`);
+  return subscriptionFrom(await call<Record<string, unknown>>(p, "GET", `/subscriptions/${encodeURIComponent(id)}`));
+}
+
+/**
+ * A user's subscriptions (Polar's customer by our id), newest first: for a checkout Polar says is paid
+ * before it names the subscription it made. Only theirs, whatever Polar's filter did.
+ */
+export async function subscriptionsOf(p: PolarSettings, userId: string): Promise<PolarSubscription[]> {
+  const j = await call<{ items?: unknown }>(p, "GET", `/subscriptions/?external_customer_id=${encodeURIComponent(userId)}&limit=20&sorting=-started_at`);
+  return (Array.isArray(j.items) ? (j.items as Record<string, unknown>[]) : []).map(subscriptionFrom).filter((s) => s.userId === userId);
+}
+
+function subscriptionFrom(j: Record<string, unknown>): PolarSubscription {
   const customer = j.customer && typeof j.customer === "object" ? (j.customer as { external_id?: unknown }) : {};
   const metadata = j.metadata && typeof j.metadata === "object" ? (j.metadata as { deskwisp_user?: unknown }) : {};
   return {
