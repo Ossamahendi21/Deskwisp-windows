@@ -29,8 +29,13 @@ async function call<T>(p: PolarSettings, method: "GET" | "POST", path: string, b
     // Polar's own words, without anything of the request (the token never appears in an answer).
     let said = "";
     try {
-      const j = JSON.parse(text) as { detail?: unknown; error?: unknown };
+      const j = JSON.parse(text) as { detail?: unknown; error?: unknown; error_description?: unknown; required_scopes?: unknown; scope?: unknown };
       said = typeof j.detail === "string" ? j.detail : typeof j.error === "string" ? j.error : Array.isArray(j.detail) ? JSON.stringify(j.detail).slice(0, 300) : "";
+      // A token without a scope this needs: which, when Polar says (the token itself never appears in an answer).
+      if (said === "insufficient_scope") {
+        const need = Array.isArray(j.required_scopes) ? j.required_scopes.join(", ") : typeof j.scope === "string" ? j.scope : "";
+        said += need ? ` (the token needs ${need})` : " (make the token again with checkouts:read and checkouts:write)";
+      }
     } catch {}
     throw new Error(`Polar answered ${res.status}${said ? `: ${said}` : ""}`);
   }
