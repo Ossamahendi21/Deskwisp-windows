@@ -6,6 +6,7 @@ import { open, seal } from "./crypto.ts";
 import { ensureUserRow, query, tx } from "./db.ts";
 import { handlesOf, MAIN_WORKSPACE } from "./handles.ts";
 import { HttpError, sendJson, type Route } from "./http.ts";
+import { MailError, mailApi, mailKeyFits, mailPodThere } from "./mail.ts";
 import { atSession, tierOf } from "./plans.ts";
 import type { CloudSession } from "./protocol.ts";
 import { verifyChannels } from "./verify.ts";
@@ -96,9 +97,35 @@ export async function callProvider<T>(provider: string, url: string, headers: Re
 
 /* ---------------- AgentMail: a pod per user, and one key that reaches only that pod ---------------- */
 
-/** AgentMail with the cloud's own key (it reaches every pod: provision.ts makes a plan's inbox in the user's). */
-export const agentmail = <T>(path: string, method?: string, body?: unknown) =>
-  callProvider<T>("AgentMail", `${config.upstream.agentmail()}${path}`, { authorization: `Bearer ${config.agentmailKey()}` }, method, body);
+/**
+ * AgentMail with the cloud's own key (it reaches every pod: provision.ts makes a plan's inbox in the
+ * user's), or, with Deskwisp Mail on (config.ownMail), the same call answered here (mail.ts).
+ */
+export const agentmail = <T>(path: string, method = "GET", body?: unknown): Promise<T> =>
+  config.ownMail()
+    ? ownMail<T>(path, method, body)
+    : callProvider<T>("AgentMail", `${config.upstream.agentmail()}${path}`, { authorization: `Bearer ${config.agentmailKey()}` }, method, body);
+
+async function ownMail<T>(path: string, method: string, body?: unknown): Promise<T> {
+  try {
+    const [, out] = await mailApi({ master: true }, method, path, body ?? {});
+    return (out ?? {}) as T;
+  } catch (e) {
+    if (e instanceof MailError) throw new ProviderError("Deskwisp Mail", e.status, `${method} ${path.split("?")[0]}`);
+    throw e;
+  }
+}
+
+/**
+ * Whether a pod and key kept for the user are the mail service's in use: after a switch between
+ * AgentMail and Deskwisp Mail, the other's are no use here, and new ones are made.
+ */
+async function keptFits(podId: string | null, key: string | null) {
+  if (!podId) return true;
+  const ours = podId.startsWith("pod_") && (!key || key.startsWith("dwm_"));
+  if (!config.ownMail()) return !ours;
+  return (await mailPodThere(podId)) && (!key || (await mailKeyFits(key, podId)));
+}
 
 type Pod = { pod_id?: string; client_id?: string | null };
 
@@ -149,6 +176,8 @@ let mailDomainSeen: { at: number; ready: boolean } | undefined;
  */
 export async function mailDomain(): Promise<string | null> {
   const domain = config.mailDomain();
+  // Deskwisp Mail's domain is this cloud's own: nothing to ask anyone.
+  if (config.ownMail()) return domain;
   // None of our own: addresses on agentmail.to, nothing to ask AgentMail.
   if (!domain) return null;
   if (!mailDomainSeen || Date.now() - mailDomainSeen.at > 5 * 60_000) {
@@ -280,8 +309,13 @@ async function setUp(user: CloudUser): Promise<CloudSession> {
       )
     ).rows[0];
     let mailKey: string | null = null;
-    if (config.agentmailKey()) {
+    if (config.mailOn()) {
       try {
+        if (!(await keptFits(row.agentmail_pod_id, keptKey(row.agentmail_key_sealed, user.id)))) {
+          console.log(`[session] ${user.id}'s mail moves to ${config.ownMail() ? "Deskwisp Mail" : "AgentMail"}: a new pod and key`);
+          row.agentmail_pod_id = null;
+          row.agentmail_key_sealed = null;
+        }
         row.agentmail_pod_id ??= await findOrMakePod(user.id);
         mailKey = keptKey(row.agentmail_key_sealed, user.id);
         if (!mailKey) {
@@ -322,7 +356,15 @@ async function setUp(user: CloudUser): Promise<CloudSession> {
     publicUrl,
     agentmail:
       row.agentmail_pod_id && mailKey
-        ? { podId: row.agentmail_pod_id, apiKey: mailKey, domain: await mailDomain(), handle: handles[MAIN_WORKSPACE]?.handle ?? null, handles }
+        ? {
+            podId: row.agentmail_pod_id,
+            apiKey: mailKey,
+            domain: await mailDomain(),
+            handle: handles[MAIN_WORKSPACE]?.handle ?? null,
+            handles,
+            // Deskwisp Mail: the app reaches it at /mail on this cloud, and addresses are <bot>.<handle>@<domain>.
+            ...(config.ownMail() ? { api: "/mail", addresses: "dotted" as const } : {}),
+          }
         : null,
     agentphone: config.agentphoneKey() && row.agentphone_sub_account ? { subAccountId: row.agentphone_sub_account, hookUrl: publicUrl ? `${publicUrl}/hooks/agentphone` : "" } : null,
     honcho: config.honchoKey() ? { workspacePrefix: honchoPrefix(user.id) } : null,

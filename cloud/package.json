@@ -1,10 +1,11 @@
 {
   "private": true,
   "type": "module",
-  "description": "Deskwisp Cloud: run with `node cloud/server.ts` (Node 24+). On its box, `npm install --omit=dev` here installs pg, ws and posthog-node; in this repo they come from the root node_modules.",
+  "description": "Deskwisp Cloud: run with `node cloud/server.ts` (Node 24+). On its box, `npm install --omit=dev` here installs pg, ws, posthog-node and postal-mime; in this repo they come from the root node_modules.",
   "dependencies": {
     "pg": "^8.23.1",
     "posthog-node": "5.10.0",
+    "postal-mime": "3.0.1",
     "ws": "^8.22.0"
   }
 }

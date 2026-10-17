@@ -20,7 +20,7 @@ import { recordUsage } from "./usage.ts";
  *   deskwisp-<install>-<bot> and attached to it, its calls routed to the agent, and its line in
  *   deskwisp.phone_lines (plan = true). Its 15 minutes for the first caller to claim it open only when
  *   the app shows the user the number (lib/server/cloud-plan.ts), never while nobody is watching.
- * - **The inbox:** <bot>@<handle>.deskwisp.bot, on the default workspace's handle (handles.ts; claimed
+ * - **The inbox:** <bot>@<handle>.deskwisp.bot (with Deskwisp Mail, <bot>.<handle>@<domain>: inboxAt), on the default workspace's handle (handles.ts; claimed
  *   from the suggestion when it has none, and the app offers to change it), in deskwisp.mail_inboxes.
  *
  * Each is "setting_up" while it's made and "ready" only once read back from the provider ("broken",
@@ -211,6 +211,14 @@ const inboxOut = (r: InboxRow): PlanInbox => ({
   ...(r.problem ? { problem: r.problem } : {}),
 });
 
+/**
+ * Where a bot's inbox goes on its workspace's handle, as the app makes it (lib/server/mail.ts addressAt):
+ * wispy.tiger@<domain> with Deskwisp Mail (Cloudflare takes mail for the domain itself only), else
+ * wispy@tiger.<domain>.
+ */
+export const inboxAt = (name: string, handle: string, domain: string) =>
+  config.ownMail() ? { username: `${name}.${handle}`, domain } : { username: name, domain: `${handle}.${domain}` };
+
 async function planInbox(userId: string): Promise<InboxRow | null> {
   const r = await query<InboxRow>("SELECT inbox_id, pod_id, email, handle, status, problem FROM deskwisp.mail_inboxes WHERE user_id = $1 AND plan AND status <> 'released' ORDER BY created_at DESC LIMIT 1", [userId]);
   return r.rows[0] ?? null;
@@ -242,8 +250,13 @@ async function inboxThere(podId: string, inboxId: string): Promise<boolean | nul
  */
 export async function ensurePlanInbox(userId: string, main: MainBot): Promise<{ email: PlanInbox; changed: boolean; handle?: MailHandleClaim } | null> {
   const podId = (await accountFor(userId))?.agentmailPodId;
-  if (!config.agentmailKey() || !podId) return null;
-  const kept = await planInbox(userId);
+  if (!config.mailOn() || !podId) return null;
+  let kept = await planInbox(userId);
+  // An inbox in a pod the user no longer has (their mail moved between AgentMail and Deskwisp Mail): theirs no more.
+  if (kept && kept.pod_id !== podId) {
+    await setInbox(kept.inbox_id, "released", "The mail service changed");
+    kept = null;
+  }
   if (kept?.status === "ready") return { email: inboxOut(kept), changed: false };
   if (!kept && (main.bot.mail || main.bot.email)) {
     // Its own inbox, unless it's a plan's that was given back while the Mac was away (still in its last upload).
@@ -273,8 +286,7 @@ export async function ensurePlanInbox(userId: string, main: MainBot): Promise<{ 
     for (let n = 1; n <= 5 && !made; n++) {
       try {
         made = await agentmail<AmInbox>(`/v0/pods/${encodeURIComponent(podId)}/inboxes`, "POST", {
-          username: n === 1 ? user : `${user}${n}`,
-          domain: `${handle.handle}.${domain}`,
+          ...inboxAt(n === 1 ? user : `${user}${n}`, handle.handle, domain),
           display_name: main.bot.name,
           client_id: n === 1 ? clientId : `${clientId}-${n}`,
           metadata: { deskwisp_install: main.installId, deskwisp_workspace: MAIN_WORKSPACE, deskwisp_bot: main.bot.id, deskwisp_plan: "1" },
@@ -390,8 +402,8 @@ export async function releaseAfterPause(tell: (userId: string, item: { phone?: P
         [i.inbox_id, RELEASE_AFTER_DAYS],
       );
       if (!still.rowCount) return false;
-      if (!config.agentmailKey()) {
-        console.warn(`[provision] ${i.user_id}: couldn't give back ${i.email}: AgentMail isn't set up here`);
+      if (!config.mailOn()) {
+        console.warn(`[provision] ${i.user_id}: couldn't give back ${i.email}: mail isn't set up here`);
         return false;
       }
       try {

@@ -16,11 +16,13 @@ export type Route = {
   handle: (req: IncomingMessage, res: ServerResponse, ctx: { user: CloudUser | null; url: URL }) => Promise<void>;
 };
 
-/** A WebSocket upgrade handler for a path prefix ("/v1/connect", "/proxy/openai/*"). Always for a signed-in user. */
-export type Upgrade = {
-  path: string;
-  handle: (req: IncomingMessage, socket: Duplex, head: Buffer, ctx: { user: CloudUser; url: URL }) => void;
-};
+/**
+ * A WebSocket upgrade handler for a path prefix ("/v1/connect", "/proxy/openai/*"): for a signed-in user,
+ * or `auth: "public"` for one that checks its own key (mail.ts, whose key is a mail pod's).
+ */
+export type Upgrade =
+  | { path: string; auth?: "user"; handle: (req: IncomingMessage, socket: Duplex, head: Buffer, ctx: { user: CloudUser; url: URL }) => void }
+  | { path: string; auth: "public"; handle: (req: IncomingMessage, socket: Duplex, head: Buffer, ctx: { url: URL }) => void };
 
 export const matches = (pattern: string, path: string) =>
   pattern.endsWith("/*") ? path === pattern.slice(0, -2) || path.startsWith(pattern.slice(0, -1)) : path === pattern;

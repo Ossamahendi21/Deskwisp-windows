@@ -840,6 +840,8 @@ function TitleBar({ columns, wide, tabs, panelOpen, onTogglePanel }: { columns: 
 
 type MailInfo = {
   on: boolean;
+  /** Signed in: Deskwisp Cloud runs the domain, so there's nothing to set up here. */
+  managed?: boolean;
   error?: string;
   domain?: string;
   status?: string;
@@ -879,11 +881,13 @@ function MailSettings() {
               <span className={`size-[7px] rounded-full ${ready ? "bg-[#2BB673]" : info.status === "NOT_ADDED" ? "bg-[#C9C9C6]" : "bg-[#E59A0B]"}`} />
               {ready
                 ? `Bots have ${info.domain} addresses.`
-                : info.status === "NOT_ADDED"
-                  ? `Bots have agentmail.to addresses for now. Set up ${info.domain} to give them yours.`
-                  : `${info.domain} is ${info.status?.toLowerCase().replace("_", " ")}. Add these records at your DNS host, then check again. Bots move to it on their own once it's verified.`}
+                : info.managed
+                  ? "Bots have agentmail.to addresses."
+                  : info.status === "NOT_ADDED"
+                    ? `Bots have agentmail.to addresses for now. Set up ${info.domain} to give them yours.`
+                    : `${info.domain} is ${info.status?.toLowerCase().replace("_", " ")}. Add these records at your DNS host, then check again. Bots move to it on their own once it's verified.`}
             </span>
-            {!ready && !!info.records?.length && (
+            {!ready && !info.managed && !!info.records?.length && (
               <div className="flex flex-col overflow-hidden rounded-[10px] shadow-[0_0_0_1px_#ECECEA]">
                 {info.records.map((r, i) => (
                   <div key={i} className="flex items-start gap-3 border-b border-[#F0F0EE] px-3 py-2 font-mono text-[11.5px] leading-4 last:border-0">
@@ -903,12 +907,12 @@ function MailSettings() {
             )}
             {info.error && <span className="text-[12px] leading-4 text-[#B42318]">{info.error}</span>}
             <div className="flex gap-1.5">
-              {info.status === "NOT_ADDED" && (
+              {!info.managed && info.status === "NOT_ADDED" && (
                 <button disabled={busy} onClick={() => load({ action: "setup" })} className={`${btn} bg-ink text-white`} data-tip="Adds it to AgentMail and shows the DNS records to add. Changes no DNS.">
                   Set up {info.domain}
                 </button>
               )}
-              {!ready && info.status !== "NOT_ADDED" && (
+              {!ready && !info.managed && info.status !== "NOT_ADDED" && (
                 <button disabled={busy} onClick={() => load({ action: "verify" })} className={`${btn} bg-[#F2F2F0] hover:bg-[#EAEAE7]`}>
                   Check DNS again
                 </button>

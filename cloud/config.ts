@@ -33,14 +33,26 @@ export const config = {
   agentphoneKey: () => env("AGENTPHONE_API_KEY"),
   agentmailKey: () => env("AGENTMAIL_API_KEY"),
   /**
-   * The domain bots' addresses go on (name@<workspace>.<domain>), when AgentMail has it verified with
-   * subdomains on: DESKWISP_MAIL_DOMAIN, a domain of your own added there (AgentMail's paid plans). Unset
-   * (or agentmail.to), addresses are on agentmail.to and nothing is checked.
+   * The domain bots' addresses go on: DESKWISP_MAIL_DOMAIN. With Deskwisp Mail (ownMail) it's the domain
+   * Cloudflare and Resend have, and addresses are <bot>.<handle>@<domain>. With AgentMail, a domain of
+   * your own added there (its paid plans) with subdomains on, and addresses are <bot>@<handle>.<domain>;
+   * unset (or agentmail.to), addresses are on agentmail.to and nothing is checked.
    */
   mailDomain: () => {
     const d = (env("DESKWISP_MAIL_DOMAIN") || "").trim().toLowerCase();
     return d && d !== "agentmail.to" ? d : null;
   },
+  /** Resend's API key: Deskwisp Mail sends with it (cloud/mail.ts). */
+  resendKey: () => env("RESEND_API_KEY"),
+  /** The secret the Cloudflare Worker signs each email it posts to /mail/inbound with (deploy/mail-worker.js): 32+ random bytes. */
+  mailInboundSecret: () => env("DESKWISP_MAIL_INBOUND_SECRET"),
+  /**
+   * Deskwisp Mail (cloud/mail.ts) runs bots' email here, in place of AgentMail: on once RESEND_API_KEY and
+   * DESKWISP_MAIL_DOMAIN are both set. AGENTMAIL_API_KEY is then not used.
+   */
+  ownMail: () => !!env("RESEND_API_KEY") && !!config.mailDomain(),
+  /** Whether bots get email at all: Deskwisp Mail, or AgentMail. */
+  mailOn: () => config.ownMail() || !!env("AGENTMAIL_API_KEY"),
   honchoKey: () => env("HONCHO_API_KEY"),
   composioKey: () => env("COMPOSIO_API_KEY"),
   /**
@@ -108,6 +120,7 @@ export const config = {
     openai: () => env("DESKWISP_UPSTREAM_OPENAI") || "https://api.openai.com",
     agentphone: () => env("DESKWISP_UPSTREAM_AGENTPHONE") || "https://api.agentphone.ai",
     agentmail: () => env("DESKWISP_UPSTREAM_AGENTMAIL") || "https://api.agentmail.to",
+    resend: () => env("DESKWISP_UPSTREAM_RESEND") || "https://api.resend.com",
     honcho: () => env("DESKWISP_UPSTREAM_HONCHO") || "https://api.honcho.dev",
     composio: () => env("DESKWISP_UPSTREAM_COMPOSIO") || "https://backend.composio.dev",
     typesafe: () => env("DESKWISP_UPSTREAM_TYPESAFE") || "https://api.typesafe.ai",

@@ -137,6 +137,10 @@ Idempotent, safe to call at every app start; two at once for one user must not m
   The Mac uses AgentMail directly with it (REST and the WebSocket mail comes in on). AgentMail itself
   keeps that key inside the pod, and it has mail permissions only (inboxes, messages, drafts,
   labels): no keys, pods, domains, webhooks, apps or account changes.
+  With Deskwisp Mail on (`RESEND_API_KEY` and `DESKWISP_MAIL_DOMAIN`, `mail.ts`), the pod and its key
+  are this cloud's own, made the same way. The session tells the Mac to use them at `/mail` here
+  (`agentmail.api`), which answers as AgentMail does. Mail comes in from a Cloudflare Worker
+  (`POST /mail/inbound`, signed) and goes out through Resend. See docs/SERVICES.md "Bots' email".
 - **AgentPhone:** a sub-account named `deskwisp-<userId>` (found by name first, else
   `POST /v1/sub-accounts`). The Mac points each number's calls at its agent
   (`PATCH /v1/numbers/{id}/voice-routing {method: "agent"}` through the proxy, agent in voice mode

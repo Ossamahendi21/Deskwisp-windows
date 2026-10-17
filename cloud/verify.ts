@@ -76,8 +76,12 @@ function normalizeEmail(input: string) {
   return a;
 }
 
-/** Domains where only bots have addresses: never the user's own. */
-const botDomain = (address: string) => /(^|\.)(agentmail\.to|deskwisp\.bot)$/.test(address.slice(address.lastIndexOf("@") + 1));
+/** Domains where only bots have addresses (and DESKWISP_MAIL_DOMAIN, this cloud's bots'): never the user's own. */
+const botDomain = (address: string) => {
+  const domain = address.slice(address.lastIndexOf("@") + 1);
+  const ours = config.mailDomain();
+  return /(^|\.)(agentmail\.to|deskwisp\.bot)$/.test(domain) || (!!ours && (domain === ours || domain.endsWith(`.${ours}`)));
+};
 
 function recipient(channel: Channel, raw: unknown) {
   const to = typeof raw === "string" ? (channel === "sms" ? toE164(raw) : normalizeEmail(raw)) : "";

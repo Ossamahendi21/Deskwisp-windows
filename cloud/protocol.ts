@@ -32,6 +32,16 @@ export type CloudSession = {
     handle?: string | null;
     /** Every workspace's claimed handle, by workspace id (the default workspace's is `handle`). */
     handles?: Record<string, MailHandleClaim>;
+    /**
+     * Deskwisp Mail (cloud/mail.ts): where the app reaches mail, a path on this cloud ("/mail"), which
+     * answers as AgentMail does. Left out: AgentMail itself.
+     */
+    api?: string;
+    /**
+     * How a bot's address is made from its name and its workspace's handle: "dotted" (Deskwisp Mail),
+     * wispy.tiger@<domain>; left out, wispy@tiger.<domain>.
+     */
+    addresses?: "dotted";
   } | null;
   /** AgentPhone goes through /proxy/agentphone, which always acts in this user's sub-account. Null when the cloud has no AgentPhone. */
   agentphone: { subAccountId: string; hookUrl: string } | null;

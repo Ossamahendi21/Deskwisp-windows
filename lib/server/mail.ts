@@ -5,7 +5,7 @@ import { botChatId, MAIN_WORKSPACE, workspaceOf, type Bot, type EmailInfo, type 
 import { DESKWISP_TIERS, type MailHandleCheck, type MailHandleResult } from "@/cloud/protocol";
 import { emailShort } from "@/lib/plan-includes";
 import { emailsHeld, isPlanBot, planRoom } from "./plan-room";
-import { cloudJson, cloudOn, cloudSessionNow } from "./cloud";
+import { cloudJson, cloudOn, cloudSessionNow, cloudUrl } from "./cloud";
 import { askOwner } from "./composio";
 import { foundByBots } from "./treg";
 import { saveUpload } from "./uploads";
@@ -29,25 +29,49 @@ import { recordUsage } from "./usage";
  *
  * Signed in with Horafirm, the pod is the user's own, made by Deskwisp Cloud, which hands over a key that
  * reaches only that pod (its session; lib/server/cloud.ts). Self-hosting, it's AGENTMAIL_API_KEY.
+ *
+ * Deskwisp Mail: a cloud that runs bots' email itself (cloud/mail.ts, in place of AgentMail) says so
+ * in the session (`agentmail.api`), and this talks to it with the same SDK, at that path on the cloud.
+ * Its addresses are <bot>.<handle>@<domain> (`agentmail.addresses` "dotted"), since mail for the domain
+ * comes in through Cloudflare, which takes it for the domain itself only.
  */
 
-/** The AgentMail key in use, and the pod when it's given: the user's own from Deskwisp Cloud, or AGENTMAIL_API_KEY and AGENTMAIL_POD_ID. */
-function mailAccess(): { key: string; podId?: string } | null {
+/**
+ * The AgentMail key in use, and the pod when it's given: the user's own from Deskwisp Cloud, or
+ * AGENTMAIL_API_KEY and AGENTMAIL_POD_ID. `api`: where Deskwisp Mail answers (on the cloud), when it does.
+ */
+function mailAccess(): { key: string; podId?: string; api?: { http: string; websockets: string } } | null {
   if (cloudOn()) {
     const m = cloudSessionNow()?.agentmail;
-    return m ? { key: m.apiKey, podId: m.podId } : null;
+    if (!m) return null;
+    const http = m.api ? `${cloudUrl()}${m.api}` : null;
+    return { key: m.apiKey, podId: m.podId, ...(http ? { api: { http, websockets: http.replace(/^http/, "ws") } } : {}) };
   }
   const key = process.env.AGENTMAIL_API_KEY;
   return key ? { key, podId: process.env.AGENTMAIL_POD_ID } : null;
 }
 
 export const mailOn = () => !!mailAccess();
-export const MAIL_DOMAIN = (process.env.DESKWISP_MAIL_DOMAIN ?? "deskwisp.bot").toLowerCase();
+
+/** The domain bots' addresses go on: the cloud's, signed in (its session says), else DESKWISP_MAIL_DOMAIN or deskwisp.bot. */
+export function mailDomain() {
+  const given = cloudOn() ? cloudSessionNow()?.agentmail?.domain : null;
+  return (given || process.env.DESKWISP_MAIL_DOMAIN || "deskwisp.bot").toLowerCase();
+}
+
+/** Deskwisp Mail's addresses: <bot>.<handle>@<domain>, not <bot>@<handle>.<domain>. */
+const dotted = () => cloudOn() && cloudSessionNow()?.agentmail?.addresses === "dotted";
+
+/** Where a bot's inbox goes on a handle (cloud/provision.ts inboxAt makes a plan's the same way). */
+const addressAt = (name: string, handle: string) => (dotted() ? { username: `${name}.${handle}`, domain: mailDomain() } : { username: name, domain: `${handle}.${mailDomain()}` });
+/** Whether an address is on the bots' domain (once it's ready), and on this handle. */
+const onBotsDomain = (email: string) => (dotted() ? email.endsWith(`@${mailDomain()}`) : email.endsWith(`.${mailDomain()}`));
+const onHandleOf = (email: string, handle: string) => (dotted() ? email.endsWith(`.${handle}@${mailDomain()}`) : email.endsWith(`@${handle}.${mailDomain()}`));
 
 type Socket = Awaited<ReturnType<AgentMailClient["websockets"]["connect"]>>;
 type Live = {
   client?: AgentMailClient;
-  /** The key the client was made with, and the one the socket was opened with: after another sign-in both are made again. */
+  /** The key (and Deskwisp Mail's address) the client was made with, and the one the socket was opened with: after another sign-in both are made again. */
   clientKey?: string;
   socketKey?: string;
   pod?: Promise<string>;
@@ -73,12 +97,16 @@ type Live = {
 const g = globalThis as unknown as { deskwispMail?: Live };
 const live: Live = (g.deskwispMail ??= { making: new Map(), handled: new Set(), arrivals: new Map() });
 
+/** The key and where it's used, as one: a change of either makes a new client (and socket). */
+const accessId = (a: ReturnType<typeof mailAccess>) => (a ? `${a.key} ${a.api?.http ?? ""}` : undefined);
+
 function am() {
-  const key = mailAccess()?.key;
-  if (!key) throw new Error("Email isn't available right now.");
-  if (!live.client || live.clientKey !== key) {
-    live.client = new AgentMailClient({ apiKey: key });
-    live.clientKey = key;
+  const access = mailAccess();
+  if (!access) throw new Error("Email isn't available right now.");
+  const which = accessId(access);
+  if (!live.client || live.clientKey !== which) {
+    live.client = new AgentMailClient({ apiKey: access.key, ...(access.api ? { environment: access.api } : {}) });
+    live.clientKey = which;
     live.domain = undefined;
   }
   return live.client;
@@ -118,9 +146,10 @@ function podId() {
 /** deskwisp.bot in AgentMail: its status and the DNS records it needs (checked at most every 5 minutes). */
 async function domainInfo(fresh = false) {
   if (!fresh && live.domain && Date.now() - live.domain.at < 5 * 60_000) return live.domain.info;
-  let info: AgentMail.Domain | null = await am().domains.get(MAIL_DOMAIN).catch(() => null);
+  const domain = mailDomain();
+  let info: AgentMail.Domain | null = await am().domains.get(domain).catch(() => null);
   if (!info) {
-    const item = (await am().domains.list({ limit: 100 }).catch(() => null))?.domains.find((d) => d.domain === MAIL_DOMAIN);
+    const item = (await am().domains.list({ limit: 100 }).catch(() => null))?.domains.find((d) => d.domain === domain);
     info = item ? await am().domains.get(item.domainId).catch(() => null) : null;
   }
   live.domain = { at: Date.now(), info };
@@ -128,7 +157,7 @@ async function domainInfo(fresh = false) {
 }
 const domainReady = async () => {
   // On Deskwisp Cloud the pod's key can't see the account's domains: the cloud says whether deskwisp.bot is ready.
-  if (cloudOn()) return cloudSessionNow()?.agentmail?.domain === MAIL_DOMAIN;
+  if (cloudOn()) return !!cloudSessionNow()?.agentmail?.domain;
   const d = await domainInfo().catch(() => null);
   return !!d && d.status === "VERIFIED" && d.subdomainsEnabled;
 };
@@ -243,7 +272,8 @@ export async function checkMailHandle(ws: string, tried: string): Promise<MailHa
   const check = await cloudJson<MailHandleCheck>(`/v1/mail/handle?${q}`);
   const main = getState().bots.find((x) => x.isMain && workspaceOf(x) === ws);
   const handle = check.status === "available" || check.status === "yours" ? check.handle : check.suggestion;
-  return { ...check, bot: main?.name ?? "Wispy", address: `${slugify(main?.name ?? "Wispy")}@${handle || "…"}.${MAIL_DOMAIN}` };
+  const at = addressAt(slugify(main?.name ?? "Wispy"), handle || "…");
+  return { ...check, bot: main?.name ?? "Wispy", address: `${at.username}@${at.domain}` };
 }
 
 /**
@@ -328,7 +358,7 @@ async function makeInbox(botId: string): Promise<string | null> {
   const b = bot(botId);
   if (!b || !mailOn()) return null;
   const custom = await domainReady();
-  const onRightDomain = (email: string) => (custom ? email.endsWith(`.${MAIL_DOMAIN}`) : true);
+  const onRightDomain = (email: string) => (custom ? onBotsDomain(email) : true);
   // The address is the bot's name: renamed, it gets a new one (and the old one keeps arriving). A
   // number after it (sam2) is the same name: the plain one was taken before handles.
   const user = slugify(b.name);
@@ -337,7 +367,7 @@ async function makeInbox(botId: string): Promise<string | null> {
   const w = getState().workspaces?.find((x) => x.id === ws);
   // Moving to the workspace's new handle (it was changed): an address on any other isn't the bot's main one any more.
   const moving = cloudOn() && custom && w?.mailMove && w.mailClaimed && w.mailSlug ? w.mailSlug : null;
-  const onHandle = (email: string) => !moving || email.endsWith(`@${moving}.${MAIL_DOMAIN}`);
+  const onHandle = (email: string) => !moving || onHandleOf(email, moving);
   if (b.mail && b.email && onRightDomain(b.email) && named(b.email) && onHandle(b.email)) return b.email;
   // Renamed back to a name it had: that address becomes its main one again.
   const again = b.mail?.past?.find((p) => named(p) && onRightDomain(p) && onHandle(p));
@@ -368,7 +398,7 @@ async function makeInbox(botId: string): Promise<string | null> {
     // inbox with the same client id (cloud/provision.ts), so the two never make two.
     for (let n = 1; n <= 5; n++) {
       try {
-        return await newInbox(b, pod, ws, { username: n === 1 ? user : `${user}${n}`, domain: `${handle}.${MAIL_DOMAIN}` }, `${clientId}-${handle}${n === 1 ? "" : `-${n}`}`, null);
+        return await newInbox(b, pod, ws, addressAt(n === 1 ? user : `${user}${n}`, handle), `${clientId}-${handle}${n === 1 ? "" : `-${n}`}`, null);
       } catch (e) {
         if (!taken(e)) throw e;
       }
@@ -380,7 +410,7 @@ async function makeInbox(botId: string): Promise<string | null> {
   // A slug already claimed is used as it is; a new one counts up until it's free (acme-2).
   for (let n = 1; n <= (kept ? 1 : 25); n++) {
     const slug = n === 1 ? base : `${base}-${n}`;
-    const where = custom ? { username: user, domain: `${slug}.${MAIL_DOMAIN}` } : { username: `${user}.${slug}` };
+    const where = custom ? { username: user, domain: `${slug}.${mailDomain()}` } : { username: `${user}.${slug}` };
     try {
       return await newInbox(b, pod, ws, where, clientId, slug);
     } catch (e) {
@@ -399,7 +429,7 @@ async function ensureAll() {
   const bots = [...getState().bots].sort((a, b) => Number(b.isMain) - Number(a.isMain));
   for (const b of bots) await ensureInbox(b.id).catch((e: Error) => console.warn(`[mail] inbox for ${b.id}: ${e.message}`));
   // A workspace whose bots have all moved to its new handle is done moving.
-  const moved = (getState().workspaces ?? []).filter((w) => w.mailMove && getState().bots.every((b) => workspaceOf(b) !== w.id || !b.email || b.email.endsWith(`@${w.mailSlug}.${MAIL_DOMAIN}`)));
+  const moved = (getState().workspaces ?? []).filter((w) => w.mailMove && getState().bots.every((b) => workspaceOf(b) !== w.id || !b.email || (!!w.mailSlug && onHandleOf(b.email, w.mailSlug))));
   if (moved.length)
     update((s) => {
       for (const w of s.workspaces ?? []) if (moved.some((m) => m.id === w.id)) w.mailMove = undefined;
@@ -495,7 +525,9 @@ export const isBotInbox = (address: string) => {
  */
 export function isBotAddress(address: string) {
   const a = address.trim().toLowerCase();
-  return BOT_DOMAINS.some((d) => under(domainOf(a), d)) || isBotInbox(a);
+  // Deskwisp Mail's bots are on the cloud's domain itself.
+  const domains = dotted() ? [...BOT_DOMAINS, mailDomain()] : BOT_DOMAINS;
+  return domains.some((d) => under(domainOf(a), d)) || isBotInbox(a);
 }
 
 /**
@@ -504,7 +536,10 @@ export function isBotAddress(address: string) {
  * the self-hoster's own mail. Refused for an address added with a code (lib/server/owner-email.ts),
  * not for one this server sets or a connected Gmail.
  */
-export const onBotsMailDomain = (address: string) => !!MAIL_DOMAIN && domainOf(address.trim().toLowerCase()).endsWith(`.${MAIL_DOMAIN}`);
+export const onBotsMailDomain = (address: string) => {
+  const d = domainOf(address.trim().toLowerCase());
+  return d.endsWith(`.${mailDomain()}`) || (dotted() && d === mailDomain());
+};
 
 /**
  * The user's own addresses with where each comes from, lowercased, one entry per address: the email
@@ -670,7 +705,7 @@ const THIS_LOAD = randomBytes(4).toString("hex");
 
 export function startMail() {
   // A socket from older code, or on a key that's no longer the one in use (signed out, or someone else signed in), goes.
-  const key = mailAccess()?.key;
+  const key = accessId(mailAccess());
   if (live.socket && (live.socketMadeBy !== THIS_LOAD || live.socketKey !== key) && !live.starting) {
     live.socket.close();
     live.socket = undefined;
@@ -918,10 +953,26 @@ export function emailResult(s: { emailBack?: { inboxId: string; messageId: strin
 /** For Settings: whether mail is on, and deskwisp.bot's state with the DNS records it needs. */
 export async function mailStatus() {
   if (!mailOn()) return { on: false as const };
+  // Signed in, the cloud runs the domain: ready when its session names it, and nothing to set up here.
+  if (cloudOn()) {
+    const given = cloudSessionNow()?.agentmail?.domain;
+    return {
+      on: true as const,
+      managed: true as const,
+      domain: given || "agentmail.to",
+      status: given ? "VERIFIED" : "NOT_ADDED",
+      subdomains: !!given,
+      records: [],
+      inboxes: getState().bots.filter((b) => b.email).map((b) => ({ bot: b.name, email: b.email })),
+      listening: live.socket?.readyState === 1,
+      lastEvent: live.lastEvent && { ...live.lastEvent, ago: `${Math.round((Date.now() - live.lastEvent.at) / 1000)}s` },
+      lastError: live.lastError,
+    };
+  }
   const d = await domainInfo(true).catch(() => null);
   return {
     on: true as const,
-    domain: MAIL_DOMAIN,
+    domain: mailDomain(),
     status: d?.status ?? "NOT_ADDED",
     subdomains: d?.subdomainsEnabled ?? false,
     records: d?.records.map((r) => ({ type: r.type, name: r.name, value: r.value, priority: r.priority, status: r.status })) ?? [],
@@ -936,7 +987,7 @@ export async function mailStatus() {
 export async function setupDomain() {
   if (!mailOn()) throw new Error("AGENTMAIL_API_KEY isn't set");
   const d = await domainInfo(true);
-  if (!d) await am().domains.create({ domain: MAIL_DOMAIN, subdomainsEnabled: true, feedbackEnabled: true });
+  if (!d) await am().domains.create({ domain: mailDomain(), subdomainsEnabled: true, feedbackEnabled: true });
   else if (!d.subdomainsEnabled) await am().domains.update(d.domainId, { subdomainsEnabled: true });
   return mailStatus();
 }
@@ -944,7 +995,7 @@ export async function setupDomain() {
 /** Ask AgentMail to check deskwisp.bot's DNS again. */
 export async function verifyDomain() {
   const d = await domainInfo(true);
-  if (!d) throw new Error(`${MAIL_DOMAIN} isn't added yet`);
+  if (!d) throw new Error(`${mailDomain()} isn't added yet`);
   await am().domains.verify(d.domainId);
   return mailStatus();
 }

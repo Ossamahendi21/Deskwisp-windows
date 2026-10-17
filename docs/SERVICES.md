@@ -99,11 +99,48 @@ node --experimental-strip-types --env-file=dcloud/.env dcloud/scripts/set-plan.t
 | Honcho | Memory | Free self-hosted (AGPL-3.0, unmodified, run as its own service); its own LLM calls default to Gemini (free tier) and OpenAI for embeddings | Optional: `DESKWISP_UPSTREAM_HONCHO`, `HONCHO_API_KEY` |
 | Typesafe (Jev) | Quick yes/no checks | $0.042 per 1M tokens, early access | Optional: without it, a small OpenAI call answers instead (`lib/server/decide.ts`); reading the screen on every page change is Jev's alone |
 | treg | Business data | Per call, at the provider's price | Optional: `TREG_TOKEN`; paid from the user's AI credit |
-| AgentMail | Bots' email | Free: 3 inboxes; $20: 10 with your domain; $200: 150 | Optional: `AGENTMAIL_API_KEY`, `DESKWISP_MAIL_DOMAIN` |
+| Deskwisp Mail (Cloudflare + Resend) | Bots' email | Free past the domain: Cloudflare Email Routing takes mail in at no cost; Resend's free plan sends 3,000 a month, 100 a day | Optional: `RESEND_API_KEY`, `DESKWISP_MAIL_DOMAIN`, `DESKWISP_MAIL_INBOUND_SECRET` ([below](#bots-email)) |
+| AgentMail | Bots' email, instead | Free: 3 inboxes in all; $20: 10 with your domain; $200: 150 | Optional: `AGENTMAIL_API_KEY`, `DESKWISP_MAIL_DOMAIN` |
 | AgentPhone, Twilio | Phone numbers, texts, calls | $3 a number a month, 13¢ a minute, 2¢ a text; US and Canada only | Off for now |
 | Tailscale | — | — | Not needed: dcloud bridges the screens itself |
 
 A service whose key cloud/ doesn't have is shown as off in the app.
+
+## Bots' email
+
+Deskwisp Mail (`cloud/mail.ts`) runs bots' email on cloud/ itself. It costs nothing past the domain.
+Mail comes in through Cloudflare Email Routing and goes out through Resend. The app talks to it the
+way it talks to AgentMail, so nothing changes on the PC. A bot's address is `<name>.<handle>@<domain>`
+(`wispy.tiger@example.com`): Cloudflare's catch-all works on the domain itself, never a subdomain.
+
+You can use a domain whose own mailboxes live somewhere else (`support@`, `hello@`). Cloudflare sends
+each of those where its own rule says, and only the rest goes to the bots. Those role names are never
+given to a bot.
+
+1. **Cloudflare.** Put the domain's DNS on Cloudflare (free plan). In the domain, open **Email → Email
+   Routing**, turn it on, and add the MX and TXT records it asks for.
+2. **The Worker.** In **Workers & Pages → Create → Worker**, name it `deskwisp-mail` and paste
+   `cloud/deploy/mail-worker.js` into its editor. Deploy it. In its **Settings → Variables and Secrets**,
+   add `CLOUD_URL` (your `DESKWISP_CLOUD_PUBLIC_URL`, e.g. `https://cloud.example.com/api`) and the
+   secret `INBOUND_SECRET` (`openssl rand -base64 32`).
+3. **The catch-all.** Back in **Email Routing → Routing rules**, set **Catch-all address** to
+   **Send to a Worker → deskwisp-mail** and turn it on.
+4. **Resend.** Make an account and add the same domain under **Domains**. Add the DNS records it
+   shows in Cloudflare (DKIM, and SPF and MX on a `send` subdomain, so they don't touch Cloudflare's
+   MX). Leave receiving off in Resend: if it offers an MX record for the domain itself, skip that one.
+   Wait until it says Verified, then make an API key with **Sending access**.
+5. **cloud/.env.** Add `RESEND_API_KEY`, `DESKWISP_MAIL_DOMAIN` (the domain) and
+   `DESKWISP_MAIL_INBOUND_SECRET` (the same value as the Worker's `INBOUND_SECRET`). Restart cloud/:
+   it logs `Deskwisp Mail is on`.
+
+The Worker has to reach cloud/ over the internet. Until cloud/ is on its server, a quick tunnel works
+for a test: `cloudflared tunnel --url http://127.0.0.1:8790`. Put the `https://….trycloudflare.com` it
+prints in the Worker's `CLOUD_URL`. The address changes every time the tunnel starts.
+
+Switching from AgentMail moves every user to a new pod at their next session. Bots get new addresses on
+the domain, and the old agentmail.to inboxes stop being read. An email the owner sends counts as the
+owner only when Cloudflare found that DMARC passed (cloud/mail.ts `dmarcOf`). Otherwise the bot treats it
+as anyone else's email.
 
 ## Honcho, self-hosted
 

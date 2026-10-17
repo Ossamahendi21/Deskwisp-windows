@@ -11,6 +11,7 @@ import { HttpError, matches, refuseUpgrade, sendJson, type Route, type Upgrade }
 import * as handles from "./handles.ts";
 import * as hooks from "./hooks.ts";
 import * as lines from "./lines.ts";
+import * as mail from "./mail.ts";
 import * as notices from "./notices.ts";
 import * as ops from "./ops.ts";
 import * as pages from "./pages.ts";
@@ -62,8 +63,9 @@ export const routes = (): Route[] => [
   ...usage.routes,
   ...notices.routes,
   ...agent.routes,
+  ...mail.routes,
 ];
-export const upgrades = (): Upgrade[] => [...tunnel.upgrades, ...proxy.upgrades];
+export const upgrades = (): Upgrade[] => [...tunnel.upgrades, ...proxy.upgrades, ...mail.upgrades];
 
 /** The request's address, or null when it can't be read as one ("//" and the like): a 400, never a crash. */
 function requestUrl(req: IncomingMessage): URL | null {
@@ -120,6 +122,8 @@ export function makeServer(): Server {
     if (!url) return refuseUpgrade(socket, 400, "Bad Request");
     const up = ups.find((u) => matches(u.path, url.pathname));
     if (!up) return refuseUpgrade(socket, 404, "Not Found");
+    // Deskwisp Mail's socket is the app's with its mail pod's key, which the handler checks itself (mail.ts).
+    if (up.auth === "public") return up.handle(req, socket, head, { url });
     // A phone only polls its chat (agent.ts). The tunnel is one per user: a phone there would drop the user's Mac.
     if (fromIphone(req)) return refuseUpgrade(socket, 403, "Forbidden");
     try {
@@ -158,6 +162,10 @@ async function main() {
   const stopStateSweeps = state.startStateSweeps();
   // Which apps the cloud serves (deskwisp.app_policy), read every minute (app-version.ts).
   const stopAppPolicy = startAppPolicy();
+  // Deskwisp Mail's old attachments' bytes go after 30 days (mail.ts).
+  const stopMailSweeps = mail.startMailSweeps();
+  if (config.ownMail())
+    console.log(`[cloud] Deskwisp Mail is on: bots' addresses are on ${config.mailDomain()}, sent through Resend${config.mailInboundSecret() ? "" : " (DESKWISP_MAIL_INBOUND_SECRET isn't set: no mail comes in)"}`);
   const server = makeServer();
   server.listen(config.port(), "127.0.0.1", () => console.log(`[cloud] listening on 127.0.0.1:${config.port()}`));
   const stop = () => {
@@ -167,6 +175,7 @@ async function main() {
     stopGuard();
     stopStateSweeps();
     stopAppPolicy();
+    stopMailSweeps();
     tunnel.closeAll();
     // Usage events still queued go out first (up to 2 seconds).
     void shutdownTelemetry().finally(() => server.close(() => process.exit(0)));
