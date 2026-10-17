@@ -15,6 +15,8 @@ export type Checkout = {
   status: string;
   metadata: Record<string, unknown>;
   externalCustomerId: string | null;
+  /** The subscription a plan's checkout made, once paid. */
+  subscriptionId: string | null;
   productId: string | null;
   /** The product renews (a subscription): never right for credit bought once. */
   recurring: boolean;
@@ -54,6 +56,7 @@ const checkoutFrom = (j: Record<string, unknown>): Checkout => ({
   status: typeof j.status === "string" ? j.status : "",
   metadata: j.metadata && typeof j.metadata === "object" ? (j.metadata as Record<string, unknown>) : {},
   externalCustomerId: typeof j.external_customer_id === "string" ? j.external_customer_id : null,
+  subscriptionId: typeof j.subscription_id === "string" ? j.subscription_id : null,
   productId: typeof j.product_id === "string" ? j.product_id : null,
   recurring: !!(j.product && typeof j.product === "object" && (j.product as { is_recurring?: unknown }).is_recurring === true),
   netCents: Number.isSafeInteger(j.net_amount) ? (j.net_amount as number) : null,
@@ -73,10 +76,10 @@ export class RecurringProduct extends Error {
  * user named as Polar's customer by their id, and what it's for in its metadata, which comes back with
  * it. The credit added is what was paid in the end (confirmCredit), whatever was asked.
  */
-export async function creditCheckout(p: PolarSettings, o: { userId: string; email: string | null; cents: number; successUrl: string }): Promise<Checkout> {
+export async function creditCheckout(p: PolarSettings, o: { product: string; userId: string; email: string | null; cents: number; successUrl: string }): Promise<Checkout> {
   const body = {
-    products: [p.creditProduct],
-    prices: { [p.creditProduct]: [{ amount_type: "fixed", price_amount: o.cents, price_currency: "usd" }] },
+    products: [o.product],
+    prices: { [o.product]: [{ amount_type: "fixed", price_amount: o.cents, price_currency: "usd" }] },
     amount: o.cents,
     allow_discount_codes: false,
     external_customer_id: o.userId,
@@ -96,6 +99,59 @@ export async function creditCheckout(p: PolarSettings, o: { userId: string; emai
   );
   if (c.recurring) throw new RecurringProduct();
   return c;
+}
+
+/**
+ * A checkout for a paid plan (Pro or Max): its monthly product, the user named as Polar's customer by
+ * their id, and the plan in its metadata. Polar makes the subscription once it's paid.
+ */
+export async function planCheckout(p: PolarSettings, o: { product: string; tier: string; userId: string; email: string | null; successUrl: string }): Promise<Checkout> {
+  return checkoutFrom(
+    await call<Record<string, unknown>>(p, "POST", "/checkouts/", {
+      products: [o.product],
+      external_customer_id: o.userId,
+      ...(o.email ? { customer_email: o.email } : {}),
+      metadata: { deskwisp_kind: "plan", deskwisp_user: o.userId, tier: o.tier },
+      success_url: o.successUrl,
+    }),
+  );
+}
+
+/** A subscription as Polar has it. Times in ms. */
+export type PolarSubscription = {
+  id: string;
+  /** incomplete, incomplete_expired, trialing, active, past_due, canceled, unpaid. */
+  status: string;
+  productId: string | null;
+  /** The user: Polar's customer by our id, else the metadata its checkout carried. */
+  userId: string | null;
+  periodStart: number | null;
+  periodEnd: number | null;
+  cancelAtPeriodEnd: boolean;
+};
+
+const msOf = (v: unknown) => (typeof v === "string" && Number.isFinite(Date.parse(v)) ? Date.parse(v) : null);
+
+export async function readSubscription(p: PolarSettings, id: string): Promise<PolarSubscription> {
+  const j = await call<Record<string, unknown>>(p, "GET", `/subscriptions/${encodeURIComponent(id)}`);
+  const customer = j.customer && typeof j.customer === "object" ? (j.customer as { external_id?: unknown }) : {};
+  const metadata = j.metadata && typeof j.metadata === "object" ? (j.metadata as { deskwisp_user?: unknown }) : {};
+  return {
+    id: String(j.id),
+    status: typeof j.status === "string" ? j.status : "",
+    productId: typeof j.product_id === "string" ? j.product_id : null,
+    userId: typeof customer.external_id === "string" ? customer.external_id : typeof metadata.deskwisp_user === "string" ? metadata.deskwisp_user : null,
+    periodStart: msOf(j.current_period_start),
+    periodEnd: msOf(j.current_period_end),
+    cancelAtPeriodEnd: j.cancel_at_period_end === true,
+  };
+}
+
+/** A page of Polar's customer portal for the user (by our id): their plan, card, invoices, cancelling. */
+export async function portalLink(p: PolarSettings, userId: string, returnUrl?: string): Promise<string> {
+  const j = await call<{ customer_portal_url?: unknown }>(p, "POST", "/customer-sessions/", { external_customer_id: userId, ...(returnUrl ? { return_url: returnUrl } : {}) });
+  if (typeof j.customer_portal_url !== "string") throw new Error("Polar didn't give a portal page");
+  return j.customer_portal_url;
 }
 
 /** A checkout as Polar has it now. */

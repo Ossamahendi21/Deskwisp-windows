@@ -56,7 +56,7 @@ Set it up in Polar's sandbox first ([sandbox.polar.sh](https://sandbox.polar.sh)
    amount, and the credit added is what was paid in the end.
 2. Settings → Developers → New token, with `checkouts:read` and `checkouts:write`.
 3. Settings → Webhooks → Add endpoint: `<DESKWISP_PUBLIC_URL>/billing/polar/webhook`, format Raw,
-   events `order.paid` and `checkout.updated`. Without a public address (on a PC) the webhook can't
+   events `order.paid`, `checkout.updated` and the `subscription.*` events. Without a public address (on a PC) the webhook can't
    reach dcloud; the credit is still added when the checkout sends the buyer back.
 4. In `dcloud/.env`: `POLAR_ACCESS_TOKEN`, `POLAR_CREDIT_PRODUCT_ID`, `POLAR_WEBHOOK_SECRET`, then
    restart dcloud.
@@ -64,7 +64,23 @@ Set it up in Polar's sandbox first ([sandbox.polar.sh](https://sandbox.polar.sh)
 Real payments need `POLAR_SERVER=production` and `DESKWISP_LIVE_PAYMENTS=1`, which waits for
 COMMERCIAL-PERMISSION.md.
 
-Until billing (Polar) is in, put someone on a plan by hand:
+### Pro and Max
+
+Upgrade in the app opens Polar's checkout for the plan; once it's paid, the plan, its month of credit
+and what it brings (cloud/ hears of it) are in. Someone who already pays gets Polar's customer portal
+instead (Upgrade and Manage plan): changing plans, the card, invoices, cancelling. The plan follows the
+subscription as Polar has it, read from Polar when the checkout sends the buyer back, when Polar's
+webhook says something changed (each month paid, a change of plan, a cancel), and when the app looks at
+the plan after its period ended or half an hour went by (so it holds on a PC Polar's webhook can't
+reach). Each paid period's credit comes once; an upgrade mid-period adds the rest of the higher plan's.
+A cancelled plan runs to the end of its period, then it's Free.
+
+In Polar: two products, **Deskwisp Pro** ($29) and **Deskwisp Max** ($199), Recurring subscription,
+monthly, fixed price; their ids in `POLAR_PRO_PRODUCT_ID` and `POLAR_MAX_PRODUCT_ID`. The token needs
+`checkouts:read`, `checkouts:write`, `subscriptions:read` and `customer_sessions:write`. The webhook
+takes `order.paid`, `checkout.updated` and the `subscription.*` events.
+
+Without Polar, put someone on a plan by hand:
 
 ```bash
 node --experimental-strip-types --env-file=dcloud/.env dcloud/scripts/set-plan.ts someone@example.com pro

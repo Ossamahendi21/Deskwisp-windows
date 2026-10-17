@@ -38,6 +38,19 @@ export type Workspace = { id: string; owner: string; name: string; createdAt: nu
  * overran it), what's left of this period's plan credit and when it ends, what's left of the credit
  * that never runs out (Free's one-time credit), and the kinds of the newest grants.
  */
+/** A user's paid plan as Polar has it (billing.ts syncSubscription). Times in ms. */
+export type Subscription = {
+  userId: string;
+  subscriptionId: string;
+  tier: Tier;
+  /** Polar's: incomplete, trialing, active, past_due, canceled, unpaid… */
+  status: string;
+  periodStart: number | null;
+  periodEnd: number | null;
+  cancelAtPeriodEnd: boolean;
+  syncedAt: number;
+};
+
 export type Credit = { leftMicros: number; planLeftMicros: number; planEndsAt: number | null; freeLeftMicros: number; grants: { kind: string; tier: string; amountMicros: number; at: number }[] };
 
 /**
@@ -97,6 +110,8 @@ export interface Store {
    * this payment (`ref`) was added before.
    */
   grantTopUp(userId: string, tier: Tier, ref: string, amountMicros: number): Promise<number | null>;
+  subscription(userId: string): Promise<Subscription | null>;
+  setSubscription(s: Subscription): Promise<void>;
 
   addKey(userId: string, keyHash: string, label: string): Promise<void>;
   /** Whose key this is (by its hash), or null. */
@@ -174,6 +189,7 @@ type Data = {
   computers: Computer[];
   workspaces: Workspace[];
   members: Member[];
+  subscriptions?: Subscription[];
 };
 
 /** Everything in one JSON file: for development and the tests, one server, a handful of users. */
@@ -273,6 +289,15 @@ export class JsonStore implements Store {
     l.free += amountMicros;
     this.save();
     return amountMicros;
+  }
+
+  async subscription(userId: string) {
+    return (this.data.subscriptions ?? []).find((s) => s.userId === userId) ?? null;
+  }
+
+  async setSubscription(s: Subscription) {
+    this.data.subscriptions = [...(this.data.subscriptions ?? []).filter((x) => x.userId !== s.userId), { ...s }];
+    this.save();
   }
 
   async addKey(userId: string, keyHash: string, label: string) {

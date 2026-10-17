@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import pg from "pg";
 import { isTier, type Tier } from "./plans.ts";
-import { newVncPassword, WorkspaceTaken, type Computer, type Credit, type DeviceCode, type Member, type Store, type User, type Workspace } from "./store.ts";
+import { newVncPassword, WorkspaceTaken, type Computer, type Credit, type DeviceCode, type Member, type Store, type Subscription, type User, type Workspace } from "./store.ts";
 
 /**
  * The store in Postgres (Neon): DATABASE_URL. At start it applies dcloud/db/*.sql that haven't run,
@@ -189,6 +189,32 @@ export class PgStore implements Store {
   async grantTopUp(userId: string, tier: Tier, ref: string, amountMicros: number) {
     const [r] = await this.rows("SELECT public.deskwisp_ai_credit_grant_topup($1::uuid, $2, $3, $4::bigint) AS added", [userId, ref, tier, Math.round(amountMicros)]);
     return r?.added === null || r?.added === undefined ? null : Number(r.added);
+  }
+
+  async subscription(userId: string): Promise<Subscription | null> {
+    const [r] = await this.rows("SELECT * FROM deskwisp.subscriptions WHERE user_id = $1", [userId]);
+    if (!r) return null;
+    return {
+      userId: r.user_id as string,
+      subscriptionId: r.subscription_id as string,
+      tier: r.tier as Tier,
+      status: r.status as string,
+      periodStart: r.period_start ? ms(r.period_start as Date) : null,
+      periodEnd: r.period_end ? ms(r.period_end as Date) : null,
+      cancelAtPeriodEnd: !!r.cancel_at_period_end,
+      syncedAt: ms(r.synced_at as Date),
+    };
+  }
+
+  async setSubscription(s: Subscription) {
+    const at = (t: number | null) => (t === null ? null : new Date(t));
+    await this.rows(
+      `INSERT INTO deskwisp.subscriptions (user_id, subscription_id, tier, status, period_start, period_end, cancel_at_period_end, synced_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (user_id) DO UPDATE SET subscription_id = EXCLUDED.subscription_id, tier = EXCLUDED.tier, status = EXCLUDED.status,
+         period_start = EXCLUDED.period_start, period_end = EXCLUDED.period_end, cancel_at_period_end = EXCLUDED.cancel_at_period_end, synced_at = EXCLUDED.synced_at`,
+      [s.userId, s.subscriptionId, s.tier, s.status, at(s.periodStart), at(s.periodEnd), s.cancelAtPeriodEnd, new Date(s.syncedAt)],
+    );
   }
 
   async setPlan(userId: string, plan: Tier) {

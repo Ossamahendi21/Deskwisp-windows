@@ -4,8 +4,8 @@ import type { Computers } from "./computers.ts";
 import { HttpError } from "./computers.ts";
 import type { Config } from "./config.ts";
 import { PLANS, type Tier } from "./plans.ts";
-import { creditCheckout, readCheckout, RecurringProduct, webhookIsPolars } from "./polar.ts";
-import type { Store } from "./store.ts";
+import { creditCheckout, planCheckout, portalLink, readCheckout, readSubscription, RecurringProduct, webhookIsPolars, type PolarSubscription } from "./polar.ts";
+import type { Store, Subscription } from "./store.ts";
 
 /**
  * Each user's plan, AI credit and computer time, in the shape the app reads them (horafirm-web's Deskwisp
@@ -23,6 +23,16 @@ import type { Store } from "./store.ts";
  *   once Polar says the checkout succeeded: when its page sends the buyer back here
  *   (/billing/credit/done) and when Polar's webhook says so (/billing/polar/webhook), whichever comes
  *   first, once (db/007_credit_topup.sql). Off (code deskwisp_credit_off: "opens soon") without Polar.
+ *
+ * Pro and Max (POLAR_PRO_PRODUCT_ID, POLAR_MAX_PRODUCT_ID: monthly subscription products):
+ * - POST /api/deskwisp/checkout {tier}: Polar's checkout for that plan; for someone who already pays,
+ *   Polar's customer portal instead, where they change plans. POST /api/deskwisp/portal: the portal
+ *   (card, invoices, cancelling).
+ * - The plan follows the subscription as Polar has it (syncSubscription), read from Polar whenever it
+ *   says something changed: the checkout sending the buyer back (/billing/plan/done), Polar's webhook
+ *   (a new month paid, a change of plan, a cancel), and on the app's look at the plan once a period has
+ *   ended or a while has gone by (so it holds with no webhook reaching a PC). Each paid period brings
+ *   its month of credit once; an upgrade in a period adds what's left of the higher plan's.
  *
  * A plan change (changePlan: billing, or `scripts/set-plan.ts` by hand) grants the paid period's
  * credit and tells the services server (cloud/), which sets up what the plan brings.
@@ -56,13 +66,117 @@ export class Billing {
     }
     if (what === "credit/checkout" && method === "POST") return this.creditCheckout(owner, ((await body()) as { amount_cents?: unknown }).amount_cents);
     if (what === "computer/active" && method === "POST") return { ok: true };
-    if ((what === "checkout" || what === "portal") && method === "POST") throw new HttpError(503, "Upgrades open soon.", "deskwisp_plans_off");
+    if (what === "checkout" && method === "POST") return this.planCheckout(owner, ((await body()) as { tier?: unknown }).tier);
+    if (what === "portal" && method === "POST") return this.portal(owner);
     return false;
   }
 
-  /** Adding credit is on (Polar's set up), else the app's "opens soon". */
+  /** Paid plans are sold (Polar has Pro's and Max's products), else the app's "Upgrades open soon". */
+  private plansOn() {
+    const polar = this.cfg.polar;
+    if (!polar?.plans) throw new HttpError(503, "Upgrades open soon.", "deskwisp_plans_off");
+    return { polar, plans: polar.plans };
+  }
+
+  /** Pro or Max: Polar's checkout for it, or for someone who already pays, the portal to change plans. */
+  private async planCheckout(owner: string, tier: unknown) {
+    const { polar, plans } = this.plansOn();
+    if (tier !== "pro_deskwisp" && tier !== "max_deskwisp") throw new HttpError(400, "Pick Pro or Max.", "invalid_tier");
+    const user = await this.store.user(owner);
+    if (!user) throw new HttpError(403, "Sign in to upgrade.", "no_account");
+    const sub = await this.store.subscription(user.id);
+    if (sub && paying(sub)) {
+      if (sub.tier === tier) throw new HttpError(409, `You're on ${PLANS[tier].name} already.`, "same_plan");
+      return { url: await this.portalUrl(user.id) };
+    }
+    const c = await planCheckout(polar, { product: plans[tier], tier, userId: user.id, email: user.email, successUrl: `${this.cfg.publicUrl}/billing/plan/done?checkout_id={CHECKOUT_ID}` }).catch((e: Error) => {
+      console.warn(`[billing] opening ${tier}'s checkout for ${user.id}: ${e.message}`);
+      throw new HttpError(502, "Couldn't open checkout. Try again in a minute.", "checkout_unavailable");
+    });
+    if (!c.url) throw new HttpError(502, "Couldn't open checkout. Try again in a minute.", "checkout_unavailable");
+    return { url: c.url };
+  }
+
+  /** Polar's customer portal: the plan, the card, invoices, cancelling. Only for someone who's had a paid plan. */
+  private async portal(owner: string) {
+    this.plansOn();
+    const user = await this.store.user(owner);
+    const sub = user ? await this.store.subscription(user.id) : null;
+    if (!user || !sub) throw new HttpError(409, "You don't have a paid plan to manage yet.", "no_deskwisp_plan");
+    return { url: await this.portalUrl(user.id) };
+  }
+
+  private async portalUrl(userId: string) {
+    const { polar } = this.plansOn();
+    return portalLink(polar, userId).catch((e: Error) => {
+      console.warn(`[billing] opening the portal for ${userId}: ${e.message}`);
+      throw new HttpError(502, "Couldn't open your plan's page. Try again in a minute.", "portal_unavailable");
+    });
+  }
+
+  /**
+   * Bring a user's plan in line with a Polar subscription: its tier while it's paid for (active,
+   * trialing, or past due while Polar tries the card again), with each paid period's credit once; Free
+   * when it has ended. Only the user's latest subscription moves their plan. What the user is on now.
+   */
+  async syncSubscription(subscriptionId: string): Promise<{ userId: string; tier: Tier; status: string } | null> {
+    const { polar, plans } = this.plansOn();
+    let s: PolarSubscription;
+    try {
+      s = await readSubscription(polar, subscriptionId);
+    } catch (e) {
+      throw new Error(`reading subscription ${subscriptionId}: ${(e as Error).message}`);
+    }
+    const tier = (Object.keys(plans) as ("pro_deskwisp" | "max_deskwisp")[]).find((t) => plans[t] === s.productId);
+    if (!tier) {
+      console.warn(`[billing] subscription ${s.id} isn't for Pro's or Max's product: left alone`);
+      return null;
+    }
+    const user = s.userId ? await this.userById(s.userId) : null;
+    if (!user) {
+      console.warn(`[billing] subscription ${s.id} is for a user who isn't here (${s.userId}): left alone`);
+      return null;
+    }
+    const was = await this.store.subscription(user.id);
+    // An older subscription's news never moves the plan of someone on a newer one.
+    if (was && was.subscriptionId !== s.id && paying(was) && !PAYING.has(s.status)) return { userId: user.id, tier: user.plan, status: was.status };
+    const now: Subscription = {
+      userId: user.id,
+      subscriptionId: s.id,
+      tier,
+      status: s.status,
+      periodStart: s.periodStart,
+      periodEnd: s.periodEnd,
+      cancelAtPeriodEnd: s.cancelAtPeriodEnd,
+      syncedAt: Date.now(),
+    };
+    await this.store.setSubscription(now);
+    if (PAYING.has(s.status)) {
+      // Each period, and each plan within one (an upgrade), grants once: changePlan's ledger keeps it to that.
+      const fresh = !was || was.subscriptionId !== s.id || was.periodStart !== s.periodStart || was.tier !== tier || user.plan !== tier;
+      if (fresh) {
+        const start = s.periodStart ?? Date.now();
+        const r = await this.changePlan(user.id, tier, { invoice: `polar:sub:${s.id}:${new Date(start).toISOString()}:${tier}`, start, end: s.periodEnd ?? start + 30 * 86_400_000 });
+        console.log(`[billing] ${user.id} is on ${PLANS[tier].name}${r.granted ? `, with ${usd(r.granted / 10_000)} of this period's credit` : ""} (subscription ${s.id}, ${s.status})`);
+      }
+      return { userId: user.id, tier, status: s.status };
+    }
+    if (ENDED.has(s.status) && user.plan !== "free_deskwisp") {
+      await this.changePlan(user.id, "free_deskwisp");
+      console.log(`[billing] ${user.id} is back on Free (subscription ${s.id}, ${s.status})`);
+      return { userId: user.id, tier: "free_deskwisp", status: s.status };
+    }
+    return { userId: user.id, tier: user.plan, status: s.status };
+  }
+
+  /** A user by the id Polar carried back (ours), or null for one that isn't ours at all. */
+  private userById(id: string) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? this.store.user(id) : Promise.resolve(null);
+  }
+
+  /** Adding credit is on (Polar's set up with the credit product), else the app's "opens soon". */
   private creditOn() {
-    if (!this.cfg.polar) throw new HttpError(503, "Adding credit opens soon.", "deskwisp_credit_off");
+    if (!this.cfg.polar?.creditProduct) throw new HttpError(503, "Adding credit opens soon.", "deskwisp_credit_off");
     return this.cfg.polar;
   }
 
@@ -72,7 +186,7 @@ export class Billing {
     if (!topUpCents(cents)) throw new HttpError(400, "Choose $20, $50, $100, or a whole-dollar amount from $5 to $1,000.", "invalid_amount");
     const user = await this.store.user(owner);
     if (!user) throw new HttpError(403, "Sign in to add credit.", "no_account");
-    const c = await creditCheckout(polar, { userId: user.id, email: user.email, cents, successUrl: `${this.cfg.publicUrl}/billing/credit/done?checkout_id={CHECKOUT_ID}` }).catch((e: Error) => {
+    const c = await creditCheckout(polar, { product: polar.creditProduct!, userId: user.id, email: user.email, cents, successUrl: `${this.cfg.publicUrl}/billing/credit/done?checkout_id={CHECKOUT_ID}` }).catch((e: Error) => {
       console.warn(`[billing] opening a checkout for ${user.id}: ${e.message}`);
       if (e instanceof RecurringProduct) throw new HttpError(503, "Adding credit isn't available right now. Try again later.", "checkout_unavailable");
       throw new HttpError(502, "Couldn't open checkout. Try again in a minute.", "checkout_unavailable");
@@ -109,7 +223,7 @@ export class Billing {
       console.warn(`[billing] checkout ${c.id} was paid, but Polar didn't say an amount Deskwisp adds (${cents}): not added`);
       return { state: "not_credit" };
     }
-    const user = await this.store.user(userId);
+    const user = await this.userById(userId);
     if (!user) {
       console.warn(`[billing] checkout ${c.id} was paid for a user who isn't here (${userId}): not added`);
       return { state: "not_credit" };
@@ -136,25 +250,50 @@ export class Billing {
       try {
         event = JSON.parse(raw.toString("utf8"));
       } catch {}
-      // Only a pointer to the checkout: what it was for and whether it's paid are read from Polar itself.
-      const checkout = event.type === "order.paid" ? event.data?.checkout_id : event.type === "checkout.updated" && event.data?.status === "succeeded" ? event.data?.id : null;
-      if (typeof checkout === "string" && checkout) {
-        try {
-          await this.confirmCredit(checkout);
-        } catch (e) {
-          // Polar sends it again when it isn't answered 2xx.
-          console.warn(`[billing] Polar's ${String(event.type)} for checkout ${checkout}: ${(e as Error).message}`);
-          res.writeHead(502, { "Content-Type": "application/json" }).end('{"error":"try again"}');
-          return true;
-        }
+      // Only pointers: what a checkout or subscription is, and whether it's paid, are read from Polar itself.
+      const type = String(event.type ?? "");
+      const data = (event.data ?? {}) as { id?: unknown; checkout_id?: unknown; status?: unknown; subscription_id?: unknown };
+      const checkout = type === "order.paid" ? data.checkout_id : type === "checkout.updated" && data.status === "succeeded" ? data.id : null;
+      const subscription = type.startsWith("subscription.") ? data.id : type === "order.paid" ? data.subscription_id : null;
+      try {
+        // A plan's checkout is its subscription's news; a credit checkout adds its credit.
+        if (typeof subscription === "string" && subscription && polar.plans) await this.syncSubscription(subscription);
+        else if (typeof checkout === "string" && checkout && polar.creditProduct) await this.confirmCredit(checkout);
+      } catch (e) {
+        // Polar sends it again when it isn't answered 2xx.
+        console.warn(`[billing] Polar's ${type}: ${(e as Error).message}`);
+        res.writeHead(502, { "Content-Type": "application/json" }).end('{"error":"try again"}');
+        return true;
       }
       res.writeHead(202, { "Content-Type": "application/json" }).end('{"ok":true}');
+      return true;
+    }
+    if (url.pathname === "/billing/plan/done" && req.method === "GET") {
+      const id = url.searchParams.get("checkout_id") ?? "";
+      let said = "Nothing to see here.";
+      if (this.cfg.polar?.plans && /^[A-Za-z0-9_-]{1,100}$/.test(id)) {
+        const got = await (async () => {
+          const c = await readCheckout(this.cfg.polar!, id);
+          if (c.metadata.deskwisp_kind !== "plan") return null;
+          if (c.status === "open" || c.status === "confirmed" || (c.status === "succeeded" && !c.subscriptionId)) return "waiting" as const;
+          if (c.status !== "succeeded" || !c.subscriptionId) return "not_paid" as const;
+          return this.syncSubscription(c.subscriptionId);
+        })().catch((e: Error) => (console.warn(`[billing] checking plan checkout ${id}: ${e.message}`), "waiting" as const));
+        said =
+          got && typeof got === "object" && got.tier !== "free_deskwisp"
+            ? `You're on Deskwisp ${PLANS[got.tier].name}. Its credit is in, and your bots have more room. You can go back to Deskwisp.`
+            : got === "not_paid"
+              ? "This payment didn't go through, so your plan hasn't changed."
+              : "Your payment is going through. Your plan changes in Deskwisp as soon as it's done.";
+      }
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(donePage(said));
       return true;
     }
     if (url.pathname === "/billing/credit/done" && req.method === "GET") {
       const id = url.searchParams.get("checkout_id") ?? "";
       let said: string;
-      if (!this.cfg.polar || !/^[A-Za-z0-9_-]{1,100}$/.test(id)) said = "Nothing to add here.";
+      if (!this.cfg.polar?.creditProduct || !/^[A-Za-z0-9_-]{1,100}$/.test(id)) said = "Nothing to add here.";
       else {
         const got = await this.confirmCredit(id).catch((e: Error) => (console.warn(`[billing] checking checkout ${id}: ${e.message}`), null));
         said =
@@ -172,9 +311,17 @@ export class Billing {
   }
 
   async plan(owner: string) {
+    const user = await this.store.user(owner).catch(() => null);
+    // The subscription read again from Polar when its period is over or it's been a while (a renewal, a
+    // cancel or a card that failed, with no webhook to say so: a PC). Never in the way of the answer.
+    let sub = user ? await this.store.subscription(user.id).catch(() => null) : null;
+    if (sub && this.cfg.polar?.plans && (Date.now() - sub.syncedAt > RESYNC_MS || (sub.periodEnd !== null && sub.periodEnd < Date.now() && Date.now() - sub.syncedAt > 60_000))) {
+      await Promise.race([this.syncSubscription(sub.subscriptionId).catch((e: Error) => console.warn(`[billing] ${e.message}`)), new Promise((r) => setTimeout(r, 4000))]);
+      sub = await this.store.subscription(sub.userId).catch(() => sub);
+    }
     const tier = await this.planOf(owner);
     const p = PLANS[tier];
-    const user = await this.store.user(owner).catch(() => null);
+    const billed = sub && sub.tier === tier && tier !== "free_deskwisp" ? sub : null;
     // A development key's owner has no account, so no credit to show.
     const credit = user ? await this.store.credit(user.id).catch((e: Error) => (console.warn(`[billing] ${owner}'s credit: ${e.message}`), null)) : null;
     const time = await this.computers.computerTime(owner);
@@ -182,9 +329,9 @@ export class Billing {
       tier,
       name: p.name,
       price_cents: p.priceCents,
-      status: tier === "free_deskwisp" ? null : "active",
-      period_end: credit?.planEndsAt ? new Date(credit.planEndsAt).toISOString() : null,
-      cancel_at_period_end: false,
+      status: tier === "free_deskwisp" ? null : billed?.status === "past_due" ? "past_due" : "active",
+      period_end: billed?.periodEnd ? new Date(billed.periodEnd).toISOString() : credit?.planEndsAt ? new Date(credit.planEndsAt).toISOString() : null,
+      cancel_at_period_end: !!billed?.cancelAtPeriodEnd,
       ...(credit
         ? {
             credit: {
@@ -233,6 +380,14 @@ export class Billing {
     if (!res.ok) throw new Error(`it answered ${res.status}`);
   }
 }
+
+/** Polar's subscription statuses while it's paid for (past_due: a card failed, and Polar is trying it again). */
+const PAYING = new Set(["active", "trialing", "past_due"]);
+/** Polar's subscription statuses once it's over. */
+const ENDED = new Set(["canceled", "unpaid", "incomplete_expired"]);
+const paying = (s: Subscription) => PAYING.has(s.status) && (s.periodEnd === null || s.periodEnd > Date.now() - 3 * 86_400_000);
+/** How long the app's look at the plan trusts what was last read from Polar. */
+const RESYNC_MS = 30 * 60_000;
 
 /** "$20", "$20.50". */
 const usd = (cents: number) => `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;

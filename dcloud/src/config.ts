@@ -40,7 +40,7 @@ export type Config = {
    * selling Deskwisp is cleared (COMMERCIAL-PERMISSION.md). Without the token and product, adding credit
    * is off and the app says it opens soon.
    */
-  polar?: { token: string; creditProduct: string; webhookSecret?: string; api: string; live: boolean };
+  polar?: { token: string; creditProduct?: string; plans?: { pro_deskwisp: string; max_deskwisp: string }; webhookSecret?: string; api: string; live: boolean };
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -78,13 +78,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
 function polarConfig(env: NodeJS.ProcessEnv): Config["polar"] {
   const token = env.POLAR_ACCESS_TOKEN?.trim();
-  const creditProduct = env.POLAR_CREDIT_PRODUCT_ID?.trim();
-  if (!token || !creditProduct) return undefined;
+  const creditProduct = env.POLAR_CREDIT_PRODUCT_ID?.trim() || undefined;
+  // Pro and Max are sold only when both are set (Products → New product → Recurring subscription, monthly).
+  const pro = env.POLAR_PRO_PRODUCT_ID?.trim();
+  const max = env.POLAR_MAX_PRODUCT_ID?.trim();
+  const plans = pro && max ? { pro_deskwisp: pro, max_deskwisp: max } : undefined;
+  if (!token || (!creditProduct && !plans)) return undefined;
   const live = env.POLAR_SERVER === "production";
   if (live && env.DESKWISP_LIVE_PAYMENTS !== "1") {
-    console.warn("[dcloud] POLAR_SERVER=production needs DESKWISP_LIVE_PAYMENTS=1 (once selling Deskwisp is cleared): adding credit stays off");
+    console.warn("[dcloud] POLAR_SERVER=production needs DESKWISP_LIVE_PAYMENTS=1 (once selling Deskwisp is cleared): paying stays off");
     return undefined;
   }
   const api = (env.POLAR_API_URL || (live ? "https://api.polar.sh" : "https://sandbox-api.polar.sh")).replace(/\/+$/, "");
-  return { token, creditProduct, webhookSecret: env.POLAR_WEBHOOK_SECRET?.trim() || undefined, api, live };
+  return { token, creditProduct, plans, webhookSecret: env.POLAR_WEBHOOK_SECRET?.trim() || undefined, api, live };
 }
