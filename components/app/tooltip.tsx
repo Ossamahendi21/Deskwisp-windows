@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 /**
@@ -27,6 +27,17 @@ function tipOf(el: HTMLElement) {
 
 export function TooltipLayer() {
   const [tip, setTip] = useState<Tip | null>(null);
+  // How far the tip moves sideways to stay whole on the screen (one at the window's edge, under the sidebar's avatar, say).
+  const box = useRef<HTMLDivElement>(null);
+  const [nudge, setNudge] = useState(0);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!tip || !el) return setNudge(0);
+    const w = el.offsetWidth;
+    const left = tip.x - w / 2;
+    const room = 8;
+    setNudge(left < room ? room - left : left + w > window.innerWidth - room ? window.innerWidth - room - (left + w) : 0);
+  }, [tip]);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let current: HTMLElement | null = null;
@@ -86,9 +97,10 @@ export function TooltipLayer() {
   if (!tip) return null;
   return createPortal(
     <div
+      ref={box}
       role="tooltip"
       className="pointer-events-none fixed z-[1000] max-w-[280px] animate-[screen-in_120ms_ease-out] rounded-[8px] bg-[#16132B]/92 px-2 py-1 text-center text-[12px] font-medium leading-4 text-white shadow-[0_6px_16px_-6px_#00000080]"
-      style={{ left: tip.x, top: tip.y, transform: `translate(-50%, ${tip.below ? "0" : "-100%"})` }}
+      style={{ left: tip.x + nudge, top: tip.y, transform: `translate(-50%, ${tip.below ? "0" : "-100%"})` }}
     >
       {tip.text}
     </div>,

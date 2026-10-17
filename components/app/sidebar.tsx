@@ -214,6 +214,9 @@ export function Sidebar({
  * out. While something on this PC still needs you (and you haven't skipped it on the setup screen),
  * a badge on your initials opens that screen and the menu item carries the same mark.
  */
+/** The plan's name on its badge in the menu. */
+const PLAN_LABEL: Record<string, string> = { free_deskwisp: "Free", pro_deskwisp: "Pro", max_deskwisp: "Max" };
+
 function YouMenu({ state, onAccount, onSettings, onSetup }: { state: AppState; onAccount: () => void; onSettings: () => void; onSetup: () => void }) {
   const [open, setOpen] = useState(false);
   const [restart, setRestart] = useState(false);
@@ -233,6 +236,22 @@ function YouMenu({ state, onAccount, onSettings, onSetup }: { state: AppState; o
     };
   }, [open]);
   const user = state.account?.user;
+  // The plan you're on (Free, Pro or Max), read as the menu opens: it may have just changed in the browser.
+  const [tier, setTier] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open || !user) return;
+    let stop = false;
+    void fetch("/api/plan?credit=1", { cache: "no-store" })
+      .then((r) => (r.ok ? (r.json() as Promise<{ deskwisp?: { tier?: string } | null }>) : null))
+      .then((j) => {
+        if (!stop && j?.deskwisp?.tier) setTier(j.deskwisp.tier);
+      })
+      .catch(() => {});
+    return () => {
+      stop = true;
+    };
+  }, [open, user]);
+  const planLabel = tier ? PLAN_LABEL[tier] : undefined;
   const pick = (fn: () => void) => () => {
     setOpen(false);
     fn();
@@ -263,7 +282,18 @@ function YouMenu({ state, onAccount, onSettings, onSetup }: { state: AppState; o
       {open && (
         <div className="absolute bottom-[calc(100%+8px)] left-0 z-30 flex w-[248px] flex-col rounded-[14px] bg-white p-1.5 shadow-[0_0_0_1px_#E6E6E3,0_12px_32px_rgba(0,0,0,0.12)]">
           <div className="flex flex-col gap-0.5 px-2.5 pb-2 pt-1.5">
-            <span className="truncate text-[14px] font-semibold leading-[18px]">{user?.name || state.owner?.name || "You"}</span>
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-[14px] font-semibold leading-[18px]">{user?.name || state.owner?.name || "You"}</span>
+              {planLabel && (
+                <button
+                  onClick={pick(onAccount)}
+                  data-tip="Your plan: see it in Account and usage"
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold leading-[14px] ${planLabel === "Free" ? "bg-[#F0F0EE] text-[#6B6B6B]" : "bg-ink text-white"}`}
+                >
+                  {planLabel}
+                </button>
+              )}
+            </span>
             <span className="truncate text-[12px] leading-4 text-[#9A9A98]">{user ? (user.email ?? "Signed in with Horafirm") : "Not signed in"}</span>
           </div>
           <div className="mx-2 mb-1 h-px bg-[#ECECEA]" />
