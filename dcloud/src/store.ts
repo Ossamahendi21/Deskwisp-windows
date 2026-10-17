@@ -92,6 +92,11 @@ export interface Store {
    * in the same period (an upgrade) adds what the period hasn't had yet.
    */
   grantPlan(userId: string, tier: Tier, invoice: string, amountMicros: number, start: number, end: number): Promise<number | null>;
+  /**
+   * AI credit added once (a top-up), to the credit that doesn't expire: the micros added, or null when
+   * this payment (`ref`) was added before.
+   */
+  grantTopUp(userId: string, tier: Tier, ref: string, amountMicros: number): Promise<number | null>;
 
   addKey(userId: string, keyHash: string, label: string): Promise<void>;
   /** Whose key this is (by its hash), or null. */
@@ -157,7 +162,7 @@ type Ledger = {
   plan: number;
   planEnds: number | null;
   free: number;
-  grants: { kind: "free_signup" | "plan"; tier: string; amount: number; invoice: string | null; end: number | null; at: number }[];
+  grants: { kind: "free_signup" | "plan" | "topup"; tier: string; amount: number; invoice: string | null; end: number | null; at: number }[];
 };
 
 type Data = {
@@ -259,6 +264,15 @@ export class JsonStore implements Store {
     l.planEnds = end;
     this.save();
     return add;
+  }
+
+  async grantTopUp(userId: string, tier: Tier, ref: string, amountMicros: number) {
+    const l = (this.data.credit[userId] ??= { plan: 0, planEnds: null, free: 0, grants: [] });
+    if (amountMicros <= 0 || l.grants.some((g) => g.invoice === ref)) return null;
+    l.grants.push({ kind: "topup", tier, amount: amountMicros, invoice: ref, end: null, at: Date.now() });
+    l.free += amountMicros;
+    this.save();
+    return amountMicros;
   }
 
   async addKey(userId: string, keyHash: string, label: string) {

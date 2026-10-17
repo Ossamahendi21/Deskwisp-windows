@@ -112,7 +112,7 @@ export function Account({ state, onClose, onThisMac }: { state: AppState; onClos
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="truncate text-[18px] font-semibold leading-[22px]">{name}</span>
             <span className="truncate text-[13px] leading-[17px] text-[#6B6B6B]">
-              {user ? (user.email ?? "Signed in with Horafirm") : "Not signed in"}
+              {user ? (user.email ?? "Signed in") : "Not signed in"}
               {user && info?.signedInAt ? <span className="text-[#9A9A98]"> · on this PC since {day(info.signedInAt)}</span> : null}
             </span>
           </div>

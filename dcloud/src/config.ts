@@ -33,6 +33,14 @@ export type Config = {
    */
   servicesUrl?: string;
   planSecret?: string;
+  /**
+   * Polar, which sells AI credit added once (billing.ts): an organization access token, the one-time
+   * product "AI credit" whose price each checkout sets, and the webhook's secret. Polar's sandbox unless
+   * POLAR_SERVER=production, which also needs DESKWISP_LIVE_PAYMENTS=1: no real payments until
+   * selling Deskwisp is cleared (COMMERCIAL-PERMISSION.md). Without the token and product, adding credit
+   * is off and the app says it opens soon.
+   */
+  polar?: { token: string; creditProduct: string; webhookSecret?: string; api: string; live: boolean };
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -64,5 +72,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     mailFrom: env.DESKWISP_MAIL_FROM || undefined,
     servicesUrl: (env.DESKWISP_SERVICES_URL || "").replace(/\/+$/, "") || undefined,
     planSecret: env.DESKWISP_CLOUD_PLAN_SECRET || undefined,
+    polar: polarConfig(env),
   };
+}
+
+function polarConfig(env: NodeJS.ProcessEnv): Config["polar"] {
+  const token = env.POLAR_ACCESS_TOKEN?.trim();
+  const creditProduct = env.POLAR_CREDIT_PRODUCT_ID?.trim();
+  if (!token || !creditProduct) return undefined;
+  const live = env.POLAR_SERVER === "production";
+  if (live && env.DESKWISP_LIVE_PAYMENTS !== "1") {
+    console.warn("[dcloud] POLAR_SERVER=production needs DESKWISP_LIVE_PAYMENTS=1 (once selling Deskwisp is cleared): adding credit stays off");
+    return undefined;
+  }
+  const api = (env.POLAR_API_URL || (live ? "https://api.polar.sh" : "https://sandbox-api.polar.sh")).replace(/\/+$/, "");
+  return { token, creditProduct, webhookSecret: env.POLAR_WEBHOOK_SECRET?.trim() || undefined, api, live };
 }

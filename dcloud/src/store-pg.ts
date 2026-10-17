@@ -186,6 +186,11 @@ export class PgStore implements Store {
     return r?.added === null || r?.added === undefined ? null : Number(r.added);
   }
 
+  async grantTopUp(userId: string, tier: Tier, ref: string, amountMicros: number) {
+    const [r] = await this.rows("SELECT public.deskwisp_ai_credit_grant_topup($1::uuid, $2, $3, $4::bigint) AS added", [userId, ref, tier, Math.round(amountMicros)]);
+    return r?.added === null || r?.added === undefined ? null : Number(r.added);
+  }
+
   async setPlan(userId: string, plan: Tier) {
     await this.rows("UPDATE deskwisp.users SET plan = $2 WHERE id = $1", [userId, plan]);
   }

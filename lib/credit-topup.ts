@@ -181,7 +181,7 @@ export function topUpNext(httpStatus: number, body: unknown): TopUpNext {
 }
 
 /** The request itself failed (offline, the window's server went away): it may have charged. */
-export const TOPUP_UNREACHABLE: TopUpNext = { kind: "error", message: "Couldn't reach Horafirm. Try again: you won't be charged twice.", sameKey: true, maybeCharged: true };
+export const TOPUP_UNREACHABLE: TopUpNext = { kind: "error", message: "Couldn't reach Deskwisp. Try again: you won't be charged twice.", sameKey: true, maybeCharged: true };
 
 /** A purchase on the card on file, from Add credit until a definite answer. */
 export type CardPurchase = {

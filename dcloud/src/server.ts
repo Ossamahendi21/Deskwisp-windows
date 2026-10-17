@@ -73,6 +73,8 @@ export async function startServer(
       if (url.pathname === "/health") return send(res, 200, { ok: true, provider: provider.name, store: store.kind, signIn: !!cfg.clerkSecretKey });
       let body: Promise<unknown> | undefined;
       const readOnce = () => (body ??= readBody(req));
+      // First: Polar's webhook is checked against its body as it came.
+      if (await billing.public(req, res, url)) return;
       if (await accounts.public(req, res, url, readOnce, (status, out) => send(res, status, out))) return;
       if (await people.public(req, res, url, readOnce, (status, out) => send(res, status, out))) return;
       if (!url.pathname.startsWith("/api/")) throw new HttpError(404, "Not found", "not_found");
@@ -88,7 +90,7 @@ export async function startServer(
       }
       const parts = url.pathname.slice("/api/".length).split("/").filter(Boolean).map(decodeURIComponent);
       if (parts.join("/") === "user/profile" && req.method === "GET") return send(res, 200, await accounts.profile(owner));
-      const billed = await billing.handle(owner, (req.method ?? "GET").toUpperCase(), parts);
+      const billed = await billing.handle(owner, (req.method ?? "GET").toUpperCase(), parts, readOnce);
       if (billed !== false) return send(res, 200, billed);
       const shared = await people.handle(owner, (req.method ?? "GET").toUpperCase(), parts, readOnce);
       if (shared !== false) return send(res, 200, shared);

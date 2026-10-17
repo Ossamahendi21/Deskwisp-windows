@@ -40,6 +40,28 @@ Which model each plan runs on (cloud/proxy.ts `freeModel`, enforced on the serve
 When this month's credit is nearly used, the chat says so with Upgrade; when it runs out, the bots stop,
 and the tasks it stopped carry on by themselves once there's credit again (an upgrade, or the 1st).
 
+### Adding AI credit once
+
+On any plan, Settings → Account → Add AI credit buys more: $20, $50, $100, or any whole dollar from $5
+to $1,000, at face value. It doesn't expire, and it's spent after the month's plan credit. It's sold
+through Polar's checkout (Polar is the merchant of record; no card is kept by Deskwisp), and dcloud adds
+it once Polar says it was paid: when the checkout sends the buyer back to dcloud
+(`/billing/credit/done`) and when Polar's webhook says so (`/billing/polar/webhook`), once between them.
+
+Set it up in Polar's sandbox first ([sandbox.polar.sh](https://sandbox.polar.sh), test card
+4242 4242 4242 4242):
+
+1. Products → New product: **AI credit**, one-time, any price (each checkout sets its own).
+2. Settings → Developers → New token, with `checkouts:read` and `checkouts:write`.
+3. Settings → Webhooks → Add endpoint: `<DESKWISP_PUBLIC_URL>/billing/polar/webhook`, format Raw,
+   events `order.paid` and `checkout.updated`. Without a public address (on a PC) the webhook can't
+   reach dcloud; the credit is still added when the checkout sends the buyer back.
+4. In `dcloud/.env`: `POLAR_ACCESS_TOKEN`, `POLAR_CREDIT_PRODUCT_ID`, `POLAR_WEBHOOK_SECRET`, then
+   restart dcloud.
+
+Real payments need `POLAR_SERVER=production` and `DESKWISP_LIVE_PAYMENTS=1`, which waits for
+COMMERCIAL-PERMISSION.md.
+
 Until billing (Polar) is in, put someone on a plan by hand:
 
 ```bash
