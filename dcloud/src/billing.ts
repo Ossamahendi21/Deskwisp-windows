@@ -1,10 +1,10 @@
-import { createHmac } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Computers } from "./computers.ts";
 import { HttpError } from "./computers.ts";
 import type { Config } from "./config.ts";
 import { PLANS, type Tier } from "./plans.ts";
-import { creditCheckout, planCheckout, portalLink, readCheckout, readSubscription, RecurringProduct, subscriptionsOf, subscriptionsOfCheckout, webhookIsPolars, type PolarSubscription } from "./polar.ts";
+import { changeSubscription, creditCheckout, planCheckout, portalLink, readCheckout, readSubscription, RecurringProduct, subscriptionsOf, subscriptionsOfCheckout, webhookIsPolars, type PolarSubscription } from "./polar.ts";
 import type { Store, Subscription } from "./store.ts";
 
 /**
@@ -47,6 +47,8 @@ export class Billing {
    * a payment counts even when the buyer never comes back to dcloud's page and no webhook reaches it.
    */
   private readonly pendingPlans = new Map<string, { checkout: string; at: number; checkedAt: number }>();
+  /** Plan changes asked for from the app (Pro to Max), each waiting for its page's Confirm: by a one-time token, for half an hour. */
+  private readonly changes = new Map<string, { userId: string; tier: "pro_deskwisp" | "max_deskwisp"; until: number }>();
 
   constructor(cfg: Config, store: Store, computers: Computers, planOf: (owner: string) => Promise<Tier>) {
     this.cfg = cfg;
@@ -92,7 +94,12 @@ export class Billing {
     const sub = await this.store.subscription(user.id);
     if (sub && paying(sub)) {
       if (sub.tier === tier) throw new HttpError(409, `You're on ${PLANS[tier].name} already.`, "same_plan");
-      return { url: await this.portalUrl(user.id) };
+      // Up to a dearer plan: dcloud's page to confirm it (the change is made on Confirm). Down: Polar's portal.
+      if (PLANS[tier].priceCents < PLANS[sub.tier].priceCents) return { url: await this.portalUrl(user.id) };
+      const token = randomBytes(24).toString("base64url");
+      for (const [k, v] of this.changes) if (v.until < Date.now() || v.userId === user.id) this.changes.delete(k);
+      this.changes.set(token, { userId: user.id, tier, until: Date.now() + 30 * 60_000 });
+      return { url: `${this.cfg.publicUrl}/billing/plan/change?t=${token}` };
     }
     const c = await planCheckout(polar, { product: plans[tier], tier, userId: user.id, email: user.email, successUrl: `${this.cfg.publicUrl}/billing/plan/done?checkout_id={CHECKOUT_ID}` }).catch((e: Error) => {
       console.warn(`[billing] opening ${tier}'s checkout for ${user.id}: ${e.message}`);
@@ -144,7 +151,13 @@ export class Billing {
 
   private async portalUrl(userId: string) {
     const { polar } = this.plansOn();
-    return portalLink(polar, userId).catch((e: Error) => {
+    let sub = await this.store.subscription(userId).catch(() => null);
+    // Kept before Polar's customer id was: read the subscription again for it.
+    if (sub && !sub.customerId) {
+      await this.syncSubscription(sub.subscriptionId).catch((e: Error) => console.warn(`[billing] ${e.message}`));
+      sub = await this.store.subscription(userId).catch(() => sub);
+    }
+    return portalLink(polar, { userId, customerId: sub?.customerId ?? null }).catch((e: Error) => {
       console.warn(`[billing] opening the portal for ${userId}: ${e.message}`);
       throw new HttpError(502, "Couldn't open your plan's page. Try again in a minute.", "portal_unavailable");
     });
@@ -185,6 +198,7 @@ export class Billing {
       periodEnd: s.periodEnd,
       cancelAtPeriodEnd: s.cancelAtPeriodEnd,
       syncedAt: Date.now(),
+      customerId: s.customerId,
     };
     await this.store.setSubscription(now);
     if (PAYING.has(s.status)) {
@@ -303,6 +317,43 @@ export class Billing {
       }
       res.writeHead(202, { "Content-Type": "application/json" }).end('{"ok":true}');
       return true;
+    }
+    if (url.pathname === "/billing/plan/change" && (req.method === "GET" || req.method === "POST")) {
+      const token = req.method === "POST" ? new URLSearchParams((await rawBody(req)).toString("utf8")).get("t") ?? "" : url.searchParams.get("t") ?? "";
+      const ask = this.changes.get(token);
+      const html = (said: string, form = "") => {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(donePage(said, false, form));
+        return true;
+      };
+      if (!ask || ask.until < Date.now() || !this.cfg.polar?.plans) return html("This link has expired. Choose the plan again in Deskwisp.");
+      const sub = await this.store.subscription(ask.userId);
+      if (!sub || !paying(sub)) return html("You don't have a paid plan to change. Choose the plan again in Deskwisp.");
+      const from = PLANS[sub.tier];
+      const to = PLANS[ask.tier];
+      if (req.method === "GET")
+        return html(
+          `Change your plan from ${from.name} ($${from.priceCents / 100}/month) to ${to.name} ($${to.priceCents / 100}/month)? You're charged the difference for the rest of this period now, and ${to.name}'s price each month after. ${to.name}'s AI credit comes now, less what this period's ${from.name} credit already gave.`,
+          `<form method="post"><input type="hidden" name="t" value="${escape(token)}"><button type="submit">Change to ${escape(to.name)}</button></form>`,
+        );
+      this.changes.delete(token);
+      try {
+        await changeSubscription(this.cfg.polar, sub.subscriptionId, this.cfg.polar.plans[ask.tier]);
+        const got = await this.syncSubscription(sub.subscriptionId);
+        console.log(`[billing] ${ask.userId} changed ${from.name} to ${to.name}`);
+        return html(
+          got?.tier === ask.tier
+            ? `You're on Deskwisp ${to.name}. Its credit is in, and your bots have more room. You can go back to Deskwisp.`
+            : `Your change to ${to.name} is going through. It shows in Deskwisp as soon as it's done.`,
+        );
+      } catch (e) {
+        console.warn(`[billing] changing ${ask.userId}'s plan to ${to.name}: ${(e as Error).message}`);
+        return html(
+          /Polar answered 402/.test((e as Error).message)
+            ? "Your card couldn't pay for the change, so your plan is the same. Update your card in Manage plan, then try again."
+            : "Couldn't change your plan just now, and nothing was charged. Try again in a minute.",
+        );
+      }
     }
     if (url.pathname === "/billing/plan/done" && req.method === "GET") {
       const id = url.searchParams.get("checkout_id") ?? "";
@@ -459,10 +510,11 @@ function rawBody(req: IncomingMessage): Promise<Buffer> {
 
 const escape = (t: string) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
-/** The page Polar's checkout sends the buyer back to; `refresh`: it looks again in a few seconds. */
-function donePage(said: string, refresh = false) {
+/** The page Polar's checkout sends the buyer back to; `refresh`: it looks again in a few seconds. `form`: a confirm (HTML, already safe). */
+function donePage(said: string, refresh = false, form = "") {
   return `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${refresh ? '<meta http-equiv="refresh" content="3">' : ""}<title>Deskwisp</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:#F7F6F3;color:#1A1A1A}
-main{max-width:420px;margin:24px;padding:32px;border-radius:20px;background:#fff;box-shadow:0 0 0 1px #E6E6E3;text-align:center}h1{font-size:20px;margin:0 0 8px}p{margin:0;color:#4A4A4A}</style>
-<main><h1>Deskwisp</h1><p>${escape(said)}</p></main>`;
+main{max-width:420px;margin:24px;padding:32px;border-radius:20px;background:#fff;box-shadow:0 0 0 1px #E6E6E3;text-align:center}h1{font-size:20px;margin:0 0 8px}p{margin:0;color:#4A4A4A}
+form{margin:20px 0 0}button{font:inherit;font-weight:600;color:#fff;background:#1A1A1A;border:0;border-radius:999px;padding:10px 20px;cursor:pointer}</style>
+<main><h1>Deskwisp</h1><p>${escape(said)}</p>${form}</main>`;
 }

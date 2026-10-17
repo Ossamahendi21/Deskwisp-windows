@@ -65,8 +65,17 @@ const polar = createServer((req, res) => {
       return send(201, { ...co, url: `https://sandbox.polar.sh/checkout/${id}` });
     }
     if (req.method === "POST" && req.url === "/v1/customer-sessions/") {
-      portals.push(body.external_customer_id as string);
-      return send(201, { token: "t", customer_portal_url: `https://sandbox.polar.sh/portal/${body.external_customer_id}`, expires_at: iso(Date.now() + DAY) });
+      // Polar's own customer id: ours alone isn't on a customer made before (the sandbox's 422).
+      if (!body.customer_id) return send(422, { error: "PolarRequestValidationError", detail: [{ loc: ["body", "external_customer_id"], msg: "Customer does not exist." }] });
+      portals.push(body.customer_id as string);
+      return send(201, { token: "t", customer_portal_url: `https://sandbox.polar.sh/portal/${body.customer_id}`, expires_at: iso(Date.now() + DAY) });
+    }
+    const patch = /^\/v1\/subscriptions\/([^/?]+)$/.exec(req.url ?? "");
+    if (req.method === "PATCH" && patch && subs.has(patch[1])) {
+      const s = subs.get(patch[1])!;
+      if (body.proration_behavior !== "invoice") return send(422, { detail: "proration" });
+      s.product_id = body.product_id as string;
+      return send(200, subView(s));
     }
     const orders = /^\/v1\/orders\/\?(.*)$/.exec(req.url ?? "");
     if (req.method === "GET" && orders) {
@@ -91,6 +100,7 @@ const polar = createServer((req, res) => {
 
 const subView = (s: Sub) => ({
   id: s.id,
+  customer_id: s.external_id === ana ? "cus_ana" : `cus_${s.external_id}`,
   status: s.status,
   product_id: s.product_id,
   customer: { external_id: s.external_id },
@@ -184,21 +194,29 @@ test("upgrading to Pro: Polar's checkout, then the plan and its month of credit 
   assert.equal((await plan()).credit.plan_left_micros, 10_000_000);
 });
 
-test("someone on Pro: Upgrade and Manage plan open Polar's portal", async () => {
+test("someone on Pro: Manage plan opens Polar's portal, by Polar's own customer id", async () => {
   assert.equal((await call("POST", "/deskwisp/checkout", { tier: "pro_deskwisp" })).json.code, "same_plan");
-  const before = checkouts.size;
-  const up = await call("POST", "/deskwisp/checkout", { tier: "max_deskwisp" });
-  assert.equal(up.json.url, `https://sandbox.polar.sh/portal/${ana}`);
-  assert.equal(checkouts.size, before, "no second subscription");
-  assert.equal((await call("POST", "/deskwisp/portal")).json.url, `https://sandbox.polar.sh/portal/${ana}`);
+  assert.equal((await call("POST", "/deskwisp/portal")).json.url, "https://sandbox.polar.sh/portal/cus_ana");
 });
 
-test("changed to Max in the portal: Max, and the rest of Max's month of credit", async () => {
-  subs.get("sub_1")!.product_id = MAX;
-  assert.equal(await webhook({ type: "subscription.updated", data: { id: "sub_1" } }), 202);
+test("Pro to Max: dcloud's page to confirm it, then Max and the rest of Max's month of credit", async () => {
+  const before = checkouts.size;
+  const up = await call("POST", "/deskwisp/checkout", { tier: "max_deskwisp" });
+  assert.match(up.json.url, new RegExp(`^${base}/billing/plan/change\\?t=`));
+  assert.equal(checkouts.size, before, "no second subscription");
+  // Opening the page changes nothing yet.
+  const page = await (await fetch(up.json.url)).text();
+  assert.match(page, /from Pro \(\$29\/month\) to Max \(\$199\/month\)/);
+  assert.equal((await plan()).tier, "pro_deskwisp");
+  const token = new URL(up.json.url).searchParams.get("t")!;
+  const done = await (await fetch(`${base}/billing/plan/change`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: `t=${token}` })).text();
+  assert.match(done, /You're on Deskwisp Max/);
+  assert.equal(subs.get("sub_1")!.product_id, MAX);
   const p = await plan();
   assert.equal(p.tier, "max_deskwisp");
   assert.equal(p.credit.plan_left_micros, 100_000_000, "$10 had, $90 more: Max's $100 this period");
+  // A link used once is spent.
+  assert.match(await (await fetch(`${base}/billing/plan/change`, { method: "POST", body: `t=${token}` })).text(), /expired/);
 });
 
 test("a new month paid brings its credit; a cancel shows, then the plan ends on Free", async () => {

@@ -203,17 +203,19 @@ export class PgStore implements Store {
       periodEnd: r.period_end ? ms(r.period_end as Date) : null,
       cancelAtPeriodEnd: !!r.cancel_at_period_end,
       syncedAt: ms(r.synced_at as Date),
+      customerId: (r.customer_id as string | null) ?? null,
     };
   }
 
   async setSubscription(s: Subscription) {
     const at = (t: number | null) => (t === null ? null : new Date(t));
     await this.rows(
-      `INSERT INTO deskwisp.subscriptions (user_id, subscription_id, tier, status, period_start, period_end, cancel_at_period_end, synced_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO deskwisp.subscriptions (user_id, subscription_id, tier, status, period_start, period_end, cancel_at_period_end, synced_at, customer_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (user_id) DO UPDATE SET subscription_id = EXCLUDED.subscription_id, tier = EXCLUDED.tier, status = EXCLUDED.status,
-         period_start = EXCLUDED.period_start, period_end = EXCLUDED.period_end, cancel_at_period_end = EXCLUDED.cancel_at_period_end, synced_at = EXCLUDED.synced_at`,
-      [s.userId, s.subscriptionId, s.tier, s.status, at(s.periodStart), at(s.periodEnd), s.cancelAtPeriodEnd, new Date(s.syncedAt)],
+         period_start = EXCLUDED.period_start, period_end = EXCLUDED.period_end, cancel_at_period_end = EXCLUDED.cancel_at_period_end, synced_at = EXCLUDED.synced_at,
+         customer_id = COALESCE(EXCLUDED.customer_id, deskwisp.subscriptions.customer_id)`,
+      [s.userId, s.subscriptionId, s.tier, s.status, at(s.periodStart), at(s.periodEnd), s.cancelAtPeriodEnd, new Date(s.syncedAt), s.customerId ?? null],
     );
   }
 

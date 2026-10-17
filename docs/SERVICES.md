@@ -77,7 +77,10 @@ A cancelled plan runs to the end of its period, then it's Free.
 
 In Polar: two products, **Deskwisp Pro** ($29) and **Deskwisp Max** ($199), Recurring subscription,
 monthly, fixed price; their ids in `POLAR_PRO_PRODUCT_ID` and `POLAR_MAX_PRODUCT_ID`. The token needs
-`checkouts:read`, `checkouts:write`, `subscriptions:read` and `customer_sessions:write`. The webhook
+`checkouts:read`, `checkouts:write`, `orders:read`, `subscriptions:read`, `subscriptions:write` and
+`customer_sessions:write`. Pro to Max from the app opens dcloud's page to confirm it
+(`/billing/plan/change`): on Confirm the subscription moves to Max and the difference for the rest of
+the period is charged at once; the way down is Manage plan. The webhook
 takes `order.paid`, `checkout.updated` and the `subscription.*` events.
 
 Without Polar, put someone on a plan by hand:

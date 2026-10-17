@@ -27,7 +27,7 @@ export type Checkout = {
   currency: string | null;
 };
 
-async function call<T>(p: PolarSettings, method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+async function call<T>(p: PolarSettings, method: "GET" | "POST" | "PATCH", path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${p.api}/v1${path}`, {
     method,
     headers: { Authorization: `Bearer ${p.token}`, Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) },
@@ -40,7 +40,11 @@ async function call<T>(p: PolarSettings, method: "GET" | "POST", path: string, b
     let said = "";
     try {
       const j = JSON.parse(text) as { detail?: unknown; error?: unknown; error_description?: unknown; required_scopes?: unknown; scope?: unknown };
-      said = typeof j.detail === "string" ? j.detail : typeof j.error === "string" ? j.error : Array.isArray(j.detail) ? JSON.stringify(j.detail).slice(0, 300) : "";
+      // A validation error's details say what (where, and why), past its generic name.
+      const details = Array.isArray(j.detail)
+        ? (j.detail as { loc?: unknown; msg?: unknown }[]).map((d) => `${Array.isArray(d.loc) ? d.loc.join(".") : ""}: ${String(d.msg ?? "")}`).join("; ").slice(0, 300)
+        : "";
+      said = typeof j.detail === "string" ? j.detail : [typeof j.error === "string" ? j.error : "", details].filter(Boolean).join(": ");
       // A token without a scope this needs: which, when Polar says (the token itself never appears in an answer).
       if (said === "insufficient_scope") {
         const need = Array.isArray(j.required_scopes) ? j.required_scopes.join(", ") : typeof j.scope === "string" ? j.scope : "";
@@ -176,10 +180,20 @@ function subscriptionFrom(j: Record<string, unknown>): PolarSubscription {
 }
 
 /** A page of Polar's customer portal for the user (by our id): their plan, card, invoices, cancelling. */
-export async function portalLink(p: PolarSettings, userId: string, returnUrl?: string): Promise<string> {
-  const j = await call<{ customer_portal_url?: unknown }>(p, "POST", "/customer-sessions/", { external_customer_id: userId, ...(returnUrl ? { return_url: returnUrl } : {}) });
+export async function portalLink(p: PolarSettings, who: { userId: string; customerId: string | null }, returnUrl?: string): Promise<string> {
+  // Polar's own customer id when known: a customer made before Deskwisp named it by our id has none of ours.
+  const whom = who.customerId ? { customer_id: who.customerId } : { external_customer_id: who.userId };
+  const j = await call<{ customer_portal_url?: unknown }>(p, "POST", "/customer-sessions/", { ...whom, ...(returnUrl ? { return_url: returnUrl } : {}) });
   if (typeof j.customer_portal_url !== "string") throw new Error("Polar didn't give a portal page");
   return j.customer_portal_url;
+}
+
+/**
+ * Move a subscription to another product (Pro to Max), charging the difference for the rest of the
+ * period now (proration "invoice"). Polar answers 402 when the card couldn't pay it.
+ */
+export async function changeSubscription(p: PolarSettings, id: string, product: string): Promise<PolarSubscription> {
+  return subscriptionFrom(await call<Record<string, unknown>>(p, "PATCH", `/subscriptions/${encodeURIComponent(id)}`, { product_id: product, proration_behavior: "invoice" }));
 }
 
 /** A checkout as Polar has it now. */

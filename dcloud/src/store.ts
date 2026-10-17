@@ -49,6 +49,8 @@ export type Subscription = {
   periodEnd: number | null;
   cancelAtPeriodEnd: boolean;
   syncedAt: number;
+  /** Polar's own id for the customer. */
+  customerId?: string | null;
 };
 
 export type Credit = { leftMicros: number; planLeftMicros: number; planEndsAt: number | null; freeLeftMicros: number; grants: { kind: string; tier: string; amountMicros: number; at: number }[] };
