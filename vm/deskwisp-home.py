@@ -80,7 +80,7 @@ def display_of(port):
 def launch(app_id, display):
     if app_id in BROWSER:
         n = display.lstrip(":")
-        cmd = ["google-chrome-stable", "--no-sandbox", f"--user-data-dir=/root/profiles/s{n}", "--class=DeskwispBrowser", "--new-window"]
+        cmd = ["google-chrome-stable", "--no-sandbox", "--test-type", f"--user-data-dir=/root/profiles/s{n}", "--class=DeskwispBrowser", "--new-window"]
     else:
         path = f"/usr/share/applications/{app_id}.desktop"
         if not os.path.exists(path):

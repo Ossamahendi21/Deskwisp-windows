@@ -71,7 +71,7 @@ cat > /usr/share/applications/deskwisp-browser.desktop <<'EOF'
 Type=Application
 Name=Browser
 Icon=google-chrome
-Exec=sh -c 'google-chrome-stable --no-sandbox --user-data-dir=/root/profiles/s${DISPLAY#:} --class=DeskwispBrowser --new-window'
+Exec=sh -c 'google-chrome-stable --no-sandbox --test-type --user-data-dir=/root/profiles/s${DISPLAY#:} --class=DeskwispBrowser --new-window'
 StartupWMClass=DeskwispBrowser
 NoDisplay=true
 EOF

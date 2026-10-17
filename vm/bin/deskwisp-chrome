@@ -45,8 +45,10 @@ fi
 # The window sits on the desktop above the dock, sized to this screen (screens can be any resolution).
 read -r W H < <(DISPLAY=":$N" xdotool getdisplaygeometry 2>/dev/null || echo "1280 720")
 # Light GTK theme: Chrome takes dark or light from it, and the base image is dark.
+# Root needs --no-sandbox; --test-type keeps Chrome from showing its "unsupported command-line flag"
+# bar over every page for it (the policy deskwisp-desktop sets says the same, where Chrome honors it).
 DISPLAY=":$N" GTK_THEME=Arc-Lighter setsid nohup /usr/bin/google-chrome-stable \
-  --no-sandbox --disable-gpu --no-first-run --no-default-browser-check --hide-crash-restore-bubble \
+  --no-sandbox --test-type --disable-gpu --no-first-run --no-default-browser-check --hide-crash-restore-bubble \
   --remote-debugging-port="$((9200 + N))" --user-data-dir="$PROFILE" --class=DeskwispBrowser \
   --window-position=80,60 --window-size="$((W - 160)),$((H - 150))" ${URL:+"$URL"} \
   < /dev/null > "/var/log/deskwisp/chrome-$N.log" 2>&1 &
@@ -58,7 +60,7 @@ if [ "$FRESH" = 1 ]; then
   pkill -f "[u]ser-data-dir=$PROFILE( |$)" 2>/dev/null; sleep 1
   sed -i 's/"exit_type":"[A-Za-z]*"/"exit_type":"Normal"/; s/"exited_cleanly":false/"exited_cleanly":true/' "$PREF" 2>/dev/null
   DISPLAY=":$N" GTK_THEME=Arc-Lighter setsid nohup /usr/bin/google-chrome-stable \
-    --no-sandbox --disable-gpu --no-first-run --no-default-browser-check --hide-crash-restore-bubble \
+    --no-sandbox --test-type --disable-gpu --no-first-run --no-default-browser-check --hide-crash-restore-bubble \
     --remote-debugging-port="$((9200 + N))" --user-data-dir="$PROFILE" --class=DeskwispBrowser \
     --window-position=80,60 --window-size="$((W - 160)),$((H - 150))" \
     < /dev/null >> "/var/log/deskwisp/chrome-$N.log" 2>&1 &
