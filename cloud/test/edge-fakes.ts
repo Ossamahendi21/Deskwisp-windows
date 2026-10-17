@@ -20,6 +20,8 @@ export const TEST_DATABASE_URL = process.env.DESKWISP_TEST_DATABASE_URL || "post
 process.env.DESKWISP_DATABASE_URL = TEST_DATABASE_URL;
 // Free's cheap model is tested on its own (core-free-model.test.ts): elsewhere, the model the test asks for.
 process.env.DESKWISP_FREE_MODEL ??= "off";
+// The tests' bots' addresses are on a domain of their own (deskwisp.bot, which the fake AgentMail has verified).
+process.env.DESKWISP_MAIL_DOMAIN ??= "deskwisp.bot";
 process.env.DESKWISP_CLOUD_SECRET = randomBytes(32).toString("base64");
 process.env.OPENAI_API_KEY = "sk-test-not-a-real-key";
 process.env.OPENAI_WEBHOOK_SECRET = `whsec_${randomBytes(24).toString("base64")}`;

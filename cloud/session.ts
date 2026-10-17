@@ -149,6 +149,8 @@ let mailDomainSeen: { at: number; ready: boolean } | undefined;
  */
 export async function mailDomain(): Promise<string | null> {
   const domain = config.mailDomain();
+  // None of our own: addresses on agentmail.to, nothing to ask AgentMail.
+  if (!domain) return null;
   if (!mailDomainSeen || Date.now() - mailDomainSeen.at > 5 * 60_000) {
     try {
       const r = await agentmail<{ domains?: { domain?: string; status?: string; subdomains_enabled?: boolean }[] }>("/v0/domains?limit=100");

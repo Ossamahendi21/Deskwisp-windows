@@ -32,8 +32,15 @@ export const config = {
   sipTrunks: () => env("DESKWISP_SIP_TRUNKS") === "1",
   agentphoneKey: () => env("AGENTPHONE_API_KEY"),
   agentmailKey: () => env("AGENTMAIL_API_KEY"),
-  /** The domain bots' addresses go on (name@<workspace>.deskwisp.bot), when AgentMail has it verified with subdomains on. */
-  mailDomain: () => (env("DESKWISP_MAIL_DOMAIN") || "deskwisp.bot").toLowerCase(),
+  /**
+   * The domain bots' addresses go on (name@<workspace>.<domain>), when AgentMail has it verified with
+   * subdomains on: DESKWISP_MAIL_DOMAIN, a domain of your own added there (AgentMail's paid plans). Unset
+   * (or agentmail.to), addresses are on agentmail.to and nothing is checked.
+   */
+  mailDomain: () => {
+    const d = (env("DESKWISP_MAIL_DOMAIN") || "").trim().toLowerCase();
+    return d && d !== "agentmail.to" ? d : null;
+  },
   honchoKey: () => env("HONCHO_API_KEY"),
   composioKey: () => env("COMPOSIO_API_KEY"),
   /**
