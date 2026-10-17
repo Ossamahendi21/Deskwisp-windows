@@ -2,14 +2,14 @@ import http from "node:http";
 import { existsSync, readFileSync } from "node:fs";
 
 /**
- * Deskwisp' public front door (api.deskwisp.bot, on Fly). Webhooks from AgentPhone, OpenAI and Deskwisp' Slack app arrive here
+ * Deskwisp' public front door (api.deskwisp.com, on Fly). Webhooks from AgentPhone, OpenAI and Deskwisp' Slack app arrive here
  * and go, byte for byte, to the Deskwisp server on the user's Mac over the tailnet. Deskwisp checks their
  * signatures itself. If the Mac can't be reached (asleep, offline), the sender gets a 503 and
  * retries later.
  *
  * It also keeps connecting apps in Deskwisp' name (no Mac needed for any of these):
  * - /oauth/callback: our own OAuth apps (Slack, Google…) send people back here, and it passes them
- *   straight on to Composio, so the address bar shows deskwisp.bot, not Composio.
+ *   straight on to Composio, so the address bar shows deskwisp.com, not Composio.
  * - /connected: where people land after connecting an app, instead of Composio's page.
  * - /mascot/*.png|jpg, /brand/*.png: the bots' pictures (Slack, Discord and Telegram avatars) and the Deskwisp logo.
  */

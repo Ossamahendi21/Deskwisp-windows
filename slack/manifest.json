@@ -18,7 +18,7 @@
   },
   "oauth_config": {
     "redirect_urls": [
-      "https://api.deskwisp.bot/oauth/callback"
+      "https://api.deskwisp.com/oauth/callback"
     ],
     "scopes": {
       "bot": [

@@ -37,7 +37,7 @@ import { checkVerification, forgetVerification, pendingConsentAt, pendingVerific
  * - **Numbers** live in the "Deskwisp" AgentPhone sub-account (AGENTPHONE_SUB_ACCOUNT), apart from the user's
  *   other agents. Each bot has an AgentPhone agent with its number attached; the number carries
  *   `externalId` deskwisp-<install>-<bot>, so it's found again.
- * - **Texts** come in on AgentPhone's webhook (api.deskwisp.bot/hooks/agentphone, through the Fly relay,
+ * - **Texts** come in on AgentPhone's webhook (api.deskwisp.com/hooks/agentphone, through the Fly relay,
  *   signed). One from the user's own number is the user talking: it goes into the bot's chat as their
  *   message and the bot's answer goes back by text. Anyone else's is dropped (STOP, START and HELP
  *   still get the reply carriers require).
@@ -75,7 +75,7 @@ const agentSecrets = (): Record<string, string> => {
   return file && existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : {};
 };
 export const hookSecrets = () => [process.env.AGENTPHONE_WEBHOOK_SECRET, ...Object.values(agentSecrets())].filter((x): x is string => !!x);
-/** Where AgentPhone delivers: Deskwisp Cloud's address for the user (their session), or DESKWISP_AGENTPHONE_HOOK_URL (api.deskwisp.bot, the Fly relay in edge/). */
+/** Where AgentPhone delivers: Deskwisp Cloud's address for the user (their session), or DESKWISP_AGENTPHONE_HOOK_URL (api.deskwisp.com, the Fly relay in edge/). */
 const hookUrl = async () => (cloudOn() ? ((await cloudSession()).agentphone?.hookUrl ?? "") : (process.env.DESKWISP_AGENTPHONE_HOOK_URL ?? ""));
 /** What Deskwisp Cloud sends back in place of a webhook's secret, which it keeps: never a secret to check deliveries with. */
 const KEPT_BY_CLOUD = "kept-by-cloud";

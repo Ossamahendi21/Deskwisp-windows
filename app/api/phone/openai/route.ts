@@ -7,7 +7,7 @@ import { notReady } from "@/lib/server/ready";
 export const dynamic = "force-dynamic";
 
 /**
- * OpenAI's webhooks for this project, public at api.deskwisp.bot/hooks/openai (the Fly relay in edge/
+ * OpenAI's webhooks for this project, public at api.deskwisp.com/hooks/openai (the Fly relay in edge/
  * forwards only this path and the AgentPhone one, over the tailnet). Every delivery's signature is checked with
  * OPENAI_WEBHOOK_SECRET; anything else is turned away. `live.transport.incoming`: someone is calling
  * a bot's number (lib/server/phone.ts answers it).

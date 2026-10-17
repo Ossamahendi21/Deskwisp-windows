@@ -1,0 +1,44 @@
+# Deskwisp on its own server (docs/DEPLOY.md). Caddy gets and renews each name's HTTPS certificate
+# itself (Let's Encrypt), once the name's DNS points here and ports 80 and 443 are open.
+# install.sh puts this at /etc/caddy/Caddyfile. 127.0.0.1, never the internet, for the two servers.
+
+# Where Let's Encrypt writes about the certificates (install.sh fills it in from ACME_EMAIL, or drops it).
+{
+	email ACME_EMAIL
+}
+
+# The website.
+deskwisp.com {
+	root * /var/www/deskwisp
+	file_server
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}
+
+www.deskwisp.com {
+	redir https://deskwisp.com{uri} permanent
+}
+
+# Accounts, sign-in, the bots' computers and their screens, plans and billing (dcloud/, port 8791).
+app.deskwisp.com {
+	reverse_proxy 127.0.0.1:8791 {
+		flush_interval -1
+	}
+}
+
+# The services (cloud/, port 8790), under /api as the app expects (DESKWISP_CLOUD_PUBLIC_URL
+# https://cloud.deskwisp.com/api): the prefix is taken off before it gets there.
+cloud.deskwisp.com {
+	handle_path /api/* {
+		reverse_proxy 127.0.0.1:8790 {
+			flush_interval -1
+		}
+	}
+	handle {
+		respond "Not found" 404
+	}
+}

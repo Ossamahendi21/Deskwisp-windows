@@ -1,0 +1,32 @@
+[Unit]
+Description=Deskwisp services (cloud/: keys, AI credit, mail, calls)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=deskwisp
+Group=deskwisp
+WorkingDirectory=/opt/deskwisp
+# Its settings and keys (deploy/vps/cloud.env.example), mode 0640 root:deskwisp.
+EnvironmentFile=/etc/deskwisp/cloud.env
+ExecStart=/usr/local/bin/node /opt/deskwisp/cloud/server.ts
+Restart=always
+RestartSec=2
+TimeoutStopSec=10
+LimitNOFILE=65536
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+ReadOnlyPaths=/opt/deskwisp
+
+[Install]
+WantedBy=multi-user.target

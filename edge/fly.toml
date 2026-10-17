@@ -1,4 +1,4 @@
-# Deskwisp' public front door: api.deskwisp.bot → webhooks → Deskwisp on the user's Mac (over the tailnet).
+# Deskwisp' public front door: api.deskwisp.com → webhooks → Deskwisp on the user's Mac (over the tailnet).
 app = "deskwisp-api"
 primary_region = "sjc"
 

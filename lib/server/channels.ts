@@ -558,7 +558,7 @@ const DISCORD = () => process.env.DESKWISP_DISCORD_API || "https://discord.com/a
 async function dc<T = unknown>(token: string, method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${DISCORD()}${path}`, {
     method,
-    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json", "User-Agent": "DiscordBot (https://deskwisp.bot, 1)" },
+    headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json", "User-Agent": "DiscordBot (https://deskwisp.com, 1)" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (res.status === 204) return undefined as T;

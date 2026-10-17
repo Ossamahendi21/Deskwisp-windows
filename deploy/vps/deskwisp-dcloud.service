@@ -1,0 +1,35 @@
+[Unit]
+Description=Deskwisp accounts and computers (dcloud/: sign-in, E2B computers, plans, billing)
+After=network-online.target deskwisp-cloud.service
+Wants=network-online.target
+
+[Service]
+User=deskwisp
+Group=deskwisp
+WorkingDirectory=/opt/deskwisp
+# Its settings and keys (deploy/vps/dcloud.env.example), mode 0640 root:deskwisp.
+EnvironmentFile=/etc/deskwisp/dcloud.env
+# What it keeps on disk (DESKWISP_DATA_DIR): /var/lib/deskwisp/dcloud.
+StateDirectory=deskwisp/dcloud
+StateDirectoryMode=0750
+ExecStart=/usr/local/bin/node /opt/deskwisp/dcloud/src/server.ts
+Restart=always
+RestartSec=2
+TimeoutStopSec=10
+LimitNOFILE=65536
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+ReadOnlyPaths=/opt/deskwisp
+
+[Install]
+WantedBy=multi-user.target

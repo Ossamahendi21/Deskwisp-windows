@@ -37,7 +37,7 @@ function posthog(): Client | null {
 /** This cloud, with horafirm-web's values for its `environment` property. */
 export function cloudEnvironment(): "production" | "staging" | "development" {
   const url = config.publicUrl();
-  if (url === "https://cloud.deskwisp.bot/api") return "production";
+  if (url === "https://cloud.deskwisp.com/api") return "production";
   return url.startsWith("https://") ? "staging" : "development";
 }
 

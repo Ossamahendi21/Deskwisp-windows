@@ -41,9 +41,9 @@ export const composioOn = () => (cloudOn() ? !!cloudSessionNow()?.composio : !!p
  * Deskwisp's public address: the "connected" page after an app's sign-in, OAuth callbacks, and the bots'
  * pictures (Slack's icon_url, Telegram's and Discord's profile pictures). Signed in with Horafirm, Deskwisp
  * Cloud's (CloudSession.publicUrl: it serves /connected, /oauth/callback, /mascot/* and /brand/*);
- * self-hosted, DESKWISP_PUBLIC_URL (the self-hoster's front door, edge/), else api.deskwisp.bot.
+ * self-hosted, DESKWISP_PUBLIC_URL (the self-hoster's front door, edge/), else api.deskwisp.com.
  */
-export const publicUrl = () => (cloudOn() ? (cloudSessionNow()?.publicUrl ?? cloudUrl()) : process.env.DESKWISP_PUBLIC_URL || "https://api.deskwisp.bot").replace(/\/+$/, "");
+export const publicUrl = () => (cloudOn() ? (cloudSessionNow()?.publicUrl ?? cloudUrl()) : process.env.DESKWISP_PUBLIC_URL || "https://api.deskwisp.com").replace(/\/+$/, "");
 
 /** An action: its tags (readOnlyHint…), name, app and input schema (withConsts). */
 type ToolInfo = { tags: string[]; name: string; app?: string; input?: Schema };

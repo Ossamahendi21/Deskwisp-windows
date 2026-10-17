@@ -1073,17 +1073,17 @@ ipcMain.handle("mac-pip-close", () => pipWin?.close());
 ipcMain.handle("mac-show-main", () => showMain());
 
 /*
- * New versions. Deskwisp doesn't update itself: it asks deskwisp.bot for the newest release
+ * New versions. Deskwisp doesn't update itself: it asks deskwisp.com for the newest release
  * (download/latest.json, written by scripts/download-publish.sh) at launch and every hour, and while
  * there's a newer one than this app the page shows a notice (components/app/update-notice.tsx) that
- * sends the user to deskwisp.bot, with what's new in it when the file says (its "notes", a few short
+ * sends the user to deskwisp.com, with what's new in it when the file says (its "notes", a few short
  * lines; an older file has none). Only release builds ask. Nothing here throws or shows an error: what
  * goes wrong is only logged, in ~/Library/Logs/Deskwisp/updates.log (each change once, not every hour).
  */
-const LATEST_URL = "https://deskwisp.bot/download/latest.json";
-const SITE_URL = "https://deskwisp.bot";
+const LATEST_URL = "https://deskwisp.com/download/latest.json";
+const SITE_URL = "https://deskwisp.com";
 const dismissedFile = () => path.join(app.getPath("userData"), "update-dismissed.json");
-// The newer release deskwisp.bot offers ({ version: "0.0.11", notes: ["…"] }), if any.
+// The newer release deskwisp.com offers ({ version: "0.0.11", notes: ["…"] }), if any.
 let newer;
 let lastNote = "";
 
@@ -1139,7 +1139,7 @@ async function checkForUpdate() {
     const version = String(latest?.version ?? "");
     if (!versionParts(version)) return updateNote(`couldn't check: no version in ${LATEST_URL}`);
     const found = isNewer(version, app.getVersion()) ? { version, notes: releaseNotes(latest.notes) } : undefined;
-    updateNote(found ? `Deskwisp ${version} is out (this is ${app.getVersion()})` : `up to date (${app.getVersion()}, deskwisp.bot has ${version})`);
+    updateNote(found ? `Deskwisp ${version} is out (this is ${app.getVersion()})` : `up to date (${app.getVersion()}, deskwisp.com has ${version})`);
     // The page hears again only when the version or what's said about it changes.
     if (JSON.stringify(found) === JSON.stringify(newer)) return;
     newer = found;

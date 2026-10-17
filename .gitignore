@@ -54,6 +54,7 @@ next-env.d.ts
 
 # Deskwisp Cloud installs its two dependencies here on its box
 /cloud/node_modules
+/dcloud/node_modules
 .scratch/
 
 # Deskwisp Cloud

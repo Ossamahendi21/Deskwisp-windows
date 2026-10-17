@@ -37,7 +37,7 @@ throwaway Postgres (the core tests in `horafirm_core`, the edge tests in `horafi
 or `DESKWISP_TEST_DATABASE_URL`). CI runs them on every push (`.github/workflows/ci.yml`, `cloud-tests`).
 
 It listens on 127.0.0.1 (`DESKWISP_CLOUD_PORT`, default 8790) behind a TLS proxy (Caddy) at
-`DESKWISP_CLOUD_PUBLIC_URL` (at Horafirm: `https://cloud.deskwisp.bot/api`; Caddy strips the `/api`, so the routes
+`DESKWISP_CLOUD_PUBLIC_URL` (at Horafirm: `https://cloud.deskwisp.com/api`; Caddy strips the `/api`, so the routes
 here are `/v1/…`, `/proxy/…`, `/hooks/…`). Every public address the cloud hands out (webhook URLs,
 pages) is made from `DESKWISP_CLOUD_PUBLIC_URL`. At start it applies `db/migrations/*.sql` that haven't run.
 

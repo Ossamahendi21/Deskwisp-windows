@@ -9,7 +9,9 @@ Deskwisp users never hold a provider key. Three things run on Deskwisp's server:
 | Honcho (port 8000, optional) | The bots' long-term memory, self-hosted | Honcho's own `.env` |
 
 The app (`.env.local`) only needs to know where the first two are: `DESKWISP_HORAFIRM_ORIGIN` (dcloud) and
-`DESKWISP_CLOUD_URL` (cloud), with `DESKWISP_SELF_HOSTED` empty.
+`DESKWISP_CLOUD_URL` (cloud), with `DESKWISP_SELF_HOSTED` empty. The Windows app goes to
+`app.deskwisp.com` and `cloud.deskwisp.com/api` unless they're set. docs/DEPLOY.md puts the servers
+there.
 
 Both servers share one Postgres (Neon). dcloud uses the connection string with `-pooler`; cloud/ the
 one without it (it holds locks across statements, which Neon's pooler can't keep).

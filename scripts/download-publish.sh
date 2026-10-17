@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Puts a release's Mac app on deskwisp.bot for the landing page's download buttons:
-# https://deskwisp.bot/download/Deskwisp.dmg (always the newest release) and /download/Deskwisp-<version>-arm64.dmg.
+# Puts a release's Mac app on deskwisp.com for the landing page's download buttons:
+# https://deskwisp.com/download/Deskwisp.dmg (always the newest release) and /download/Deskwisp-<version>-arm64.dmg.
 # Takes the DMG from the GitHub release on Ossamahendi21/Deskwisp-windows, checks it against the release's latest-mac.yml,
 # copies it to the Deskwisp VM (DESKWISP_SITE_BOX), then checks the VM serves the same bytes. Then it writes
 # /download/latest.json, which the Mac app reads to tell its users a newer version is out and what's new
-# in it (Deskwisp doesn't update itself; see "New versions" in desktop/main.cjs), and deskwisp.bot's download card
+# in it (Deskwisp doesn't update itself; see "New versions" in desktop/main.cjs), and deskwisp.com's download card
 # reads for its "What's new". Run from the repo after a release:
 #   scripts/download-publish.sh           # the newest release
 #   scripts/download-publish.sh v0.0.2    # a given one
@@ -56,7 +56,7 @@ if ! md="$(gh api -H "Accept: application/vnd.github.raw" "repos/Ossamahendi21/D
 fi
 printf '%s\n' "$md" | tr -d '\r' | sed -nE 's/^-[[:space:]]+//p' > "$tmp/notes.txt"
 jq -nac --arg version "${tag#v}" --arg released "${released:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" --rawfile notes "$tmp/notes.txt" '
-  {version: $version, url: "https://deskwisp.bot", dmg: "https://deskwisp.bot/download/Deskwisp.dmg", released: $released}
+  {version: $version, url: "https://deskwisp.com", dmg: "https://deskwisp.com/download/Deskwisp.dmg", released: $released}
   + ([$notes | splits("\n") | sub("\\s+$"; "") | select(length > 0)] | if length > 0 then {notes: .} else {} end)' > "$tmp/latest.json"
 
 echo "2/4 to the VM"
@@ -68,20 +68,20 @@ box "cd /opt/deskwisp/download && chmod 0644 '$dmg.part' && mv -f '$dmg.part' '$
 echo "3/4 check"
 remote="$(box "openssl dgst -sha512 -binary /opt/deskwisp/download/Deskwisp.dmg | base64 | tr -d '\n'")"
 ip="${DESKWISP_SITE_BOX#*@}"
-size="$(curl -fsSI --max-time 15 --resolve "deskwisp.bot:443:$ip" https://deskwisp.bot/download/Deskwisp.dmg | awk 'tolower($1)=="content-length:" {print $2+0}')"
+size="$(curl -fsSI --max-time 15 --resolve "deskwisp.com:443:$ip" https://deskwisp.com/download/Deskwisp.dmg | awk 'tolower($1)=="content-length:" {print $2+0}')"
 if [ "$remote" != "$want" ] || [ "$size" != "$(wc -c < "$tmp/$dmg" | tr -d ' ')" ]; then
-  echo "deskwisp.bot doesn't serve $dmg correctly yet (checksum or size differs)." >&2
+  echo "deskwisp.com doesn't serve $dmg correctly yet (checksum or size differs)." >&2
   exit 1
 fi
-echo "https://deskwisp.bot/download/Deskwisp.dmg is $dmg ($((size / 1048576)) MB)"
+echo "https://deskwisp.com/download/Deskwisp.dmg is $dmg ($((size / 1048576)) MB)"
 
 # Only once the DMG is served: the apps that read this send their users to it.
 echo "4/4 latest.json"
 # Written next to it, then renamed into place, so an app never reads half a file.
 box "cat > /opt/deskwisp/download/latest.json.new && chmod 0644 /opt/deskwisp/download/latest.json.new && mv -f /opt/deskwisp/download/latest.json.new /opt/deskwisp/download/latest.json" < "$tmp/latest.json"
-served="$(curl -fsS --max-time 15 --resolve "deskwisp.bot:443:$ip" https://deskwisp.bot/download/latest.json || true)"
+served="$(curl -fsS --max-time 15 --resolve "deskwisp.com:443:$ip" https://deskwisp.com/download/latest.json || true)"
 if [ "$served" != "$(cat "$tmp/latest.json")" ]; then
-  echo "deskwisp.bot doesn't serve the new latest.json yet: got ${served:-nothing}" >&2
+  echo "deskwisp.com doesn't serve the new latest.json yet: got ${served:-nothing}" >&2
   exit 1
 fi
-echo "https://deskwisp.bot/download/latest.json says ${tag#v} (what's new: $(jq '.notes // [] | length' "$tmp/latest.json") lines)"
+echo "https://deskwisp.com/download/latest.json says ${tag#v} (what's new: $(jq '.notes // [] | length' "$tmp/latest.json") lines)"

@@ -5,13 +5,13 @@
  *
  *   SLACK_CONFIG_TOKEN=xoxe.xoxp-… node slack/setup.mjs create
  *     Makes the app from slack/manifest.json (Slack's App Manifest API), then a Composio Slackbot auth
- *     config with the app's credentials (redirect through api.deskwisp.bot), so connecting Slack in Deskwisp
+ *     config with the app's credentials (redirect through api.deskwisp.com), so connecting Slack in Deskwisp
  *     shows "Deskwisp". The config token comes from api.slack.com/apps → "Your App Configuration Tokens" →
  *     Generate Token. Saves the app's id and credentials to .env.local (DESKWISP_SLACK_*); Deskwisp checks
  *     Slack's events with DESKWISP_SLACK_SIGNING_SECRET.
  *
  *   SLACK_CONFIG_TOKEN=xoxe.xoxp-… node slack/setup.mjs events
- *     Turns on the app's events, sent to api.deskwisp.bot/hooks/slack (relayed to Deskwisp). Slack checks the
+ *     Turns on the app's events, sent to api.deskwisp.com/hooks/slack (relayed to Deskwisp). Slack checks the
  *     URL on the spot, so Deskwisp must be running and reachable through the relay.
  *
  * Nothing secret is printed.
@@ -37,7 +37,7 @@ const save = (vars) => {
   writeFileSync(ENV, text);
 };
 
-const PUBLIC = (get("DESKWISP_PUBLIC_URL") || "https://api.deskwisp.bot").replace(/\/$/, "");
+const PUBLIC = (get("DESKWISP_PUBLIC_URL") || "https://api.deskwisp.com").replace(/\/$/, "");
 const manifest = JSON.parse(readFileSync(new URL("./manifest.json", import.meta.url), "utf8"));
 const EVENTS = ["app_mention", "message.channels", "message.groups", "message.im", "message.mpim"];
 

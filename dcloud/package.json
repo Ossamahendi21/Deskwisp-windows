@@ -1,3 +1,9 @@
 {
-  "type": "module"
+  "type": "module",
+  "description": "Deskwisp's accounts and computers server: run with `node dcloud/src/server.ts` (Node 24+). On its server, `npm install --omit=dev` here installs e2b, pg and ws; in this repo they come from the root node_modules.",
+  "dependencies": {
+    "e2b": "^2.56.0",
+    "pg": "^8.23.1",
+    "ws": "^8.22.0"
+  }
 }

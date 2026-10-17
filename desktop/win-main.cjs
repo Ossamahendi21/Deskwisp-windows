@@ -16,6 +16,12 @@ const net = require("node:net");
 const path = require("node:path");
 
 const PORT = Number(process.env.DESKWISP_PORT) || 3210;
+/**
+ * Deskwisp's own servers on deskwisp.com (docs/DEPLOY.md): accounts, computers and billing at
+ * app.deskwisp.com (dcloud/), the services at cloud.deskwisp.com/api (cloud/). Never Horafirm's. A line
+ * in %APPDATA%\Deskwisp\.env.local points the app elsewhere (a server on this PC, say).
+ */
+const HOSTED = { DESKWISP_HORAFIRM_ORIGIN: "https://app.deskwisp.com", DESKWISP_CLOUD_URL: "https://cloud.deskwisp.com/api" };
 const URL = `http://localhost:${PORT}`;
 const LOCAL = `http://127.0.0.1:${PORT}`;
 app.commandLine.appendSwitch("host-resolver-rules", `MAP localhost:${PORT} 127.0.0.1:${PORT}`);
@@ -113,6 +119,7 @@ function spawnServer() {
   const log = fs.openSync(logFile, big ? "w" : "a");
   fs.writeSync(log, `\n--- Deskwisp ${app.getVersion()} (Windows) starting, ${new Date().toISOString()}\n`);
   const common = {
+    ...HOSTED,
     ...process.env,
     DESKWISP_WEBRTC: "0",
     ...env,
