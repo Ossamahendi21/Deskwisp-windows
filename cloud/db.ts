@@ -15,28 +15,77 @@ export function db(): pg.Pool {
   if (pool) return pool;
   const url = config.databaseUrl();
   if (!url) throw new Error("DESKWISP_DATABASE_URL isn't set");
-  pool = new pg.Pool({ connectionString: url, max: 10, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 10_000, application_name: "deskwisp-cloud" });
+  // Neon sleeps after a few idle minutes and takes a moment to wake, and a far-off or NATed network drops
+  // idle sockets: room to connect, keepalives on the sockets, and a lost connection tried once more (lost).
+  pool = new pg.Pool({ connectionString: url, max: 10, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 30_000, keepAlive: true, keepAliveInitialDelayMillis: 10_000, application_name: "deskwisp-cloud" });
   pool.on("error", (e) => console.error(`[db] idle client: ${e.message}`));
   return pool;
 }
 
+/**
+ * The connection was lost or never made (the database asleep, the network dropped it), as opposed to
+ * the database turning the statement down: worth one more try where trying again can't do it twice.
+ */
+export function lost(e: unknown) {
+  const err = e as { code?: string; message?: string };
+  if (["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "EPIPE", "ENOTCONN", "57P01", "57P03", "08006", "08003", "08001"].includes(err?.code ?? "")) return true;
+  return /Connection terminated|connection timeout|Client has encountered a connection error|timeout exceeded when trying to connect/i.test(err?.message ?? "");
+}
+
+/** A plain read, safe to run twice: a SELECT, but not one that spends (deskwisp_ai_credit_spend) or locks. */
+const READ = (text: string) => /^\s*SELECT\b/i.test(text) && !/_spend\(|advisory/i.test(text);
+
+/** A statement. A read whose connection was lost is tried once more; a write isn't (it may have gone through). */
 export async function query<T extends pg.QueryResultRow = pg.QueryResultRow>(text: string, values: unknown[] = []): Promise<pg.QueryResult<T>> {
-  return db().query<T>(text, values);
+  try {
+    return await db().query<T>(text, values);
+  } catch (e) {
+    if (!lost(e) || !READ(text)) throw e;
+    console.warn(`[db] lost the connection (${(e as Error).message}); trying the read again`);
+    return db().query<T>(text, values);
+  }
+}
+
+/** A connection for a transaction: one that couldn't be made is tried once more (nothing has run on it yet). */
+async function connect(): Promise<pg.PoolClient> {
+  try {
+    const c = await db().connect();
+    try {
+      await c.query("BEGIN");
+      return c;
+    } catch (e) {
+      c.release(e as Error);
+      throw e;
+    }
+  } catch (e) {
+    if (!lost(e)) throw e;
+    console.warn(`[db] lost the connection (${(e as Error).message}); connecting again`);
+    const c = await db().connect();
+    try {
+      await c.query("BEGIN");
+      return c;
+    } catch (again) {
+      c.release(again as Error);
+      throw again;
+    }
+  }
 }
 
 /** Run `work` in one transaction (BEGIN … COMMIT, ROLLBACK on a throw). */
 export async function tx<T>(work: (c: pg.PoolClient) => Promise<T>): Promise<T> {
-  const c = await db().connect();
+  const c = await connect();
+  let broken: Error | undefined;
   try {
-    await c.query("BEGIN");
     const out = await work(c);
     await c.query("COMMIT");
     return out;
   } catch (e) {
+    // A lost connection goes, rather than back into the pool for the next one to find broken.
+    if (lost(e)) broken = e as Error;
     await c.query("ROLLBACK").catch(() => {});
     throw e;
   } finally {
-    c.release();
+    c.release(broken);
   }
 }
 
