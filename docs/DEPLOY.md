@@ -50,15 +50,18 @@ On Oracle Cloud, make an Ubuntu 24.04 VM. Ampere (arm64) and AMD (x64) both work
 sudo apt-get update && sudo apt-get install -y git
 sudo git clone https://github.com/Ossamahendi21/Deskwisp-windows.git /opt/deskwisp
 cd /opt/deskwisp && sudo git checkout deskwisp-main
-sudo ACME_EMAIL=you@example.com bash deploy/vps/install.sh
+sudo bash deploy/vps/install.sh
 ```
 
 The repo is private, so `git clone` asks you to sign in. Use a GitHub token with read access, or a
 deploy key. `install.sh` sets up the following:
 
-- Node 24
-- Caddy, with `deploy/vps/Caddyfile`
-- the two services
+- Node 24, in a folder of its own (`/usr/local/lib/deskwisp-node`). The server's own Node, if it
+  has one, isn't touched.
+- Caddy, or the one already there. Deskwisp's sites go in `/etc/caddy/deskwisp.caddy`, and the
+  Caddyfile gets one line, `import /etc/caddy/deskwisp.caddy`. Every other site in it stays as it
+  is, and if Caddy won't take the result, the Caddyfile is put back as it was.
+- the two services, on ports 8790 and 8791 on 127.0.0.1 only
 - ports 80 and 443 in the machine's own firewall
 - `/etc/deskwisp/cloud.env` and `/etc/deskwisp/dcloud.env`, from the examples next to it
 

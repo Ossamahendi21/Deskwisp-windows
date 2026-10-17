@@ -1,11 +1,7 @@
-# Deskwisp on its own server (docs/DEPLOY.md). Caddy gets and renews each name's HTTPS certificate
-# itself (Let's Encrypt), once the name's DNS points here and ports 80 and 443 are open.
-# install.sh puts this at /etc/caddy/Caddyfile. 127.0.0.1, never the internet, for the two servers.
-
-# Where Let's Encrypt writes about the certificates (install.sh fills it in from ACME_EMAIL, or drops it).
-{
-	email ACME_EMAIL
-}
+# Deskwisp's sites (docs/DEPLOY.md), for the Caddy already on the server or one install.sh sets up.
+# install.sh puts this at /etc/caddy/deskwisp.caddy and adds one line to /etc/caddy/Caddyfile to
+# take it in (import), so every other site there stays as it is. Caddy gets and renews each name's
+# HTTPS certificate itself, once its DNS points here. 127.0.0.1, never the internet, for the servers.
 
 # The website.
 deskwisp.com {
