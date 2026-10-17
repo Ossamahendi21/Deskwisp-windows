@@ -15,6 +15,12 @@ export type Checkout = {
   status: string;
   metadata: Record<string, unknown>;
   externalCustomerId: string | null;
+  productId: string | null;
+  /** The product renews (a subscription): never right for credit bought once. */
+  recurring: boolean;
+  /** What was paid for it, in cents: after discounts, before taxes (Polar's net_amount). Null until Polar knows. */
+  netCents: number | null;
+  currency: string | null;
 };
 
 async function call<T>(p: PolarSettings, method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
@@ -48,23 +54,48 @@ const checkoutFrom = (j: Record<string, unknown>): Checkout => ({
   status: typeof j.status === "string" ? j.status : "",
   metadata: j.metadata && typeof j.metadata === "object" ? (j.metadata as Record<string, unknown>) : {},
   externalCustomerId: typeof j.external_customer_id === "string" ? j.external_customer_id : null,
+  productId: typeof j.product_id === "string" ? j.product_id : null,
+  recurring: !!(j.product && typeof j.product === "object" && (j.product as { is_recurring?: unknown }).is_recurring === true),
+  netCents: Number.isSafeInteger(j.net_amount) ? (j.net_amount as number) : null,
+  currency: typeof j.currency === "string" ? j.currency.toLowerCase() : null,
 });
 
+/** The "AI credit" product renews: credit is bought once, so no checkout is opened on it. */
+export class RecurringProduct extends Error {
+  constructor() {
+    super("POLAR_CREDIT_PRODUCT_ID is a subscription product: AI credit needs a one-time product (Products → New product → One-time purchase)");
+  }
+}
+
 /**
- * A checkout for `cents` of AI credit, for one user: the "AI credit" product at a price for this
- * checkout only (an ad-hoc price), the user named as Polar's customer by their id, and what it's for
- * in its metadata, which comes back with it.
+ * A checkout for `cents` of AI credit, for one user: the "AI credit" product at that amount (a price
+ * for this checkout only, and the amount a pay-what-you-want price starts at), no discount codes, the
+ * user named as Polar's customer by their id, and what it's for in its metadata, which comes back with
+ * it. The credit added is what was paid in the end (confirmCredit), whatever was asked.
  */
 export async function creditCheckout(p: PolarSettings, o: { userId: string; email: string | null; cents: number; successUrl: string }): Promise<Checkout> {
-  const j = await call<Record<string, unknown>>(p, "POST", "/checkouts/", {
+  const body = {
     products: [p.creditProduct],
     prices: { [p.creditProduct]: [{ amount_type: "fixed", price_amount: o.cents, price_currency: "usd" }] },
+    amount: o.cents,
+    allow_discount_codes: false,
     external_customer_id: o.userId,
     ...(o.email ? { customer_email: o.email } : {}),
     metadata: { deskwisp_kind: "credit", deskwisp_user: o.userId, amount_cents: o.cents },
     success_url: o.successUrl,
-  });
-  return checkoutFrom(j);
+  };
+  const c = checkoutFrom(
+    await call<Record<string, unknown>>(p, "POST", "/checkouts/", body).catch((e: Error) => {
+      // A Polar that doesn't take an amount with this product's price: the same without it.
+      if (!/^Polar answered 422/.test(e.message)) throw e;
+      console.warn(`[billing] Polar turned the checkout's amount down (${e.message}); opening it without`);
+      const { amount: _amount, ...rest } = body;
+      void _amount;
+      return call<Record<string, unknown>>(p, "POST", "/checkouts/", rest);
+    }),
+  );
+  if (c.recurring) throw new RecurringProduct();
+  return c;
 }
 
 /** A checkout as Polar has it now. */

@@ -4,7 +4,7 @@ import type { Computers } from "./computers.ts";
 import { HttpError } from "./computers.ts";
 import type { Config } from "./config.ts";
 import { PLANS, type Tier } from "./plans.ts";
-import { creditCheckout, readCheckout, webhookIsPolars } from "./polar.ts";
+import { creditCheckout, readCheckout, RecurringProduct, webhookIsPolars } from "./polar.ts";
 import type { Store } from "./store.ts";
 
 /**
@@ -74,6 +74,7 @@ export class Billing {
     if (!user) throw new HttpError(403, "Sign in to add credit.", "no_account");
     const c = await creditCheckout(polar, { userId: user.id, email: user.email, cents, successUrl: `${this.cfg.publicUrl}/billing/credit/done?checkout_id={CHECKOUT_ID}` }).catch((e: Error) => {
       console.warn(`[billing] opening a checkout for ${user.id}: ${e.message}`);
+      if (e instanceof RecurringProduct) throw new HttpError(503, "Adding credit isn't available right now. Try again later.", "checkout_unavailable");
       throw new HttpError(502, "Couldn't open checkout. Try again in a minute.", "checkout_unavailable");
     });
     if (!c.url) throw new HttpError(502, "Couldn't open checkout. Try again in a minute.", "checkout_unavailable");
@@ -82,7 +83,9 @@ export class Billing {
 
   /**
    * Add a checkout's credit if Polar says it was paid: to the user its metadata names (who must be
-   * Polar's customer for it too), the amount it was opened for, once per checkout. What became of it.
+   * Polar's customer for it too), what was paid in the end (its net amount: after discounts, before
+   * taxes, never the amount asked, which a pay-what-you-want page lets the buyer change), once per
+   * checkout, and only for the one-time "AI credit" product. What became of it.
    */
   async confirmCredit(checkoutId: string): Promise<{ state: "added" | "already" | "waiting" | "not_paid" | "not_credit"; cents?: number }> {
     const polar = this.creditOn();
@@ -91,9 +94,17 @@ export class Billing {
     if (c.status === "open" || c.status === "confirmed") return { state: "waiting" };
     if (c.status !== "succeeded") return { state: "not_paid" };
     const userId = c.metadata.deskwisp_user;
-    const cents = Number(c.metadata.amount_cents);
-    if (typeof userId !== "string" || (c.externalCustomerId && c.externalCustomerId !== userId) || !topUpCents(cents)) {
+    if (typeof userId !== "string" || (c.externalCustomerId && c.externalCustomerId !== userId)) {
       console.warn(`[billing] checkout ${c.id} was paid but doesn't say whose credit it is: not added`);
+      return { state: "not_credit" };
+    }
+    if ((c.productId && c.productId !== polar.creditProduct) || c.recurring || (c.currency && c.currency !== "usd")) {
+      console.warn(`[billing] checkout ${c.id} was paid, but not for the one-time AI credit product in dollars: not added`);
+      return { state: "not_credit" };
+    }
+    const cents = c.netCents;
+    if (cents === null || cents <= 0 || cents > 100_000) {
+      console.warn(`[billing] checkout ${c.id} was paid, but Polar didn't say an amount Deskwisp adds (${cents}): not added`);
       return { state: "not_credit" };
     }
     const user = await this.store.user(userId);
@@ -102,7 +113,7 @@ export class Billing {
       return { state: "not_credit" };
     }
     const added = await this.store.grantTopUp(user.id, user.plan, `polar:checkout:${c.id}`, cents * 10_000);
-    if (added !== null) console.log(`[billing] ${user.id} added $${cents / 100} of AI credit (checkout ${c.id})`);
+    if (added !== null) console.log(`[billing] ${user.id} added ${usd(cents)} of AI credit (checkout ${c.id})`);
     return { state: added === null ? "already" : "added", cents };
   }
 
@@ -146,7 +157,7 @@ export class Billing {
         const got = await this.confirmCredit(id).catch((e: Error) => (console.warn(`[billing] checking checkout ${id}: ${e.message}`), null));
         said =
           got?.state === "added" || got?.state === "already"
-            ? `$${((got.cents ?? 0) / 100).toLocaleString("en-US")} of AI credit added. It doesn't expire. You can go back to Deskwisp.`
+            ? `${usd(got.cents ?? 0)} of AI credit added. It doesn't expire. You can go back to Deskwisp.`
             : got?.state === "waiting" || !got
               ? "Your payment is going through. The credit shows in Deskwisp as soon as it's done."
               : "This payment didn't go through, so nothing was added.";
@@ -220,6 +231,9 @@ export class Billing {
     if (!res.ok) throw new Error(`it answered ${res.status}`);
   }
 }
+
+/** "$20", "$20.50". */
+const usd = (cents: number) => `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
 
 /** A whole-dollar amount from $5 to $1,000, in cents (the app's isTopUpAmount). */
 function topUpCents(v: unknown): v is number {

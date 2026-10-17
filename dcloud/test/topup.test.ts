@@ -42,7 +42,9 @@ class Stand implements Provider {
 const TOKEN = "polar_oat_test_token";
 const PRODUCT = "prod_ai_credit";
 const WEBHOOK_SECRET = "polar-webhook-secret-for-tests";
-type Co = { id: string; status: string; metadata: Record<string, unknown>; external_customer_id: string | null; body: Record<string, unknown> };
+type Co = { id: string; status: string; metadata: Record<string, unknown>; external_customer_id: string | null; body: Record<string, unknown>; net_amount: number; recurring: boolean; product_id: string };
+/** The next checkout's product renews (a subscription product by mistake); Polar turns an amount down (422). */
+const polarSays = { recurring: false, noAmount: false };
 const checkouts = new Map<string, Co>();
 let n = 0;
 const polar = createServer((req, res) => {
@@ -53,16 +55,41 @@ const polar = createServer((req, res) => {
     if (req.headers.authorization !== `Bearer ${TOKEN}`) return send(401, { detail: "bad token" });
     if (req.method === "POST" && req.url === "/v1/checkouts/") {
       const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+      if (polarSays.noAmount && "amount" in body) return send(422, { detail: [{ msg: "amount not allowed" }] });
       const id = `co_${++n}_${Date.now()}`;
-      const co: Co = { id, status: "open", metadata: body.metadata as Record<string, unknown>, external_customer_id: (body.external_customer_id as string) ?? null, body };
+      const prices = body.prices as Record<string, { price_amount: number }[]>;
+      const co: Co = {
+        id,
+        status: "open",
+        metadata: body.metadata as Record<string, unknown>,
+        external_customer_id: (body.external_customer_id as string) ?? null,
+        body,
+        net_amount: prices[PRODUCT][0].price_amount,
+        recurring: polarSays.recurring,
+        product_id: PRODUCT,
+      };
       checkouts.set(id, co);
-      return send(201, { id, url: `https://sandbox.polar.sh/checkout/${id}`, status: co.status, metadata: co.metadata, external_customer_id: co.external_customer_id });
+      return send(201, view(co));
     }
     const m = /^\/v1\/checkouts\/([^/]+)$/.exec(req.url ?? "");
     const co = m && checkouts.get(decodeURIComponent(m[1]));
-    if (req.method === "GET" && co) return send(200, { id: co.id, status: co.status, metadata: co.metadata, external_customer_id: co.external_customer_id });
+    if (req.method === "GET" && co) return send(200, view(co));
     send(404, { detail: "not found" });
   });
+});
+
+/** A checkout as Polar answers it. */
+const view = (co: Co) => ({
+  id: co.id,
+  url: `https://sandbox.polar.sh/checkout/${co.id}`,
+  status: co.status,
+  metadata: co.metadata,
+  external_customer_id: co.external_customer_id,
+  product_id: co.product_id,
+  product: { id: co.product_id, is_recurring: co.recurring },
+  amount: co.net_amount,
+  net_amount: co.net_amount,
+  currency: "usd",
 });
 
 const dir = mkdtempSync(join(tmpdir(), "dcloud-topup-"));
@@ -145,6 +172,8 @@ test("a checkout is paid: the credit is added once, and it doesn't expire", asyn
   // What Polar was asked: the credit product at this checkout's own price, for Ana, back to dcloud.
   assert.deepEqual(co.body.products, [PRODUCT]);
   assert.deepEqual(co.body.prices, { [PRODUCT]: [{ amount_type: "fixed", price_amount: 5000, price_currency: "usd" }] });
+  assert.equal(co.body.amount, 5000, "where the product's price is pay-what-you-want, it starts there");
+  assert.equal(co.body.allow_discount_codes, false);
   assert.equal(co.body.external_customer_id, ana);
   assert.deepEqual(co.metadata, { deskwisp_kind: "credit", deskwisp_user: ana, amount_cents: 5000 });
   assert.equal(co.body.success_url, `${base}/billing/credit/done?checkout_id={CHECKOUT_ID}`);
@@ -176,6 +205,38 @@ test("Polar's webhook alone adds a paid checkout's credit", async () => {
   co.status = "succeeded";
   assert.equal(await webhook({ type: "order.paid", data: { id: "ord_2", checkout_id: co.id } }), 202);
   assert.equal((await left()).left_micros, before + 1_000_000_000);
+});
+
+test("the credit added is what was paid, not what was asked", async () => {
+  const before = (await left()).left_micros;
+  await call("POST", "/deskwisp/credit/checkout", { amount_cents: 20_00 });
+  const co = [...checkouts.values()].at(-1)!;
+  // A pay-what-you-want page let the buyer pay $5.50 instead.
+  co.net_amount = 550;
+  co.status = "succeeded";
+  assert.match(await (await fetch(`${base}/billing/credit/done?checkout_id=${co.id}`)).text(), /\$5\.50 of AI credit added/);
+  assert.equal((await left()).left_micros, before + 5_500_000);
+});
+
+test("a subscription product is never sold as credit, and an amount Polar won't take is left out", async () => {
+  polarSays.recurring = true;
+  const r = await call("POST", "/deskwisp/credit/checkout", { amount_cents: 20_00 });
+  polarSays.recurring = false;
+  assert.equal(r.status, 503);
+  assert.equal(r.json.code, "checkout_unavailable");
+  // Paid all the same (opened before): nothing added either.
+  const co = [...checkouts.values()].at(-1)!;
+  co.recurring = true;
+  co.status = "succeeded";
+  const before = (await left()).left_micros;
+  await fetch(`${base}/billing/credit/done?checkout_id=${co.id}`);
+  assert.equal((await left()).left_micros, before);
+
+  polarSays.noAmount = true;
+  const again = await call("POST", "/deskwisp/credit/checkout", { amount_cents: 20_00 });
+  polarSays.noAmount = false;
+  assert.equal(again.status, 200);
+  assert.equal("amount" in [...checkouts.values()].at(-1)!.body, false);
 });
 
 test("what isn't Polar's, isn't paid, or isn't credit adds nothing", async () => {

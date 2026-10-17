@@ -51,7 +51,9 @@ it once Polar says it was paid: when the checkout sends the buyer back to dcloud
 Set it up in Polar's sandbox first ([sandbox.polar.sh](https://sandbox.polar.sh), test card
 4242 4242 4242 4242):
 
-1. Products → New product: **AI credit**, one-time, any price (each checkout sets its own).
+1. Products → New product: **AI credit**, billing **One-time purchase** (never a subscription: dcloud
+   won't open a checkout on one), price **Pay what you want** with a $5 minimum. Each checkout sets its
+   amount, and the credit added is what was paid in the end.
 2. Settings → Developers → New token, with `checkouts:read` and `checkouts:write`.
 3. Settings → Webhooks → Add endpoint: `<DESKWISP_PUBLIC_URL>/billing/polar/webhook`, format Raw,
    events `order.paid` and `checkout.updated`. Without a public address (on a PC) the webhook can't
