@@ -102,8 +102,10 @@ export class Billing {
       console.warn(`[billing] checkout ${c.id} was paid, but not for the one-time AI credit product in dollars: not added`);
       return { state: "not_credit" };
     }
+    // Whatever was paid, even past the $1,000 the app offers (a pay-what-you-want page lets the buyer
+    // type more): paid for, so it's theirs.
     const cents = c.netCents;
-    if (cents === null || cents <= 0 || cents > 100_000) {
+    if (cents === null || cents <= 0) {
       console.warn(`[billing] checkout ${c.id} was paid, but Polar didn't say an amount Deskwisp adds (${cents}): not added`);
       return { state: "not_credit" };
     }
