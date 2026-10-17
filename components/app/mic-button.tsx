@@ -7,6 +7,13 @@ type Phase = "idle" | "recording" | "transcribing";
 /** A recording stops on its own past this (a message, not a meeting). */
 const MAX_MS = 5 * 60_000;
 
+/** How many bars the recording's waveform shows, newest on the right. */
+const BARS = 14;
+
+/** Where to let Deskwisp use the mic, in this computer's own words. */
+const micSettings = () =>
+  /Windows/i.test(navigator.userAgent) ? "Windows Settings → Privacy & security → Microphone" : "System Settings → Privacy & Security → Microphone";
+
 /** The best format this browser records in that OpenAI reads: Opus in WebM, else MP4. */
 const recordingType = () => ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((t) => MediaRecorder.isTypeSupported(t)) ?? "";
 
@@ -19,15 +26,27 @@ export function MicButton({ botId, onText, onError }: { botId?: string; onText: 
   const [phase, setPhase] = useState<Phase>("idle");
   const [startedAt, setStartedAt] = useState(0);
   const [now, setNow] = useState(0);
-  const rec = useRef<{ recorder: MediaRecorder; stream: MediaStream; keep: boolean; timer: ReturnType<typeof setTimeout> } | null>(null);
+  // How loud you are, the last few beats: the waveform that shows it's hearing you.
+  const [levels, setLevels] = useState<number[]>(() => Array(BARS).fill(0));
+  const rec = useRef<{ recorder: MediaRecorder; stream: MediaStream; keep: boolean; timer: ReturnType<typeof setTimeout>; ctx?: AudioContext; meter?: AnalyserNode } | null>(null);
   // Asking for the mic (a second click meanwhile would start a second recorder, never stopped), and whether the composer is still here.
   const asking = useRef(false);
   const here = useRef(true);
 
-  // The clock while recording.
+  // The clock and the waveform while recording.
   useEffect(() => {
     if (phase !== "recording") return;
-    const t = setInterval(() => setNow(Date.now()), 250);
+    const buf = new Uint8Array(512);
+    const t = setInterval(() => {
+      setNow(Date.now());
+      const meter = rec.current?.meter;
+      if (!meter) return;
+      meter.getByteTimeDomainData(buf);
+      let sum = 0;
+      for (const v of buf) sum += ((v - 128) / 128) ** 2;
+      const level = Math.min(1, Math.sqrt(sum / buf.length) * 4);
+      setLevels((l) => [...l.slice(1), level]);
+    }, 90);
     return () => clearInterval(t);
   }, [phase]);
 
@@ -51,13 +70,15 @@ export function MicButton({ botId, onText, onError }: { botId?: string; onText: 
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [phase]);
-  useEffect(
-    () => () => {
+  // Set again on every mount: React's development mode mounts twice, and the first unmount mustn't
+  // leave the mic thinking the composer went away (it would let go of the mic the moment it got it).
+  useEffect(() => {
+    here.current = true;
+    return () => {
       here.current = false;
       stop(false);
-    },
-    [],
-  );
+    };
+  }, []);
 
   const start = async () => {
     if (asking.current || rec.current) return;
@@ -66,7 +87,7 @@ export function MicButton({ botId, onText, onError }: { botId?: string; onText: 
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
     } catch (e) {
-      return onError(/denied|permission|notallowed/i.test(`${(e as Error).name} ${(e as Error).message}`) ? "Deskwisp needs microphone access. Turn it on in System Settings → Privacy & Security → Microphone." : (e as Error).message);
+      return onError(/denied|permission|notallowed/i.test(`${(e as Error).name} ${(e as Error).message}`) ? `Deskwisp needs microphone access. Turn it on in ${micSettings()}.` : (e as Error).message);
     } finally {
       asking.current = false;
     }
@@ -78,6 +99,7 @@ export function MicButton({ botId, onText, onError }: { botId?: string; onText: 
     recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
     recorder.onstop = async () => {
       stream.getTracks().forEach((t) => t.stop());
+      void rec.current?.ctx?.close().catch(() => {});
       const keep = rec.current?.keep;
       rec.current = null;
       if (!keep || !chunks.length) return setPhase("idle");
@@ -98,6 +120,17 @@ export function MicButton({ botId, onText, onError }: { botId?: string; onText: 
       }
     };
     rec.current = { recorder, stream, keep: false, timer: setTimeout(() => stop(true), MAX_MS) };
+    try {
+      const ctx = new AudioContext();
+      const meter = ctx.createAnalyser();
+      meter.fftSize = 512;
+      ctx.createMediaStreamSource(stream).connect(meter);
+      rec.current.ctx = ctx;
+      rec.current.meter = meter;
+    } catch {
+      // No waveform then; the recording goes on.
+    }
+    setLevels(Array(BARS).fill(0));
     recorder.start(1000);
     setStartedAt(Date.now());
     setNow(Date.now());
@@ -112,9 +145,14 @@ export function MicButton({ botId, onText, onError }: { botId?: string; onText: 
         onClick={() => stop(true)}
         aria-label="Stop recording"
         data-tip="Stop · Enter to finish, Esc to cancel"
-        className="flex h-[30px] shrink-0 items-center gap-1.5 rounded-full bg-[#FDECEA] pl-2.5 pr-3 text-[12.5px] font-medium tabular-nums leading-4 text-[#B42318]"
+        className="flex h-[30px] shrink-0 items-center gap-2 rounded-full bg-[#FDECEA] pl-2.5 pr-3 text-[12.5px] font-medium tabular-nums leading-4 text-[#B42318]"
       >
         <span className="size-2 animate-pulse rounded-full bg-[#D92D20]" />
+        <span aria-hidden className="flex h-4 items-center gap-[2px]">
+          {levels.map((l, i) => (
+            <span key={i} className="w-[2px] rounded-full bg-[#D92D20] transition-[height] duration-75" style={{ height: `${Math.max(2, Math.round(l * 16))}px`, opacity: 0.45 + l * 0.55 }} />
+          ))}
+        </span>
         {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, "0")}
       </button>
     );
