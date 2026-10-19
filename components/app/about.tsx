@@ -11,7 +11,7 @@ import { CloseButton } from "./ui";
  * what it runs on; Updates, where you check for a new version, bring it down and restart into it, and
  * choose whether new versions come down by themselves (desktop/win-update.cjs, through the PC app's
  * bridge, desktop/preload.cjs); help (the website, support, the logs, the app's details to paste into a
- * support email); the legal pages and the licence and credits that ship with the app. In a browser, or
+ * support email); the privacy policy and terms, and a line of credits. In a browser, or
  * the Mac app, the Updates part says what it can and the rest is the same.
  */
 
@@ -36,9 +36,6 @@ type About = {
   electron?: string;
   chrome?: string;
   node?: string;
-  license?: string;
-  authors?: string;
-  notices?: string;
 };
 type Bridge = {
   about?: () => Promise<About>;
@@ -86,7 +83,6 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
   const [status, setStatus] = useState<Status | null>(null);
   // No updater to ask: a browser, or a PC app from before About.
   const [noUpdater, setNoUpdater] = useState(() => !bridge()?.update?.status || !bridge()?.update?.onStatus);
-  const [legal, setLegal] = useState<"license" | "authors" | "notices" | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -111,16 +107,15 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
   }, [webVersion]);
 
   useEffect(() => {
-    // Escape: the licence back to About, else About closes (and nothing under it).
+    // Escape closes About (and nothing under it).
     const esc = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.stopPropagation();
-      if (legal) setLegal(null);
-      else onClose();
+      onClose();
     };
     document.addEventListener("keydown", esc);
     return () => document.removeEventListener("keydown", esc);
-  }, [legal, onClose]);
+  }, [onClose]);
 
   const version = about?.version || status?.current || "";
   const details = about
@@ -143,8 +138,6 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
       setTimeout(() => setCopied(false), 1600);
     } catch {}
   };
-  const legalText = legal === "license" ? about?.license : legal === "authors" ? about?.authors : legal === "notices" ? about?.notices : undefined;
-  const hasLegal = !!(about?.license || about?.authors || about?.notices);
 
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/20 p-4 backdrop-blur-[2px]" onClick={onClose}>
@@ -153,106 +146,68 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         aria-modal="true"
         aria-labelledby="about-title"
         onClick={(e) => e.stopPropagation()}
-        className={`flex max-h-[min(720px,calc(100vh-32px))] w-[440px] max-w-full flex-col overflow-hidden rounded-[20px] bg-white ${legal ? "h-[min(600px,calc(100vh-32px))]" : ""} shadow-[0_0_0_1px_#0000000F,0_30px_70px_-28px_#00000038]`}
+        className="flex max-h-[min(720px,calc(100vh-32px))] w-[440px] max-w-full flex-col overflow-hidden rounded-[20px] bg-white shadow-[0_0_0_1px_#0000000F,0_30px_70px_-28px_#00000038]"
       >
-        {legal ? (
-          <>
-            <div className="flex items-center gap-2 px-4 pb-2 pt-4">
-              <button onClick={() => setLegal(null)} className="flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-medium hover:bg-black/[0.04]">
-                <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
-                  <path d="M7.5 2.5L4 6l3.5 3.5" fill="none" stroke="#16132B" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                About
-              </button>
-              <div className="ml-auto flex rounded-full bg-[#F2F2F0] p-0.5">
-                {(
-                  [
-                    ["license", "Licence", about?.license],
-                    ["authors", "Authors", about?.authors],
-                    ["notices", "Notices", about?.notices],
-                  ] as const
-                )
-                  .filter(([, , text]) => !!text)
-                  .map(([id, label]) => (
-                    <button
-                      key={id}
-                      onClick={() => setLegal(id)}
-                      className={`rounded-full px-3 py-1 text-[12.5px] font-medium leading-4 ${legal === id ? "bg-white text-ink shadow-[0_1px_2px_#0000001A]" : "text-[#6B6B6B] hover:text-ink"}`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-              </div>
+        <>
+          <div className="flex items-start gap-3.5 px-5 pb-4 pt-5">
+            <div className="flex size-14 shrink-0 items-center justify-center rounded-[16px] bg-[#F2F2F0]">
+              <svg viewBox="0 0 40 40" width="36" height="36" aria-hidden dangerouslySetInnerHTML={{ __html: mascotMarkup("wispy", MAIN_COLOR) }} />
             </div>
-            <pre className="mx-4 mb-4 min-h-0 flex-1 overflow-auto whitespace-pre-wrap rounded-[12px] bg-[#F7F7F6] p-3.5 font-mono text-[11.5px] leading-[17px] text-[#3A3A38]">{legalText}</pre>
-          </>
-        ) : (
-          <>
-            <div className="flex items-start gap-3.5 px-5 pb-4 pt-5">
-              <div className="flex size-14 shrink-0 items-center justify-center rounded-[16px] bg-[#F2F2F0]">
-                <svg viewBox="0 0 40 40" width="36" height="36" aria-hidden dangerouslySetInnerHTML={{ __html: mascotMarkup("wispy", MAIN_COLOR) }} />
-              </div>
-              <div className="flex min-w-0 flex-1 flex-col pt-1">
-                <span id="about-title" className="text-[17px] font-semibold leading-[22px] tracking-[-0.01em]">
-                  Deskwisp
-                </span>
-                <span className="text-[13px] leading-[18px] text-[#6B6B6B]">
-                  {version ? `Version ${version}` : "Version"}
-                  {about?.arch ? ` · ${about.platform} ${archName(about.arch)}` : about?.platform === "Web" ? " · in your browser" : ""}
-                </span>
-              </div>
-              <CloseButton onClick={onClose} />
+            <div className="flex min-w-0 flex-1 flex-col pt-1">
+              <span id="about-title" className="text-[17px] font-semibold leading-[22px] tracking-[-0.01em]">
+                Deskwisp
+              </span>
+              <span className="text-[13px] leading-[18px] text-[#6B6B6B]">
+                {version ? `Version ${version}` : "Version"}
+                {about?.arch ? ` · ${about.platform} ${archName(about.arch)}` : about?.platform === "Web" ? " · in your browser" : ""}
+              </span>
             </div>
+            <CloseButton onClick={onClose} />
+          </div>
 
-            <div className="flex min-h-0 flex-col gap-5 overflow-y-auto px-5 pb-5">
-              <Section title="Updates">
-                <Updates status={status} noUpdater={noUpdater} />
-              </Section>
+          <div className="flex min-h-0 flex-col gap-5 overflow-y-auto px-5 pb-5">
+            <Section title="Updates">
+              <Updates status={status} noUpdater={noUpdater} />
+            </Section>
 
-              <Section title="Help">
-                <Row label="Website">
-                  <ExternalLink href={SITE}>deskwisp.com</ExternalLink>
+            <Section title="Help">
+              <Row label="Website">
+                <ExternalLink href={SITE}>deskwisp.com</ExternalLink>
+              </Row>
+              <Row label="Help and support">
+                <ExternalLink href={`mailto:${SUPPORT}?subject=${encodeURIComponent("Deskwisp help")}&body=${encodeURIComponent(`\n\n—\n${details}`)}`}>{SUPPORT}</ExternalLink>
+              </Row>
+              {bridge()?.startup?.logs && (
+                <Row label="Logs" hint="What Deskwisp wrote down, for support">
+                  <SmallButton onClick={() => void bridge()?.startup?.logs?.()}>Open folder</SmallButton>
                 </Row>
-                <Row label="Help and support">
-                  <ExternalLink href={`mailto:${SUPPORT}?subject=${encodeURIComponent("Deskwisp help")}&body=${encodeURIComponent(`\n\n—\n${details}`)}`}>{SUPPORT}</ExternalLink>
-                </Row>
-                {bridge()?.startup?.logs && (
-                  <Row label="Logs" hint="What Deskwisp wrote down, for support">
-                    <SmallButton onClick={() => void bridge()?.startup?.logs?.()}>Open folder</SmallButton>
-                  </Row>
-                )}
-                <Row label="App details" hint={details || undefined}>
-                  <SmallButton onClick={() => void copy()} disabled={!details}>
-                    {copied ? "Copied" : "Copy"}
-                  </SmallButton>
-                </Row>
-              </Section>
+              )}
+              <Row label="App details" hint={details || undefined}>
+                <SmallButton onClick={() => void copy()} disabled={!details}>
+                  {copied ? "Copied" : "Copy"}
+                </SmallButton>
+              </Row>
+            </Section>
 
-              <Section title="Legal">
-                <Row label="Privacy policy">
-                  <ExternalLink href={`${SITE}/privacy`}>Read</ExternalLink>
-                </Row>
-                <Row label="Terms of service">
-                  <ExternalLink href={`${SITE}/terms`}>Read</ExternalLink>
-                </Row>
-                {hasLegal && (
-                  <Row label="Licence and credits">
-                    <SmallButton onClick={() => setLegal(about?.license ? "license" : about?.authors ? "authors" : "notices")}>View</SmallButton>
-                  </Row>
-                )}
-              </Section>
+            <Section title="Legal">
+              <Row label="Privacy policy">
+                <ExternalLink href={`${SITE}/privacy`}>Read</ExternalLink>
+              </Row>
+              <Row label="Terms of service">
+                <ExternalLink href={`${SITE}/terms`}>Read</ExternalLink>
+              </Row>
+            </Section>
 
-              <p className="m-0 text-center text-[11.5px] leading-[16px] text-[#9A9A98]">
-                Based on{" "}
-                <a href="https://github.com/Horafirm/deskwisp" target="_blank" rel="noreferrer" className="underline decoration-[#D6D6D3] underline-offset-2 hover:text-ink">
-                  Deskwisp
-                </a>
-                , created by Nick Vasilescu and developed with Horafirm.
-                <br />© {new Date().getFullYear()} Deskwisp
-              </p>
-            </div>
-          </>
-        )}
+            <p className="m-0 text-center text-[11.5px] leading-[16px] text-[#9A9A98]">
+              Based on{" "}
+              <a href="https://github.com/Horafirm/deskwisp" target="_blank" rel="noreferrer" className="underline decoration-[#D6D6D3] underline-offset-2 hover:text-ink">
+                Deskwisp
+              </a>
+              , created by Nick Vasilescu and developed with Horafirm.
+              <br />© {new Date().getFullYear()} Deskwisp
+            </p>
+          </div>
+        </>
       </div>
     </div>,
     document.body,
@@ -273,7 +228,11 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
     <div className="flex min-h-11 items-center gap-3 rounded-[10px] px-3 py-1.5 [&+&]:border-t [&+&]:border-[#ECECEA]">
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="text-[13.5px] font-medium leading-[18px]">{label}</span>
-        {hint && <span className="truncate text-[11.5px] leading-4 text-[#9A9A98]" title={hint}>{hint}</span>}
+        {hint && (
+          <span className="truncate text-[11.5px] leading-4 text-[#9A9A98]" title={hint}>
+            {hint}
+          </span>
+        )}
       </div>
       {children}
     </div>
@@ -282,7 +241,12 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 
 function ExternalLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <a href={href} target="_blank" rel="noreferrer" className="flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[13px] leading-4 text-[#6B6B6B] hover:bg-black/[0.04] hover:text-ink">
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[13px] leading-4 text-[#6B6B6B] hover:bg-black/[0.04] hover:text-ink"
+    >
       {children}
       <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
         <path d="M3.5 2h4.5v4.5M8 2L2.5 7.5" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
@@ -416,7 +380,11 @@ function Updates({ status: s, noUpdater }: { status: Status | null; noUpdater: b
       break;
     case "checking":
       head = <Headline tone="busy">Checking for updates…</Headline>;
-      action = <SmallButton onClick={() => {}} disabled>Checking…</SmallButton>;
+      action = (
+        <SmallButton onClick={() => {}} disabled>
+          Checking…
+        </SmallButton>
+      );
       break;
     case "latest":
       head = <Headline tone="ok">Deskwisp is up to date</Headline>;
@@ -443,7 +411,14 @@ function Updates({ status: s, noUpdater }: { status: Status | null; noUpdater: b
       head = <Headline tone="busy">Downloading Deskwisp {s.version}…</Headline>;
       line = (
         <span className="mt-2 flex items-center gap-2.5">
-          <span className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-[#E4E4E1]" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Download">
+          <span
+            className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-[#E4E4E1]"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={pct}
+            aria-label="Download"
+          >
             <span className="absolute inset-y-0 left-0 rounded-full bg-[#7C5CFF] transition-[width] duration-300" style={{ width: `${pct}%` }} />
           </span>
           <span className="w-9 text-right text-[12px] tabular-nums text-[#6B6B6B]">{pct}%</span>
@@ -515,7 +490,9 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (on: boolean) => void
       onClick={() => onChange(!on)}
       className={`relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors ${on ? "bg-ink" : "bg-[#D6D6D3]"}`}
     >
-      <span className={`absolute left-0 top-[3px] size-4 rounded-full bg-white shadow-[0_1px_2px_#00000033] transition-transform ${on ? "translate-x-[19px]" : "translate-x-[3px]"}`} />
+      <span
+        className={`absolute left-0 top-[3px] size-4 rounded-full bg-white shadow-[0_1px_2px_#00000033] transition-transform ${on ? "translate-x-[19px]" : "translate-x-[3px]"}`}
+      />
     </button>
   );
 }

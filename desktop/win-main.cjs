@@ -503,18 +503,6 @@ ipcMain.handle("update-download", () => {
 
 // ---------------------------------------------------------------- About (components/app/about.tsx)
 
-/** The licence and credits that ship with the app (resources\legal; the repo's own files from source). */
-function legal() {
-  const dir = app.isPackaged ? path.join(process.resourcesPath, "legal") : REPO;
-  const read = (name) => {
-    try {
-      return fs.readFileSync(path.join(dir, name), "utf8");
-    } catch {
-      return undefined;
-    }
-  };
-  return { license: read("LICENSE"), authors: read("AUTHORS"), notices: read("THIRD_PARTY_NOTICES.md") };
-}
 ipcMain.handle("app-about", () => ({
   version: VERSION,
   packaged: app.isPackaged,
@@ -524,7 +512,6 @@ ipcMain.handle("app-about", () => ({
   electron: process.versions.electron,
   chrome: process.versions.chrome,
   node: process.versions.node,
-  ...legal(),
 }));
 
 // ---------------------------------------------------------------- Start and quit
