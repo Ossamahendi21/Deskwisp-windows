@@ -36,18 +36,6 @@
     {
       "from": "public",
       "to": "server/public"
-    },
-    {
-      "from": "LICENSE",
-      "to": "legal/LICENSE"
-    },
-    {
-      "from": "AUTHORS",
-      "to": "legal/AUTHORS"
-    },
-    {
-      "from": "THIRD_PARTY_NOTICES.md",
-      "to": "legal/THIRD_PARTY_NOTICES.md"
     }
   ],
   "npmRebuild": false,

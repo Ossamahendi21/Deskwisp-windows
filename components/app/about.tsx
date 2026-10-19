@@ -11,7 +11,7 @@ import { CloseButton } from "./ui";
  * what it runs on; Updates, where you check for a new version, bring it down and restart into it, and
  * choose whether new versions come down by themselves (desktop/win-update.cjs, through the PC app's
  * bridge, desktop/preload.cjs); help (the website, support, the logs, the app's details to paste into a
- * support email); the privacy policy and terms, and a line of credits. In a browser, or
+ * support email); the privacy policy and terms. In a browser, or
  * the Mac app, the Updates part says what it can and the rest is the same.
  */
 
@@ -199,12 +199,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
             </Section>
 
             <p className="m-0 text-center text-[11.5px] leading-[16px] text-[#9A9A98]">
-              Based on{" "}
-              <a href="https://github.com/Horafirm/deskwisp" target="_blank" rel="noreferrer" className="underline decoration-[#D6D6D3] underline-offset-2 hover:text-ink">
-                Deskwisp
-              </a>
-              , created by Nick Vasilescu and developed with Horafirm.
-              <br />© {new Date().getFullYear()} Deskwisp
+              © {new Date().getFullYear()} Deskwisp
             </p>
           </div>
         </>

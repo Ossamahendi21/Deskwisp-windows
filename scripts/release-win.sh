@@ -101,7 +101,7 @@ rm -rf .next/standalone/.data
 for f in .next/standalone/* .next/standalone/.[!.]*; do
   [ -e "$f" ] || continue
   case "$(basename "$f")" in
-    .next | cloud | LICENSE | node_modules | package.json | public | server.js | slack | vm) ;;
+    .next | cloud | node_modules | package.json | public | server.js | slack | vm) ;;
     *) rm -rf "$f" ;;
   esac
 done
