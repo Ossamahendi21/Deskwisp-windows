@@ -1,6 +1,6 @@
 # Third-party notices
 
-Deskwisp includes code from other projects. That code stays under its own license, not Deskwisp's (FSL-1.1-ALv2):
+Deskwisp includes code from other projects. That code stays under its own license:
 
 | Path | From | License |
 |---|---|---|

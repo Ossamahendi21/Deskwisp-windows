@@ -17,17 +17,6 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011%20x64-E9FF3B?labelColor=0A0A0A" alt="Windows 10 and 11, x64">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-FSL--1.1--ALv2-E9FF3B?labelColor=0A0A0A" alt="License: FSL-1.1-ALv2"></a>
-</p>
-
-<p align="center">
-  <b>A personal Windows port of <a href="https://github.com/Horafirm/deskwisp">Deskwisp</a>.</b> Same code, same license (FSL-1.1-ALv2), adapted to run on Windows and to be driven from Android or iPhone.<br>
-  The license rules out offering it as a competing product or hosted service, and each version becomes Apache 2.0 two years after its release. <a href="#license">Details</a>
-</p>
-
-<p align="center">
-  <b>Windows port by <a href="https://github.com/Ossamahendi21">@Ossamahendi21</a></b><br>
-  Based on Deskwisp, created by <a href="https://github.com/nickvasilescu">Nick Vasilescu</a> and developed with <a href="https://deskwisp.com">Horafirm</a>
 </p>
 
 <br>
@@ -99,12 +88,6 @@ What's coming next for this port:
 - **A free computer for the bots.** A small server for your own VPS that answers the same API as Horafirm's computers (Docker, Xvfb, Chromium, xdotool), so the bots can work without a paid plan.
 - **WhatsApp.** Reach your bots where most people already are.
 - **Shell tasks on Windows.** The tasks that run on your own PC with a shell, which today are written for another system.
-
-## Credits
-
-Deskwisp is a Windows port of [Deskwisp](https://github.com/Horafirm/deskwisp), maintained by [@Ossamahendi21](https://github.com/Ossamahendi21).
-
-Deskwisp was created by [Nick Vasilescu](https://github.com/nickvasilescu) ([@nickvasilescu](https://github.com/nickvasilescu)). It started as his open-source project and is now developed with [Horafirm](https://deskwisp.com). See [AUTHORS](AUTHORS) and [CITATION.cff](CITATION.cff). Thanks to everyone who has reported a bug, sent a fix or shared an idea to the original: see its [contributors](https://github.com/Horafirm/deskwisp/graphs/contributors).
 
 ## Built with
 
@@ -232,18 +215,16 @@ The installed app keeps its files in `%APPDATA%\Deskwisp`: `data\` (state and th
 | `components/app/` | The app's UI. `components/message-ui/` is the chat kit. |
 | `lib/server/` | Everything server-side: chat engine, sessions, providers, state |
 | `lib/plan-includes.ts` | What each plan includes, in the words the app shows |
-| `desktop/` | The Electron shells: `win-main.cjs` (Windows) and `main.cjs` (the original Mac app) |
+| `desktop/` | The Electron shells: `win-main.cjs` (Windows) and `main.cjs` (Mac) |
 | `vm/` | What runs on the bots' computers: screen MCP, browser helpers |
 | `horafirm/` | The Horafirm template builder |
 | `cloud/` | Deskwisp Cloud, the server for hosted Deskwisp |
 | `db/` | The Postgres schema for hosted Deskwisp |
 | `edge/` | The webhook relay for self-hosting |
 | `slack/` | The Slack app |
-| `docs/` | Images and what's new in each version of the original (`docs/releases/`) |
+| `docs/` | Images, guides, and what's new in each version (`docs/releases/`) |
 
-## Contributing
-
-This is a personal port. Bugs that are about Windows belong here; anything else is best reported to the original project, [Horafirm/deskwisp](https://github.com/Horafirm/deskwisp).
+## Development
 
 Before you commit:
 
@@ -264,26 +245,9 @@ Signed in with Horafirm, the app sends Horafirm usage events through PostHog, th
 - Signed in with Horafirm, provider keys stay on Deskwisp Cloud and webhooks come in through it. Self-hosted, keys live in `.env.local` and webhooks go public through `edge/`, each one signature-checked.
 - Saved logins live in the sealed vault on your PC. Neither keys nor logins are sent to the window or to a model.
 - The bots' tools run on `OPENAI_EXECUTOR_API_KEY`. Give it a spend limit.
-- Found a vulnerability in the original code? Report it privately to its authors, as [SECURITY.md](SECURITY.md) describes.
 
 ## License
 
-This port keeps the original's license. Deskwisp is [fair source](https://fair.io): the code is public, and you can read it, run it, change it and share it. It's under the [Functional Source License, Version 1.1, ALv2 Future License](LICENSE) (FSL-1.1-ALv2, [about FSL](https://fsl.software)). Here it is in plain words; the [LICENSE](LICENSE) has the exact terms, and they're what count.
-
-- **Use it for anything but competing with it.** At home or at work: inside your company, for teaching and research, and in services you provide to people who use Deskwisp under these terms.
-- **Don't offer it as a competing product.** You may not make it available to others in a commercial product or service that replaces Deskwisp (or one of its makers' products built with it), or that does substantially the same thing, such as a hosted Deskwisp.
-- **Keep the license with it.** The same terms cover copies, changes and forks, this one included. When you share them, include the license (or a link to it) and keep the copyright notices.
-- **Each version becomes Apache 2.0.** Two years after a version's release, that version is also available under the Apache License 2.0, with no limit on competing.
-
-The license also grants the authors' patents for these uses (until you sue someone claiming the software infringes a patent), and it comes as is, with no warranty.
-
-| Can I… | |
-|---|---|
-| Run it for myself, or across my company? | Yes. |
-| Change it and share my version? | Yes, under the same license, with a different name and logo ([TRADEMARK.md](TRADEMARK.md)). |
-| Build my own product with it? | Yes, as long as that product doesn't compete with Deskwisp (above). |
-| Offer it hosted, or sell an app that does what Deskwisp does? | Not under FSL. Each version allows it two years after its release, under Apache 2.0. |
+Copyright © 2026 Deskwisp. All rights reserved. This repository is private.
 
 Some code comes from other projects, under their own licenses: `components/message-ui/` is adapted from [imessage-ui](https://github.com/theswerd/imessage-ui) (MIT). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
-"Deskwisp", the Deskwisp logo and the bot mascots are trademarks of Organic Intelligence, Inc. The license covers the code, not the name or logo. Deskwisp is not affiliated with or endorsed by Organic Intelligence, Inc. or Horafirm. See [TRADEMARK.md](TRADEMARK.md).
