@@ -9,6 +9,7 @@ import { KeyIcon } from "./screen-cards";
 import { MembersButton } from "./members";
 import { Mascot } from "./mascot";
 import { MemorySections, type MemoryOpen } from "./memory-categories";
+import { AboutDialog, AboutIcon } from "./about";
 import { RestartConfirm, RestartIcon, useCanRestart } from "./restart";
 import { useSetupNeedsYou } from "./setup";
 import { UpdateNotice } from "./update-notice";
@@ -184,7 +185,7 @@ export function Sidebar({
 
       {menu && <RowMenu key={`${menu.chat.id}:${menu.x}:${menu.y}`} state={state} chat={menu.chat} x={menu.x} y={menu.y} onEdit={onEdit} onClose={() => setMenu(null)} />}
 
-      {/* A newer Deskwisp on deskwisp.bot (the PC app checks; Deskwisp doesn't update itself). */}
+      {/* A newer Deskwisp on deskwisp.com: on Windows, ready to restart into (update-notice.tsx). */}
       <UpdateNotice />
       <div className="flex items-center gap-2.5 p-1 pt-3">
         <YouMenu state={state} onAccount={onAccount} onSettings={onSettings} onSetup={onSetup} />
@@ -210,8 +211,8 @@ export function Sidebar({
 
 /**
  * You, at the bottom of the sidebar: your initials, and a menu with your Horafirm account (plan and
- * usage), Settings, this PC's permissions, Restart Deskwisp (in the PC app; restart.tsx) and signing
- * out. While something on this PC still needs you (and you haven't skipped it on the setup screen),
+ * usage), Settings, this PC's permissions, About Deskwisp (its version and updates; about.tsx), Restart
+ * Deskwisp (in the PC app; restart.tsx) and signing out. While something on this PC still needs you (and you haven't skipped it on the setup screen),
  * a badge on your initials opens that screen and the menu item carries the same mark.
  */
 /** The plan's name on its badge in the menu. */
@@ -220,6 +221,7 @@ const PLAN_LABEL: Record<string, string> = { free_deskwisp: "Free", pro_deskwisp
 function YouMenu({ state, onAccount, onSettings, onSetup }: { state: AppState; onAccount: () => void; onSettings: () => void; onSetup: () => void }) {
   const [open, setOpen] = useState(false);
   const [restart, setRestart] = useState(false);
+  const [about, setAbout] = useState(false);
   const canRestart = useCanRestart();
   const needsYou = useSetupNeedsYou(state);
   const box = useRef<HTMLDivElement>(null);
@@ -321,6 +323,10 @@ function YouMenu({ state, onAccount, onSettings, onSetup }: { state: AppState; o
             <span className="flex-1">Permissions on this PC</span>
             {needsYou && <NeedsYouDot />}
           </button>
+          <button onClick={pick(() => setAbout(true))} className={item}>
+            <AboutIcon />
+            About Deskwisp
+          </button>
           {canRestart && (
             <button onClick={pick(() => setRestart(true))} className={item}>
               <RestartIcon />
@@ -339,6 +345,7 @@ function YouMenu({ state, onAccount, onSettings, onSetup }: { state: AppState; o
         </div>
       )}
       {restart && <RestartConfirm onClose={() => setRestart(false)} />}
+      {about && <AboutDialog onClose={() => setAbout(false)} />}
     </div>
   );
 }

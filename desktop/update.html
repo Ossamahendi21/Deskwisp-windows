@@ -1,0 +1,234 @@
+<!doctype html>
+<!--
+  The update screen (desktop/win-main.cjs, desktop/win-update.cjs), in the Deskwisp window:
+  - ?phase=ready: a newer version, downloaded before Deskwisp was last closed, offered at launch:
+    "Update ready", Restart to update, or Later (the app, on this version). Wispy hops for joy, sparks
+    popping out each time it lands.
+  - ?phase=updating: Restart to update under way. Wispy (lib/mascot.ts), happy, hops while sparks circle it,
+    and the bar follows the steps the PC app sends (saving, closing, installing, opening), easing
+    forward between them so it never sits still. Then Deskwisp closes, the installer runs, and it opens
+    the new version.
+  CSS animation only, transform and opacity; still with reduced motion. Text goes in as text, never HTML.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>Updating Deskwisp</title>
+<style>
+  :root { --ink: #16132B; --muted: #6B6B6B; --faint: #9A9A98; --track: #E4E4E1; --accent: #7C5CFF; --paper: #F7F7F6; }
+  html, body { margin: 0; height: 100%; background: var(--paper); }
+  body {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font: 13px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: var(--muted);
+    -webkit-app-region: drag; user-select: none;
+  }
+  .card { display: flex; flex-direction: column; align-items: center; width: 300px; text-align: center; }
+  button, a { -webkit-app-region: no-drag; }
+
+  /*
+   * Wispy, happy (eyes smiling, cheeks pink, mouth open) and hopping: it crouches, springs up with a
+   * little twist, and lands with a squash, while its shadow shrinks and grows under it. On every
+   * landing, sparks pop out around it. While it updates it hops quicker and three sparks circle it.
+   */
+  .scene { position: relative; width: 150px; height: 128px; margin-bottom: 18px; --hop: 1.5s; }
+  .updating .scene { --hop: 1.05s; }
+  .shadow { position: absolute; left: 50%; bottom: 6px; width: 54px; height: 8px; margin-left: -27px; border-radius: 50%; background: var(--ink); opacity: .1; animation: shadow var(--hop) ease-in-out infinite; }
+  .hop { position: absolute; left: 50%; bottom: 10px; width: 78px; height: 78px; margin-left: -39px; transform-origin: 50% 100%; animation: hop var(--hop) cubic-bezier(.4,0,.3,1) infinite; }
+  .hop svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  @keyframes hop {
+    0%   { transform: translateY(0) scale(1, 1); }
+    12%  { transform: translateY(0) scale(1.14, .84); }
+    32%  { transform: translateY(-30px) scale(.9, 1.12) rotate(-7deg); }
+    46%  { transform: translateY(-38px) scale(1, 1) rotate(7deg); }
+    62%  { transform: translateY(0) scale(1.16, .82) rotate(0deg); }
+    72%  { transform: translateY(-5px) scale(.96, 1.05); }
+    82%, 100% { transform: translateY(0) scale(1, 1); }
+  }
+  @keyframes shadow {
+    0%, 12%, 82%, 100% { transform: scaleX(1); opacity: .1; }
+    46% { transform: scaleX(.5); opacity: .04; }
+    62% { transform: scaleX(1.18); opacity: .13; }
+  }
+  /* The spark on its head spins with joy at the top of each hop. */
+  .spark { transform-box: fill-box; transform-origin: 50% 50%; animation: spark var(--hop) ease-in-out infinite; }
+  @keyframes spark { 0%, 28%, 70%, 100% { transform: scale(1) rotate(0deg); } 46% { transform: scale(1.5) rotate(90deg); } }
+  /* Cheeks glow a little brighter when it lands. */
+  .cheek { animation: blush var(--hop) ease-in-out infinite; }
+  @keyframes blush { 0%, 50%, 100% { opacity: .45; } 66% { opacity: .85; } }
+
+  /* Sparks popping out on landing, each its own way. */
+  .pop { position: absolute; left: 50%; bottom: 34px; width: 14px; height: 14px; margin-left: -7px; opacity: 0; animation: pop var(--hop) ease-out infinite; }
+  .pop.s { width: 9px; height: 9px; margin-left: -4.5px; }
+  .p1 { --x: -56px; --y: -46px; --r: -40deg; }
+  .p2 { --x: 56px; --y: -52px; --r: 50deg; }
+  .p3 { --x: -64px; --y: -8px; --r: -80deg; }
+  .p4 { --x: 62px; --y: -10px; --r: 70deg; }
+  .p5 { --x: -24px; --y: -78px; --r: -20deg; }
+  .p6 { --x: 28px; --y: -80px; --r: 30deg; }
+  @keyframes pop {
+    0%, 60% { opacity: 0; transform: translate(0, 0) scale(.2) rotate(0deg); }
+    66% { opacity: 1; }
+    92% { opacity: 1; transform: translate(var(--x), var(--y)) scale(1) rotate(var(--r)); }
+    100% { opacity: 0; transform: translate(calc(var(--x) * 1.1), calc(var(--y) * 1.1 + 6px)) scale(.6) rotate(var(--r)); }
+  }
+  .updating .pop { display: none; }
+
+  /* While it updates: three sparks circle it, each its own size and pace. */
+  .orbit { position: absolute; left: 50%; bottom: 49px; width: 0; height: 0; opacity: 0; transition: opacity .4s; }
+  .updating .orbit { opacity: 1; }
+  .orbit i { position: absolute; border-radius: 50%; background: var(--ink); }
+  .orbit .a { width: 7px; height: 7px; margin: -3.5px; animation: spin 1.6s linear infinite; --o: 58px; }
+  .orbit .b { width: 6px; height: 6px; margin: -3px; animation: spin 2.4s linear infinite reverse; --o: 66px; background: var(--accent); }
+  .orbit .c { width: 5px; height: 5px; margin: -2.5px; animation: spin 2s linear infinite; animation-delay: -.7s; --o: 50px; background: #FFC83D; }
+  @keyframes spin { from { transform: rotate(0deg) translateX(var(--o)) rotate(0deg); } to { transform: rotate(360deg) translateX(var(--o)) rotate(-360deg); } }
+
+  h1 { margin: 0 0 4px; font-size: 15px; line-height: 20px; font-weight: 600; color: var(--ink); }
+  /* "Updating Deskwisp", a light passing over it. */
+  .updating h1 {
+    color: transparent; -webkit-background-clip: text; background-clip: text;
+    background-image: linear-gradient(90deg, #A8A8A5 0%, #A8A8A5 30%, var(--ink) 45%, var(--ink) 55%, #A8A8A5 70%, #A8A8A5 100%);
+    background-size: 260% 100%; animation: shine 1.8s linear infinite;
+  }
+  @keyframes shine { from { background-position: 100% 0; } to { background-position: 0 0; } }
+  .line { margin: 0; min-height: 20px; }
+
+  .bar { position: relative; width: 240px; height: 8px; margin-top: 22px; border-radius: 4px; background: var(--track); overflow: hidden; }
+  .bar b { position: absolute; inset: 0; border-radius: 4px; background: var(--accent); transform-origin: 0 50%; transform: scaleX(0); }
+  .ready .bar b { transform: scaleX(1); }
+  .under { margin-top: 10px; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; min-height: 19px; }
+
+  ul { list-style: none; margin: 10px 0 0; padding: 0; display: none; flex-direction: column; gap: 2px; max-width: 280px; }
+  .ready ul.has { display: flex; }
+  li { font-size: 12px; line-height: 16px; color: var(--muted); }
+  li::before { content: "·"; margin-right: 6px; color: var(--faint); }
+
+  .go { display: none; margin-top: 22px; padding: 8px 16px; border: 0; border-radius: 999px; background: var(--ink); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .go:hover { background: #2A2742; }
+  .go:focus-visible, .later:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .later { display: none; margin-top: 10px; border: 0; background: none; color: var(--faint); font: inherit; font-size: 12.5px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+  .later:hover { color: var(--ink); }
+  .ready .go, .ready .later { display: inline-block; }
+  .oops { color: #B42318; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hop, .shadow, .orbit i, .spark, .cheek, .updating h1 { animation: none !important; }
+    .pop { display: none; }
+    .updating h1 { color: var(--ink); background: none; }
+  }
+</style>
+</head>
+<body>
+  <main class="card" id="card">
+    <div class="scene" aria-hidden="true">
+      <div class="shadow"></div>
+      <svg class="pop p1" viewBox="0 0 24 24"><path d="M12 2c.7 4.6 2.6 6.6 7.2 7.2-4.6.7-6.5 2.6-7.2 7.2-.7-4.6-2.6-6.5-7.2-7.2C9.4 8.6 11.3 6.6 12 2z" fill="#7C5CFF"/></svg>
+      <svg class="pop p2" viewBox="0 0 24 24"><path d="M12 2c.7 4.6 2.6 6.6 7.2 7.2-4.6.7-6.5 2.6-7.2 7.2-.7-4.6-2.6-6.5-7.2-7.2C9.4 8.6 11.3 6.6 12 2z" fill="#FFC83D"/></svg>
+      <svg class="pop p3 s" viewBox="0 0 24 24"><path d="M12 2c.7 4.6 2.6 6.6 7.2 7.2-4.6.7-6.5 2.6-7.2 7.2-.7-4.6-2.6-6.5-7.2-7.2C9.4 8.6 11.3 6.6 12 2z" fill="#16132B"/></svg>
+      <svg class="pop p4 s" viewBox="0 0 24 24"><path d="M12 2c.7 4.6 2.6 6.6 7.2 7.2-4.6.7-6.5 2.6-7.2 7.2-.7-4.6-2.6-6.5-7.2-7.2C9.4 8.6 11.3 6.6 12 2z" fill="#7C5CFF"/></svg>
+      <svg class="pop p5 s" viewBox="0 0 24 24"><path d="M12 2c.7 4.6 2.6 6.6 7.2 7.2-4.6.7-6.5 2.6-7.2 7.2-.7-4.6-2.6-6.5-7.2-7.2C9.4 8.6 11.3 6.6 12 2z" fill="#FF6FB5"/></svg>
+      <svg class="pop p6" viewBox="0 0 24 24"><path d="M12 2c.7 4.6 2.6 6.6 7.2 7.2-4.6.7-6.5 2.6-7.2 7.2-.7-4.6-2.6-6.5-7.2-7.2C9.4 8.6 11.3 6.6 12 2z" fill="#2EC4B6"/></svg>
+      <div class="orbit"><i class="a"></i><i class="b"></i><i class="c"></i></div>
+      <div class="hop">
+        <svg viewBox="0 0 40 40">
+          <path d="M21.5 2.5c-.6 3.4 1.4 5.6 4.6 7.6C31.2 13.4 35 18.2 35 24.6 35 32 28.6 37.5 20 37.5S5 32 5 24.6c0-4.9 2.6-8.8 6-11.4.1 2.4 1.2 4.1 3.1 4.9-.4-6.2 2.3-11.5 7.4-15.6z" fill="#16132B"/>
+          <path d="M25.2 15.2c2.6 1.2 4.6 3.1 5.7 5.6" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".35"/>
+          <path d="M13.4 25.6q1.9-2.3 3.8 0M22.8 25.6q1.9-2.3 3.8 0" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M17.4 28.6q2.6 3.4 5.2 0z" fill="#fff"/>
+          <ellipse class="cheek" cx="11.6" cy="28.6" rx="2.1" ry="1.2" fill="#FF8FB1"/>
+          <ellipse class="cheek" cx="28.4" cy="28.6" rx="2.1" ry="1.2" fill="#FF8FB1"/>
+          <path class="spark" d="M33 3.2c.4 2.6 1.4 3.6 4 4-2.6.4-3.6 1.4-4 4-.4-2.6-1.4-3.6-4-4 2.6-.4 3.6-1.4 4-4z" fill="#7C5CFF"/>
+        </svg>
+      </div>
+    </div>
+    <h1 id="title">Update ready</h1>
+    <p class="line" id="line">Restart to finish. It takes a few seconds.</p>
+    <div class="bar" role="progressbar" aria-labelledby="title" aria-valuemin="0" aria-valuemax="100" id="bar"><b id="fill"></b></div>
+    <div class="under" id="under" aria-live="polite"></div>
+    <ul id="notes" aria-label="What's new"></ul>
+    <button class="go" id="go">Restart to update</button>
+    <button class="later" id="later">Later</button>
+  </main>
+<script>
+  const q = new URLSearchParams(location.search);
+  const update = window.deskwispMac && window.deskwispMac.update;
+  const $ = (id) => document.getElementById(id);
+  const version = /^\d+\.\d+\.\d+$/.test(q.get("version") || "") ? q.get("version") : "";
+  const LINES = {
+    saving: "Saving your bots and chats…",
+    closing: "Closing Deskwisp…",
+    installing: version ? `Installing Deskwisp ${version}…` : "Installing the new version…",
+    opening: "Deskwisp opens again in a few seconds.",
+  };
+
+  let target = 0.04;
+  let shown = 0;
+  let timer;
+  function draw() {
+    // Toward the step the app is at, and a little past it while that step runs, so the bar keeps moving.
+    const goal = target >= 1 ? 1 : Math.min(target + 0.18, 0.96);
+    // Quickly up to where the app is, then slowly on.
+    shown += (goal - shown) * (target >= 1 ? 0.3 : shown < target ? 0.15 : 0.02);
+    if (goal - shown < 0.002) shown = goal;
+    $("fill").style.transform = `scaleX(${shown.toFixed(4)})`;
+    const pct = Math.round(shown * 100);
+    $("under").textContent = `${pct}%`;
+    $("bar").setAttribute("aria-valuenow", String(pct));
+  }
+
+  function phase(name) {
+    document.body.className = name;
+    if (name === "updating") {
+      document.title = "Updating Deskwisp";
+      $("title").textContent = "Updating Deskwisp";
+      $("line").textContent = LINES.saving;
+      $("line").classList.remove("oops");
+      clearInterval(timer);
+      timer = setInterval(draw, 100);
+      draw();
+    } else {
+      document.title = "Update ready";
+      $("title").textContent = "Update ready";
+      $("line").textContent = "Restart to finish. It takes a few seconds.";
+      $("under").textContent = version ? `Deskwisp ${version}` : "";
+      $("bar").setAttribute("aria-valuenow", "100");
+    }
+  }
+
+  function heard(s) {
+    if (!s) return;
+    if (s.state === "installing") {
+      if (document.body.className !== "updating") phase("updating");
+      if (typeof s.progress === "number") target = Math.max(target, Math.min(1, s.progress));
+      if (LINES[s.step]) $("line").textContent = LINES[s.step];
+    }
+    if (document.body.className === "ready" && Array.isArray(s.notes) && s.notes.length) {
+      const ul = $("notes");
+      ul.replaceChildren(...s.notes.slice(0, 3).map((n) => Object.assign(document.createElement("li"), { textContent: String(n) })));
+      ul.classList.add("has");
+    }
+  }
+
+  phase(q.get("phase") === "updating" ? "updating" : "ready");
+  if (update) {
+    update.onStatus(heard);
+    update.status().then(heard).catch(() => {});
+  }
+  $("go").addEventListener("click", async () => {
+    phase("updating");
+    try {
+      const ok = await update.install();
+      if (ok === false) throw new Error("not ready");
+    } catch {
+      $("line").textContent = "Couldn't start the update. Deskwisp opens as it is.";
+      $("line").classList.add("oops");
+      setTimeout(() => update && update.later(), 1800);
+    }
+  });
+  $("later").addEventListener("click", () => update && update.later());
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.body.className === "ready" && update) update.later();
+  });
+</script>
+</body>
+</html>

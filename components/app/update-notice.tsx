@@ -5,10 +5,11 @@ import { useEffect, useState } from "react";
 /*
  * A newer Deskwisp is out. The PC app asks deskwisp.com for the newest release at launch and every hour.
  * On Windows (desktop/win-update.cjs) the new version comes down by itself, and once it's here ("ready")
- * this offers to restart into it. Otherwise (the Mac app, desktop/main.cjs "New versions", or a download
- * that didn't work) it says so and sends the user to deskwisp.com. Either way with what's new in it when
- * the release says (docs/releases); put away, it stays away for that version. In a browser there's no PC
- * app to ask, so it never shows.
+ * this offers to restart into it (the update screen, desktop/update.html). When it isn't here (automatic
+ * downloads off, or a download that didn't work) Download brings it down; the Mac app (desktop/main.cjs
+ * "New versions") sends the user to deskwisp.com instead. Either way with what's new in it when the
+ * release says (docs/releases); put away, it stays away for that version, and About (about.tsx) still
+ * has it. In a browser there's no PC app to ask, so it never shows.
  */
 
 type UpdateInfo = { version: string; notes?: string[]; ready?: boolean } | null;
@@ -50,7 +51,7 @@ export function UpdateNotice() {
             </>
           ) : (
             <>
-              <span className="font-medium text-ink">Deskwisp {info.version} is out.</span> Get it at deskwisp.com
+              <span className="font-medium text-ink">Deskwisp {info.version} is out.</span>
             </>
           )}
         </span>

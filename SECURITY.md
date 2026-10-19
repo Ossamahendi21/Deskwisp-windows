@@ -5,7 +5,7 @@
 Please don't open a public issue. Report it privately, either way:
 
 - On GitHub: the repository's **Security** tab, then **Report a vulnerability**.
-- By email: **security@deskwisp.com**.
+- By email: **hello@deskwisp.com**.
 
 Tell us what you found, how to reproduce it, and what it lets someone do. We'll reply within 3 business days and keep you posted until it's fixed. Please give us a reasonable time to fix it before you share it.
 
@@ -15,7 +15,7 @@ Tell us what you found, how to reproduce it, and what it lets someone do. We'll 
 - The webhook relay (`edge/`) and the webhook routes (`app/api/phone/*`).
 - What runs on the bots' computers (`vm/`, `horafirm/`).
 - The desktop app (`desktop/`).
-- Deskwisp Cloud (`cloud/`, with its schema in `db/`), the server Horafirm runs for hosted Deskwisp at cloud.deskwisp.com/api: anything that lets one user read or act on another user's data, numbers, inboxes or memory, or spend Horafirm's provider keys.
+- Deskwisp Cloud (`cloud/`, with its schema in `db/`), the server Deskwisp runs at cloud.deskwisp.com/api: anything that lets one user read or act on another user's data, numbers, inboxes or memory, or spend Deskwisp's provider keys.
 
 When you test the hosted service, use your own account, don't touch other people's data, and stop at a proof of concept.
 
