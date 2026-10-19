@@ -116,8 +116,11 @@ git push && git push --tags
 
 It builds the installer, puts it on the server, checks deskwisp.com serves exactly it, then commits the
 new version number and tags it. Every installed Deskwisp asks deskwisp.com within the hour, brings the
-new version down in the background, and offers **Restart** in the sidebar; quitting installs it too.
-Your data stays.
+new version down in the background, and offers **Restart** in the sidebar and in **About Deskwisp** (the
+account menu), where anyone can also **Check for updates** now and turn automatic downloads off.
+Restarting shows the update screen while Deskwisp saves, closes and installs; quitting installs it too.
+A version downloaded but never installed (Windows shut down first) is offered at the next launch. Your
+data stays.
 
 It signs in to the server as set in `.env.release`, at the repo's root (never committed):
 

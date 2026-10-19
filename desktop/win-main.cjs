@@ -118,7 +118,7 @@ function spawnServer() {
   const logFile = path.join(app.getPath("logs"), "server.log");
   const big = (fs.statSync(logFile, { throwIfNoEntry: false })?.size ?? 0) > 5 * 1024 * 1024;
   const log = fs.openSync(logFile, big ? "w" : "a");
-  fs.writeSync(log, `\n--- Deskwisp ${app.getVersion()} (Windows) starting, ${new Date().toISOString()}\n`);
+  fs.writeSync(log, `\n--- Deskwisp ${VERSION} (Windows) starting, ${new Date().toISOString()}\n`);
   const common = {
     ...HOSTED,
     ...process.env,
@@ -202,9 +202,20 @@ async function stopServer({ save = true } = {}) {
 // ---------------------------------------------------------------- The window
 
 let opening;
-function openApp(win) {
+let offeredUpdate = false;
+function openApp(win, { skipUpdate = false } = {}) {
   opening ??= (async () => {
     try {
+      // A newer version downloaded before Deskwisp was last closed, and not installed (Windows shut it
+      // down, say): offered first, once a launch (desktop/update.html). "Later" comes back here.
+      if (!skipUpdate && !offeredUpdate) {
+        offeredUpdate = true;
+        if (updatesOn() && (await updater.restore().catch(() => false))) {
+          const { version } = updater.status();
+          mainLog(`offering the update to ${version} downloaded before`);
+          return void (await win.loadFile(UPDATE_PAGE, { query: { phase: "ready", version } }).catch(() => {}));
+        }
+      }
       // The splash while the server starts, but never waited on for long: the server starts regardless.
       await Promise.race([win.loadFile(SPLASH).catch(() => {}), sleep(3000)]);
       mainLog("checking the server");
@@ -246,8 +257,11 @@ function createWindow() {
   });
   mainWin = win;
   mainLog("window made");
+  // Not closed halfway through Restart to update: it ends by itself in a few seconds.
+  win.on("close", (e) => installing && e.preventDefault());
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:/i.test(url)) void shell.openExternal(url);
+    // Web pages in the browser, and an email to support (About) in the mail app.
+    if (/^(https?|mailto):/i.test(url)) void shell.openExternal(url);
     return { action: "deny" };
   });
   win.webContents.on("render-process-gone", (_, d) => {
@@ -342,17 +356,51 @@ ipcMain.handle("mac-show-main", () => showMain());
 // ---------------------------------------------------------------- New versions (desktop/win-update.cjs)
 
 /*
- * A release build asks deskwisp.com for a newer one at launch and every hour, and brings its installer
- * down in the background. The page's notice then offers to restart into it; quitting installs it too.
- * A build from the source folder never asks: it's as new as the source.
+ * A release build asks deskwisp.com for a newer version at launch, every hour, and when you press
+ * "Check for updates" in About (components/app/about.tsx). A newer one comes down by itself (unless
+ * you turned that off in About), then the sidebar's notice and About offer "Restart to update", which
+ * shows the update screen (desktop/update.html) while Deskwisp saves, closes and hands over to the
+ * installer, which opens the new version. Quitting installs it too. A build from the source folder
+ * never updates: it's as new as the source.
  */
 const SITE_URL = "https://deskwisp.com";
+const UPDATE_PAGE = path.join(__dirname, "update.html");
+/** This app's version (a build from the source folder has no installer's: package.json's). */
+const VERSION = (() => {
+  if (app.isPackaged) return app.getVersion();
+  try {
+    return JSON.parse(fs.readFileSync(path.join(REPO, "package.json"), "utf8")).version;
+  } catch {
+    return app.getVersion();
+  }
+})();
+const updatesOn = () => app.isPackaged && (userEnv().DESKWISP_UPDATES ?? process.env.DESKWISP_UPDATES) !== "0";
+
+const settingsFile = () => path.join(app.getPath("userData"), "update-settings.json");
+function autoDownload() {
+  try {
+    return JSON.parse(fs.readFileSync(settingsFile(), "utf8")).auto !== false;
+  } catch {
+    return true;
+  }
+}
 const updater = createUpdater({
-  currentVersion: app.getVersion(),
+  currentVersion: VERSION,
   dir: path.join(process.env.LOCALAPPDATA || app.getPath("temp"), "deskwisp-updater"),
   logFile: path.join(app.getPath("logs"), "updates.log"),
-  onChange: () => mainWin && !mainWin.isDestroyed() && mainWin.webContents.send("update", updateInfo()),
+  auto: autoDownload,
+  onChange: () => tellUpdate(),
 });
+
+// While "Restart to update" runs: where it's at, for the update screen.
+let installStatus;
+/** Where updates are at, for About and the update screen. */
+function updateStatus() {
+  if (installStatus) return installStatus;
+  if (!updatesOn()) return { current: VERSION, state: "off", reason: app.isPackaged ? "turned-off" : "source" };
+  return updater.status();
+}
+
 const dismissedFile = () => path.join(app.getPath("userData"), "update-dismissed.json");
 function dismissedVersion() {
   try {
@@ -361,36 +409,123 @@ function dismissedVersion() {
     return undefined;
   }
 }
-/** What the page's notice shows ({ version, notes, ready }), unless the user put it away for that version. */
+/**
+ * What the sidebar's notice shows: { version, notes, ready } once a newer version is here (ready) or is out
+ * but didn't come down (automatic downloads off, or a download that failed), unless put away for that version.
+ */
 function updateInfo() {
-  const info = updater.info();
-  return info && info.version !== dismissedVersion() ? info : null;
+  const s = updateStatus();
+  if (!s.version || !["ready", "available", "error"].includes(s.state) || s.version === dismissedVersion()) return null;
+  return { version: s.version, notes: s.notes ?? [], ready: s.state === "ready" };
+}
+let toldInfo = "null";
+function tellUpdate() {
+  if (!mainWin || mainWin.isDestroyed()) return;
+  mainWin.webContents.send("update-status", updateStatus());
+  const info = JSON.stringify(updateInfo());
+  if (info === toldInfo) return;
+  toldInfo = info;
+  mainWin.webContents.send("update", updateInfo());
+}
+
+let installing;
+/**
+ * Restart to update: the update screen, while the server saves and stops, then the installer takes over
+ * (it waits for Deskwisp to close, installs, and opens the new version). Back to work if it won't run.
+ */
+function restartToUpdate() {
+  if (!updater.isReady()) return Promise.resolve(false);
+  installing ??= (async () => {
+    const { version, notes } = updater.status();
+    mainLog(`Restart to update to ${version}`);
+    leaving = true;
+    const step = (name, progress) => {
+      installStatus = { current: VERSION, state: "installing", version, notes, step: name, progress };
+      tellUpdate();
+    };
+    step("saving", 0.06);
+    if (mainWin && !mainWin.isDestroyed()) await mainWin.loadFile(UPDATE_PAGE, { query: { phase: "updating", version } }).catch(() => {});
+    await sleep(400);
+    step("saving", 0.18);
+    await stopServer();
+    step("closing", 0.48);
+    for (let i = 0; i < 28 && (await portTaken()); i++) await sleep(250);
+    step("installing", 0.74);
+    await sleep(500);
+    if (updater.install({ reopen: true })) {
+      step("opening", 1);
+      await sleep(1200);
+      app.exit(0);
+      return true;
+    }
+    mainLog("the installer wouldn't run: staying on this version");
+    installStatus = undefined;
+    installing = undefined;
+    leaving = false;
+    tellUpdate();
+    if (mainWin && !mainWin.isDestroyed()) void openApp(mainWin, { skipUpdate: true });
+    return false;
+  })();
+  return installing;
 }
 
 ipcMain.handle("update-info", () => updateInfo());
+ipcMain.handle("update-status", () => updateStatus());
+ipcMain.handle("update-check", () => (updatesOn() && !installStatus ? updater.check() : updateStatus()));
+ipcMain.handle("update-get", () => {
+  if (updatesOn()) void updater.download();
+  return updateStatus();
+});
+ipcMain.handle("update-install", () => restartToUpdate());
+// "Later" on the update screen shown at launch: the app, on this version (the update stays ready).
+ipcMain.handle("update-later", () => mainWin && !mainWin.isDestroyed() && openApp(mainWin, { skipUpdate: true }));
+ipcMain.handle("update-auto", (_, on) => {
+  try {
+    fs.writeFileSync(settingsFile(), JSON.stringify({ auto: !!on }));
+  } catch {}
+  if (on && updatesOn() && updater.status().state === "available") void updater.download();
+  tellUpdate();
+  return updateStatus();
+});
 ipcMain.handle("update-dismiss", (_, version) => {
   if (typeof version !== "string" || !/^\d+\.\d+\.\d+/.test(version)) return;
   try {
     fs.writeFileSync(dismissedFile(), JSON.stringify({ version, at: Date.now() }));
   } catch {}
+  tellUpdate();
 });
-let updating;
-/** "Restart" when the new version is ready: Deskwisp saves and closes, and the installer opens the new one. Else the website. */
+/** The notice's button: restart into a ready update, else bring it down here, else the website. */
 ipcMain.handle("update-download", () => {
-  if (!updater.isReady()) return shell.openExternal(`${SITE_URL}/download/Deskwisp-Setup.exe`);
-  updating ??= (async () => {
-    mainLog("Restart to update");
-    leaving = true;
-    await stopServer();
-    for (let i = 0; i < 28 && (await portTaken()); i++) await sleep(250);
-    if (updater.install({ reopen: true })) return app.exit(0);
-    // The installer wouldn't run: back to work, on this version.
-    leaving = false;
-    updating = undefined;
-    if (mainWin && !mainWin.isDestroyed()) void openApp(mainWin);
-  })();
-  return updating;
+  if (updater.isReady()) return restartToUpdate();
+  if (updatesOn() && updater.status().version) return void updater.download();
+  return shell.openExternal(`${SITE_URL}/download/Deskwisp-Setup.exe`);
 });
+
+// ---------------------------------------------------------------- About (components/app/about.tsx)
+
+/** The licence and credits that ship with the app (resources\legal; the repo's own files from source). */
+function legal() {
+  const dir = app.isPackaged ? path.join(process.resourcesPath, "legal") : REPO;
+  const read = (name) => {
+    try {
+      return fs.readFileSync(path.join(dir, name), "utf8");
+    } catch {
+      return undefined;
+    }
+  };
+  return { license: read("LICENSE"), authors: read("AUTHORS"), notices: read("THIRD_PARTY_NOTICES.md") };
+}
+ipcMain.handle("app-about", () => ({
+  version: VERSION,
+  packaged: app.isPackaged,
+  platform: "Windows",
+  arch: process.arch,
+  os: require("node:os").release(),
+  electron: process.versions.electron,
+  chrome: process.versions.chrome,
+  node: process.versions.node,
+  ...legal(),
+}));
 
 // ---------------------------------------------------------------- Start and quit
 
@@ -403,12 +538,10 @@ app.whenReady().then(() => {
   if (!first) return;
   Menu.setApplicationMenu(null);
   mainLog(`data in ${app.getPath("userData")}, server ${packagedDir() ?? "next dev"}`);
-  mainLog(`Deskwisp ${app.getVersion()} (Windows) opening (pid ${process.pid})`);
+  mainLog(`Deskwisp ${VERSION} (Windows) opening (pid ${process.pid})`);
   createWindow();
-  if (app.isPackaged && (userEnv().DESKWISP_UPDATES ?? process.env.DESKWISP_UPDATES) !== "0") {
-    setTimeout(() => void updater.check(), 20_000);
-    setInterval(() => void updater.check(), 60 * 60_000).unref();
-  }
+  setTimeout(() => updatesOn() && void updater.check(), 20_000);
+  setInterval(() => updatesOn() && void updater.check(), 60 * 60_000).unref();
 });
 
 app.on("window-all-closed", () => app.quit());
@@ -424,5 +557,5 @@ app.on("before-quit", (e) => {
 });
 // Quitting with a new version ready installs it, once Deskwisp has closed (it isn't opened again).
 app.on("quit", () => {
-  if (updater.isReady()) updater.install({ reopen: false });
+  if (updatesOn() && updater.isReady()) updater.install({ reopen: false });
 });

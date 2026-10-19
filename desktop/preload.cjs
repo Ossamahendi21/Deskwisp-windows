@@ -38,5 +38,21 @@ contextBridge.exposeInMainWorld("deskwispMac", {
     },
     dismiss: (version) => ipcRenderer.invoke("update-dismiss", version),
     download: () => ipcRenderer.invoke("update-download"),
+    // About and the update screen (desktop/update.html): where updates are at ({ current, state, version,
+    // notes, progress, … }, desktop/win-update.cjs), as it changes; check now; bring a newer one down;
+    // restart into it; "Later" on the update screen; whether newer versions come down by themselves.
+    status: () => ipcRenderer.invoke("update-status"),
+    onStatus: (fn) => {
+      const on = (_, status) => fn(status);
+      ipcRenderer.on("update-status", on);
+      return () => ipcRenderer.off("update-status", on);
+    },
+    check: () => ipcRenderer.invoke("update-check"),
+    get: () => ipcRenderer.invoke("update-get"),
+    install: () => ipcRenderer.invoke("update-install"),
+    later: () => ipcRenderer.invoke("update-later"),
+    setAuto: (on) => ipcRenderer.invoke("update-auto", !!on),
   },
+  // About Deskwisp: this app's version, what it runs on, and the licence and credits that ship with it.
+  about: () => ipcRenderer.invoke("app-about"),
 });
