@@ -330,7 +330,7 @@ async function cloudHandle(ws: string): Promise<string | null> {
   return null;
 }
 
-/** A bot's inbox, made at `where`, kept as its address (the one before stays in `past`, still getting mail). */
+/** A bot's inbox, made at `where`, kept as its address (the one before stays in `past`, still getting mail, when it's in the same pod). */
 async function newInbox(b: Bot, pod: string, ws: string, where: { username: string; domain?: string }, clientId: string, slug: string | null) {
   const epoch = stateEpoch();
   const inbox = await am().pods.inboxes.create(pod, {
@@ -341,16 +341,20 @@ async function newInbox(b: Bot, pod: string, ws: string, where: { username: stri
   });
   recordUsage("mail.inbox", { botId: b.id }, epoch);
   const before = bot(b.id)?.email;
+  // The old addresses keep arriving only in the same pod: another one (AgentMail, then Deskwisp Mail) isn't read any more.
+  const kept = bot(b.id)?.mail?.podId === pod;
   update((s) => {
     const w = s.workspaces?.find((x) => x.id === ws);
     if (w && slug) w.mailSlug ??= slug;
     const x = s.bots.find((y) => y.id === b.id);
     if (!x) return;
-    const past = [...(x.mail?.past ?? []), ...(x.mail && x.mail.inboxId !== inbox.inboxId ? [x.mail.inboxId] : [])].filter((p) => p !== inbox.inboxId);
+    const samePod = x.mail?.podId === pod;
+    const past = samePod ? [...(x.mail?.past ?? []), ...(x.mail && x.mail.inboxId !== inbox.inboxId ? [x.mail.inboxId] : [])].filter((p) => p !== inbox.inboxId) : [];
     x.mail = { inboxId: inbox.inboxId, podId: pod, past: past.length ? past : undefined, seenAt: x.mail?.seenAt ?? Date.now() };
     x.email = inbox.email;
   });
-  if (before && before !== inbox.email) addMessage({ chatId: botChatId(b.id), role: "system", text: `${b.name}'s email is now ${inbox.email} (mail to ${before} still arrives)` });
+  if (before && before !== inbox.email)
+    addMessage({ chatId: botChatId(b.id), role: "system", text: `${b.name}'s email is now ${inbox.email}${kept ? ` (mail to ${before} still arrives)` : ""}` });
   return inbox.email;
 }
 

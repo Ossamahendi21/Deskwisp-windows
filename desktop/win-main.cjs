@@ -14,6 +14,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const net = require("node:net");
 const path = require("node:path");
+const { createUpdater } = require("./win-update.cjs");
 
 const PORT = Number(process.env.DESKWISP_PORT) || 3210;
 /**
@@ -338,10 +339,58 @@ ipcMain.handle("mac-pip-open", () => {
 ipcMain.handle("mac-pip-close", () => pipWin?.close());
 ipcMain.handle("mac-show-main", () => showMain());
 
-// No updates from deskwisp.bot: those are the PC app's. This build updates when you build it again.
-ipcMain.handle("update-info", () => null);
-ipcMain.handle("update-dismiss", () => undefined);
-ipcMain.handle("update-download", () => undefined);
+// ---------------------------------------------------------------- New versions (desktop/win-update.cjs)
+
+/*
+ * A release build asks deskwisp.com for a newer one at launch and every hour, and brings its installer
+ * down in the background. The page's notice then offers to restart into it; quitting installs it too.
+ * A build from the source folder never asks: it's as new as the source.
+ */
+const SITE_URL = "https://deskwisp.com";
+const updater = createUpdater({
+  currentVersion: app.getVersion(),
+  dir: path.join(process.env.LOCALAPPDATA || app.getPath("temp"), "deskwisp-updater"),
+  logFile: path.join(app.getPath("logs"), "updates.log"),
+  onChange: () => mainWin && !mainWin.isDestroyed() && mainWin.webContents.send("update", updateInfo()),
+});
+const dismissedFile = () => path.join(app.getPath("userData"), "update-dismissed.json");
+function dismissedVersion() {
+  try {
+    return JSON.parse(fs.readFileSync(dismissedFile(), "utf8")).version;
+  } catch {
+    return undefined;
+  }
+}
+/** What the page's notice shows ({ version, notes, ready }), unless the user put it away for that version. */
+function updateInfo() {
+  const info = updater.info();
+  return info && info.version !== dismissedVersion() ? info : null;
+}
+
+ipcMain.handle("update-info", () => updateInfo());
+ipcMain.handle("update-dismiss", (_, version) => {
+  if (typeof version !== "string" || !/^\d+\.\d+\.\d+/.test(version)) return;
+  try {
+    fs.writeFileSync(dismissedFile(), JSON.stringify({ version, at: Date.now() }));
+  } catch {}
+});
+let updating;
+/** "Restart" when the new version is ready: Deskwisp saves and closes, and the installer opens the new one. Else the website. */
+ipcMain.handle("update-download", () => {
+  if (!updater.isReady()) return shell.openExternal(`${SITE_URL}/download/Deskwisp-Setup.exe`);
+  updating ??= (async () => {
+    mainLog("Restart to update");
+    leaving = true;
+    await stopServer();
+    for (let i = 0; i < 28 && (await portTaken()); i++) await sleep(250);
+    if (updater.install({ reopen: true })) return app.exit(0);
+    // The installer wouldn't run: back to work, on this version.
+    leaving = false;
+    updating = undefined;
+    if (mainWin && !mainWin.isDestroyed()) void openApp(mainWin);
+  })();
+  return updating;
+});
 
 // ---------------------------------------------------------------- Start and quit
 
@@ -356,6 +405,10 @@ app.whenReady().then(() => {
   mainLog(`data in ${app.getPath("userData")}, server ${packagedDir() ?? "next dev"}`);
   mainLog(`Deskwisp ${app.getVersion()} (Windows) opening (pid ${process.pid})`);
   createWindow();
+  if (app.isPackaged && (userEnv().DESKWISP_UPDATES ?? process.env.DESKWISP_UPDATES) !== "0") {
+    setTimeout(() => void updater.check(), 20_000);
+    setInterval(() => void updater.check(), 60 * 60_000).unref();
+  }
 });
 
 app.on("window-all-closed", () => app.quit());
@@ -368,4 +421,8 @@ app.on("before-quit", (e) => {
   quitting = true;
   leaving = true;
   void stopServer().finally(() => app.quit());
+});
+// Quitting with a new version ready installs it, once Deskwisp has closed (it isn't opened again).
+app.on("quit", () => {
+  if (updater.isReady()) updater.install({ reopen: false });
 });

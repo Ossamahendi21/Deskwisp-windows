@@ -26,7 +26,9 @@ contextBridge.exposeInMainWorld("deskwispMac", {
     retry: () => ipcRenderer.invoke("startup-retry"),
     logs: () => ipcRenderer.invoke("startup-logs"),
   },
-  // A newer release on deskwisp.bot ({ version, notes } or null), as it changes; Deskwisp doesn't update itself.
+  // A newer release on deskwisp.com ({ version, notes, ready } or null), as it changes. On Windows it comes
+  // down by itself and `ready` says it's here: then download() restarts into it (desktop/win-update.cjs).
+  // The Mac app doesn't update itself: download() opens deskwisp.com.
   update: {
     info: () => ipcRenderer.invoke("update-info"),
     onChange: (fn) => {

@@ -48,9 +48,8 @@ On Oracle Cloud, make an Ubuntu 24.04 VM. Ampere (arm64) and AMD (x64) both work
 
 ```bash
 sudo apt-get update && sudo apt-get install -y git
-sudo git clone https://github.com/Ossamahendi21/Deskwisp-windows.git /opt/deskwisp
-cd /opt/deskwisp && sudo git checkout deskwisp-main
-sudo bash deploy/vps/install.sh
+sudo git clone -b main https://github.com/Ossamahendi21/Deskwisp-windows.git /opt/deskwisp
+sudo bash /opt/deskwisp/deploy/vps/install.sh
 ```
 
 The repo is private, so `git clone` asks you to sign in. Use a GitHub token with read access, or a
@@ -104,3 +103,39 @@ Follow docs/SERVICES.md "Bots' email". With the server up, set the Worker's `CLO
 The domain's own addresses (`hello@`, `support@`) can still reach you. In Email Routing, add a rule for
 each address, sending it to your own inbox. Those rules come before the catch-all. No bot ever gets
 those names.
+
+## 5. New versions of the Windows app
+
+From the repo on your PC (Git Bash), with what's new in it in `docs/releases/v<version>.md` (a few
+`- ` lines; up to five show in the app):
+
+```bash
+bash scripts/release-win.sh 0.1.0
+git push && git push --tags
+```
+
+It builds the installer, puts it on the server, checks deskwisp.com serves exactly it, then commits the
+new version number and tags it. Every installed Deskwisp asks deskwisp.com within the hour, brings the
+new version down in the background, and offers **Restart** in the sidebar; quitting installs it too.
+Your data stays.
+
+It signs in to the server as set in `.env.release`, at the repo's root (never committed):
+
+```
+DESKWISP_SSH=ubuntu@84.8.217.42
+DESKWISP_SSH_KEY=D:\Downloads\your-key.key
+```
+
+On the server, in `/var/www/deskwisp/download/`:
+
+| File | For |
+|---|---|
+| `win/latest.json` | the apps: the newest version, its installer, size, SHA-512 and what's new |
+| `win/Deskwisp-Setup-<version>-x64.exe` | the apps' downloads (the newest three are kept) |
+| `Deskwisp-Setup.exe` | the website's download button: always the newest |
+
+The installer isn't signed yet, so Windows SmartScreen warns on a first install from a browser ("More
+info" → "Run anyway"). Updates don't: they come through the app. A code-signing certificate ends the
+warning; `electron-builder.win.json` is where it goes.
+
+`bash scripts/release-win.sh --no-publish` only builds, into `dist-win/`.

@@ -8,6 +8,9 @@ deskwisp.com {
 	root * /var/www/deskwisp
 	file_server
 	encode gzip
+	# What the apps read to find a new version (scripts/release-win.sh): always asked for afresh.
+	@latest path /download/latest.json /download/win/latest.json
+	header @latest Cache-Control "no-cache"
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options nosniff
