@@ -3,146 +3,931 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Deskwisp</title>
-    <meta name="description" content="A team of AI bots for your business ops, on Windows. Chat with them like teammates, from your PC or your phone." />
-    <link rel="icon" href="deskwisp.png" />
+    <title>Deskwisp: a team of AI bots for your business, on Windows</title>
+    <meta name="description" content="Chat with a team of AI bots like teammates. They work on their own computers, which you can watch and take over, and ask before anything goes out." />
+    <meta property="og:title" content="Deskwisp" />
+    <meta property="og:description" content="A team of AI bots for the busywork of your business, on Windows." />
+    <meta property="og:image" content="https://deskwisp.com/deskwisp.png" />
+    <link rel="icon" href="/deskwisp.png" />
+    <link rel="preload" href="/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/site.css" />
     <style>
-      :root {
-        --ink: #0a0a0a;
-        --paper: #fafaf7;
-        --muted: #6b6b6b;
-        --line: #e6e6e3;
-        --accent: #e9ff3b;
+      /* The opening: what Deskwisp says, and a chat with the bots playing out beside it. */
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+        gap: 56px;
+        align-items: center;
+        padding-top: 40px;
+        padding-bottom: 96px;
       }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --ink: #f4f4f1;
-          --paper: #0a0a0a;
-          --muted: #9a9a98;
-          --line: #262624;
+      .hero h1 {
+        font-size: clamp(44px, 6.2vw, 78px);
+        line-height: 0.98;
+        letter-spacing: -0.03em;
+        font-weight: 740;
+        font-stretch: 92%;
+        font-variation-settings: "opsz" 96;
+        margin: 0 0 24px;
+        max-width: 11ch;
+      }
+      .hero .lede {
+        font-size: 20px;
+        line-height: 1.5;
+        color: var(--muted);
+        max-width: 34ch;
+        margin: 0 0 32px;
+      }
+      .ctas {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 14px 22px;
+      }
+      .ctas .quiet {
+        color: var(--ink);
+        font-weight: 600;
+        text-decoration: none;
+        border-bottom: 2px solid var(--spark-soft);
+      }
+      .ctas .quiet:hover {
+        border-color: var(--spark);
+      }
+      .fine {
+        color: var(--faint);
+        font-size: 15px;
+        margin: 18px 0 0;
+      }
+      @media (max-width: 900px) {
+        .hero {
+          grid-template-columns: 1fr;
+          gap: 44px;
+          padding-bottom: 72px;
         }
       }
-      * {
-        box-sizing: border-box;
+
+      /* The chat window. */
+      .chat {
+        background: var(--white);
+        border-radius: var(--radius-l);
+        box-shadow: 0 0 0 1px var(--line), 0 40px 80px -48px rgba(22, 19, 43, 0.45);
+        overflow: hidden;
       }
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        background: var(--paper);
-        color: var(--ink);
-        font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      }
-      main {
-        flex: 1;
-        width: 100%;
-        max-width: 720px;
-        margin: 0 auto;
-        padding: 96px 16px 48px;
-      }
-      .mark {
+      .chat-head {
         display: flex;
         align-items: center;
         gap: 12px;
-        font-weight: 650;
-        font-size: 18px;
-        letter-spacing: -0.01em;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--line);
       }
-      .mark img {
+      .chat-head .who {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.25;
+      }
+      .chat-head b {
+        font-weight: 650;
+      }
+      .chat-head span {
+        color: var(--faint);
+        font-size: 14px;
+      }
+      .wisp-hop {
         width: 40px;
         height: 40px;
-        border-radius: 10px;
+        transform-origin: 50% 100%;
+        animation: hop 1.6s cubic-bezier(0.4, 0, 0.3, 1) infinite;
       }
-      h1 {
-        margin: 56px 0 16px;
-        font-size: clamp(36px, 7vw, 60px);
-        line-height: 1.04;
-        letter-spacing: -0.035em;
-        font-weight: 700;
-      }
-      h1 span {
-        background: linear-gradient(transparent 62%, var(--accent) 62%);
-        color: #0a0a0a;
-        padding: 0 4px;
-      }
-      @media (prefers-color-scheme: dark) {
-        h1 span {
-          color: var(--ink);
-          background: linear-gradient(transparent 62%, #5a6310 62%);
+      @keyframes hop {
+        0%,
+        100% {
+          transform: translateY(0) scale(1, 1);
+        }
+        14% {
+          transform: translateY(0) scale(1.1, 0.88);
+        }
+        34% {
+          transform: translateY(-7px) scale(0.94, 1.08) rotate(-6deg);
+        }
+        48% {
+          transform: translateY(-9px) rotate(6deg);
+        }
+        64% {
+          transform: translateY(0) scale(1.1, 0.88);
+        }
+        78% {
+          transform: translateY(0) scale(1, 1);
         }
       }
-      p.lead {
-        margin: 0;
-        max-width: 560px;
-        font-size: 19px;
-        color: var(--muted);
+      .thread {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 22px 20px 24px;
+        min-height: 430px;
       }
-      ul {
-        margin: 40px 0 0;
-        padding: 0;
-        list-style: none;
-        display: grid;
-        gap: 14px;
+      .msg {
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+        max-width: 88%;
+        opacity: 0;
+        transform: translateY(8px);
+        transition: opacity 0.35s, transform 0.35s;
       }
-      li {
-        padding: 16px 18px;
-        border: 1px solid var(--line);
-        border-radius: 14px;
+      .msg.shown {
+        opacity: 1;
+        transform: none;
       }
-      li b {
+      .msg .bubble {
+        padding: 10px 14px;
+        border-radius: 18px;
+        background: var(--paper);
+        font-size: 15.5px;
+        line-height: 1.45;
+      }
+      .msg .name {
         display: block;
+        font-size: 12.5px;
+        color: var(--faint);
         margin-bottom: 2px;
       }
-      li span {
+      .msg.me {
+        align-self: flex-end;
+      }
+      .msg.me .bubble {
+        background: var(--ink);
+        color: var(--white);
+        border-bottom-right-radius: 6px;
+      }
+      .msg.bot .bubble {
+        border-bottom-left-radius: 6px;
+      }
+      .face {
+        flex: none;
+        width: 28px;
+        height: 28px;
+      }
+      .ask {
+        margin-top: 8px;
+        padding: 12px;
+        border-radius: 14px;
+        background: var(--white);
+        box-shadow: 0 0 0 1px var(--line);
+      }
+      .ask p {
+        margin: 0 0 10px;
+        font-weight: 600;
+      }
+      .ask .row {
+        display: flex;
+        gap: 8px;
+      }
+      .ask .yes,
+      .ask .no {
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .ask .yes {
+        background: var(--ink);
+        color: var(--white);
+        transition: transform 0.2s, background 0.2s;
+      }
+      .ask .yes.pressed {
+        transform: scale(0.94);
+        background: var(--spark);
+      }
+      .ask .no {
+        background: var(--paper);
         color: var(--muted);
       }
-      .soon {
-        display: inline-flex;
+      .replay {
+        align-self: center;
+        margin-top: 6px;
+        background: none;
+        border: 0;
+        color: var(--faint);
+        font: inherit;
+        font-size: 14px;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.4s;
+      }
+      .replay.shown {
+        opacity: 1;
+      }
+      .replay:hover {
+        color: var(--ink);
+      }
+
+      /* What working with them is like: a sentence or two, and the bit of the app it's about. */
+      .ways {
+        padding-top: 24px;
+        padding-bottom: 24px;
+      }
+      .ways > h2,
+      .plans > h2 {
+        font-size: clamp(32px, 4.4vw, 52px);
+        line-height: 1;
+        letter-spacing: -0.028em;
+        font-weight: 720;
+        font-stretch: 94%;
+        font-variation-settings: "opsz" 72;
+        margin: 0 0 48px;
+        max-width: 18ch;
+      }
+      .way {
+        display: grid;
+        grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+        gap: 56px;
+        align-items: center;
+        padding: 40px 0;
+        border-top: 1px solid var(--line);
+      }
+      .way h3 {
+        font-size: 30px;
+        line-height: 1.1;
+        letter-spacing: -0.025em;
+        font-weight: 700;
+        font-variation-settings: "opsz" 48;
+        margin: 0 0 12px;
+      }
+      .way p {
+        color: var(--muted);
+        margin: 0;
+        max-width: 40ch;
+      }
+      @media (max-width: 900px) {
+        .way {
+          grid-template-columns: 1fr;
+          gap: 28px;
+        }
+      }
+
+      /* A bot's computer, live. */
+      .screen {
+        background: var(--ink);
+        border-radius: var(--radius-m);
+        padding: 10px;
+        color: var(--white);
+      }
+      .screen .bar {
+        display: flex;
         align-items: center;
         gap: 8px;
-        margin-top: 40px;
-        padding: 10px 18px;
-        border-radius: 999px;
-        background: var(--ink);
-        color: var(--paper);
-        font-weight: 600;
-        font-size: 15px;
+        padding: 2px 4px 10px;
+        font-size: 14px;
       }
-      .soon i {
+      .screen .live {
         width: 8px;
         height: 8px;
         border-radius: 50%;
-        background: var(--accent);
+        background: #3ddc84;
+        box-shadow: 0 0 0 4px rgba(61, 220, 132, 0.18);
       }
-      footer {
-        max-width: 720px;
+      .screen .take {
+        margin-left: auto;
+        background: var(--white);
+        color: var(--ink);
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-weight: 600;
+        font-size: 13px;
+      }
+      .screen .page {
+        background: var(--white);
+        color: var(--ink);
+        border-radius: 8px;
+        padding: 16px;
+        position: relative;
+        font-size: 14.5px;
+      }
+      .screen table {
         width: 100%;
-        margin: 0 auto;
-        padding: 24px 16px 40px;
-        border-top: 1px solid var(--line);
-        color: var(--muted);
+        border-collapse: collapse;
+      }
+      .screen td {
+        padding: 8px 6px;
+        border-bottom: 1px solid var(--line);
+      }
+      .screen td:last-child {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .screen tr.on td {
+        background: var(--spark-soft);
+      }
+      .tag {
+        display: inline-block;
+        padding: 1px 8px;
+        border-radius: 999px;
+        font-size: 12.5px;
+        background: #fff2d1;
+        color: #7a5800;
+      }
+      .cursor {
+        position: absolute;
+        right: 70px;
+        top: 60px;
+        width: 18px;
+        height: 18px;
+      }
+
+      /* Asking first. */
+      .asks {
+        display: grid;
+        gap: 12px;
+        max-width: 460px;
+      }
+      .asks .card {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        padding: 14px 16px;
+        background: var(--white);
+        border-radius: var(--radius-m);
+        box-shadow: 0 0 0 1px var(--line);
+      }
+      .asks .card:nth-child(2) {
+        margin-left: 28px;
+      }
+      .asks .card:nth-child(3) {
+        margin-left: 56px;
+        opacity: 0.6;
+      }
+      .asks .what {
+        flex: 1;
+        min-width: 0;
+        line-height: 1.35;
+      }
+      .asks .what small {
+        display: block;
+        color: var(--faint);
         font-size: 13.5px;
       }
-      footer a {
-        color: inherit;
+      .asks .ok {
+        background: var(--ink);
+        color: var(--white);
+        border-radius: 999px;
+        padding: 5px 12px;
+        font-size: 13.5px;
+        font-weight: 600;
+      }
+
+      /* Its own email. */
+      .mail {
+        background: var(--white);
+        border-radius: var(--radius-m);
+        box-shadow: 0 0 0 1px var(--line);
+        max-width: 480px;
+        overflow: hidden;
+      }
+      .mail .hdr {
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--line);
+        font-size: 14.5px;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+      .mail .hdr b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .mail .addr {
+        background: var(--spark-soft);
+        color: #4b2fd6;
+        padding: 1px 6px;
+        border-radius: 6px;
+      }
+      .mail .body {
+        padding: 16px 18px;
+        font-size: 15px;
+      }
+      .mail .body p {
+        margin: 0 0 8px;
+        color: var(--ink-2);
+      }
+
+      /* Where to reach them. */
+      .places {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .places span {
+        padding: 10px 16px;
+        background: var(--white);
+        border-radius: 999px;
+        box-shadow: 0 0 0 1px var(--line);
+        font-weight: 550;
+      }
+
+      /* Plans. */
+      .plans {
+        padding-top: 72px;
+        padding-bottom: 96px;
+      }
+      .tiers {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        align-items: stretch;
+      }
+      .tier {
+        display: flex;
+        flex-direction: column;
+        padding: 28px 26px;
+        background: var(--white);
+        border-radius: var(--radius-l);
+        box-shadow: 0 0 0 1px var(--line);
+      }
+      .tier.dark {
+        background: var(--ink);
+        color: var(--white);
+        box-shadow: none;
+      }
+      .tier h3 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 680;
+      }
+      .tier .price {
+        margin: 14px 0 4px;
+        font-size: 52px;
+        line-height: 1;
+        letter-spacing: -0.04em;
+        font-weight: 720;
+        font-stretch: 86%;
+        font-variation-settings: "opsz" 96;
+      }
+      .tier .price small {
+        font-size: 17px;
+        letter-spacing: 0;
+        font-weight: 500;
+        color: var(--faint);
+      }
+      .tier .computer {
+        margin: 16px 0 18px;
+        padding: 12px 14px;
+        border-radius: var(--radius-s);
+        background: var(--paper);
+        font-size: 15px;
+        line-height: 1.4;
+      }
+      .tier.dark .computer {
+        background: rgba(255, 255, 255, 0.08);
+      }
+      .tier .computer b {
+        display: block;
+        font-weight: 650;
+      }
+      .tier .computer span {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .tier.dark .computer span,
+      .tier.dark .price small {
+        color: #b9b6c9;
+      }
+      .tier ul {
+        list-style: none;
+        margin: 0 0 26px;
+        padding: 0;
+        display: grid;
+        gap: 9px;
+        font-size: 15.5px;
+        line-height: 1.4;
+      }
+      .tier li {
+        display: flex;
+        gap: 10px;
+      }
+      .tier li::before {
+        content: "";
+        flex: none;
+        width: 16px;
+        height: 16px;
+        margin-top: 2px;
+        border-radius: 50%;
+        background: var(--spark) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.6 8.2l2.2 2.2 4.6-4.6' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat;
+      }
+      .tier li.no {
+        color: var(--faint);
+      }
+      .tier li.no::before {
+        background: var(--line);
+      }
+      .tier .button {
+        margin-top: auto;
+        justify-content: center;
+      }
+      .tier.dark .button {
+        background: var(--white);
+        color: var(--ink);
+      }
+      .plans .note {
+        color: var(--faint);
+        font-size: 15px;
+        margin: 20px 0 0;
+      }
+      @media (max-width: 900px) {
+        .tiers {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* Download. */
+      .get {
+        background: var(--ink);
+        color: var(--white);
+      }
+      .get .wrap {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 48px;
+        align-items: center;
+        padding-top: 88px;
+        padding-bottom: 88px;
+      }
+      .get .mascot {
+        width: 168px;
+        height: 168px;
+        border-radius: 50%;
+        background: var(--white);
+        display: grid;
+        place-items: center;
+      }
+      .get .mascot svg {
+        width: 108px;
+        height: 108px;
+      }
+      .get h2 {
+        font-size: clamp(36px, 5vw, 60px);
+        line-height: 1;
+        letter-spacing: -0.03em;
+        font-weight: 730;
+        font-stretch: 94%;
+        font-variation-settings: "opsz" 96;
+        margin: 0 0 14px;
+      }
+      .get p {
+        color: #b9b6c9;
+        margin: 0 0 26px;
+        max-width: 52ch;
+      }
+      .get .button {
+        background: var(--white);
+        color: var(--ink);
+      }
+      .get .button:hover {
+        background: var(--spark-soft);
+      }
+      .get .meta {
+        margin: 16px 0 0;
+        font-size: 14.5px;
+        color: #8d8a9c;
+      }
+      @media (max-width: 700px) {
+        .get .wrap {
+          grid-template-columns: 1fr;
+          gap: 28px;
+        }
+        .get .mascot {
+          width: 104px;
+          height: 104px;
+        }
+        .get .mascot svg {
+          width: 66px;
+          height: 66px;
+        }
+      }
+
+      /* Questions. */
+      .faq {
+        padding-top: 88px;
+        padding-bottom: 88px;
+      }
+      .faq > div {
+        max-width: 760px;
+      }
+      .faq h2 {
+        font-size: 34px;
+        letter-spacing: -0.03em;
+        font-weight: 720;
+        font-variation-settings: "opsz" 60;
+        margin: 0 0 20px;
+      }
+      .faq details {
+        border-top: 1px solid var(--line);
+        padding: 18px 0;
+      }
+      .faq details:last-child {
+        border-bottom: 1px solid var(--line);
+      }
+      .faq summary {
+        cursor: pointer;
+        font-weight: 620;
+        font-size: 19px;
+        list-style: none;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .faq summary::-webkit-details-marker {
+        display: none;
+      }
+      .faq summary::after {
+        content: "+";
+        color: var(--faint);
+        font-weight: 400;
+        transition: transform 0.2s;
+      }
+      .faq details[open] summary::after {
+        transform: rotate(45deg);
+      }
+      .faq details p {
+        margin: 10px 0 0;
+        color: var(--muted);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .wisp-hop {
+          animation: none;
+        }
+        .msg {
+          transition: none;
+        }
       }
     </style>
   </head>
   <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <defs>
+        <!-- Wispy, smiling. -->
+        <symbol id="wispy" viewBox="0 0 40 40">
+          <path d="M21.5 2.5c-.6 3.4 1.4 5.6 4.6 7.6C31.2 13.4 35 18.2 35 24.6 35 32 28.6 37.5 20 37.5S5 32 5 24.6c0-4.9 2.6-8.8 6-11.4.1 2.4 1.2 4.1 3.1 4.9-.4-6.2 2.3-11.5 7.4-15.6z" fill="#16132B" />
+          <path d="M25.2 15.2c2.6 1.2 4.6 3.1 5.7 5.6" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".35" />
+          <path d="M13.4 25.6q1.9-2.3 3.8 0M22.8 25.6q1.9-2.3 3.8 0" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" />
+          <path d="M17.4 28.6q2.6 3.4 5.2 0z" fill="#fff" />
+          <ellipse cx="11.6" cy="28.6" rx="2.1" ry="1.2" fill="#FF8FB1" opacity=".6" />
+          <ellipse cx="28.4" cy="28.6" rx="2.1" ry="1.2" fill="#FF8FB1" opacity=".6" />
+          <path d="M33 3.2c.4 2.6 1.4 3.6 4 4-2.6.4-3.6 1.4-4 4-.4-2.6-1.4-3.6-4-4 2.6-.4 3.6-1.4 4-4z" fill="#7C5CFF" />
+        </symbol>
+        <!-- A bot in its own color (fill set where it's used). -->
+        <symbol id="wisp" viewBox="0 0 40 40">
+          <path d="M21.5 2.5c-.6 3.4 1.4 5.6 4.6 7.6C31.2 13.4 35 18.2 35 24.6 35 32 28.6 37.5 20 37.5S5 32 5 24.6c0-4.9 2.6-8.8 6-11.4.1 2.4 1.2 4.1 3.1 4.9-.4-6.2 2.3-11.5 7.4-15.6z" />
+          <ellipse cx="15.3" cy="25.1" rx="1.9" ry="2.6" fill="#16132B" />
+          <ellipse cx="24.7" cy="25.1" rx="1.9" ry="2.6" fill="#16132B" />
+        </symbol>
+        <symbol id="windows" viewBox="0 0 20 20"><path d="M1 3.2l7.4-1v7.2H1zm8.3-1.1L19 .8v8.6H9.3zM1 10.4h7.4v7.2L1 16.6zm8.3 0H19v8.7l-9.7-1.3z" fill="currentColor" /></symbol>
+      </defs>
+    </svg>
+
+    <header class="wrap top">
+      <a class="brand" href="/" aria-label="Deskwisp home"><svg><use href="#wispy" /></svg>Deskwisp</a>
+      <nav aria-label="Main">
+        <a class="hide-s" href="#how">How it works</a>
+        <a href="#pricing">Pricing</a>
+        <a class="button small" href="#download">Download</a>
+      </nav>
+    </header>
+
     <main>
-      <div class="mark"><img src="deskwisp.png" alt="" />Deskwisp</div>
-      <h1>Business ops, <span>run by bots</span>, on Windows.</h1>
-      <p class="lead">A team of AI bots that works for you on real computers. Chat with them like teammates, from your PC or your phone, and they get the work done.</p>
-      <ul>
-        <li><b>Watch or take over</b><span>Every bot works on a computer you can watch live, and take over whenever you like.</span></li>
-        <li><b>Asks before it acts</b><span>Reading runs at once. Sending, creating and paying wait for your OK.</span></li>
-        <li><b>Its own email</b><span>Each bot has an address of its own. Email it, and it answers.</span></li>
-      </ul>
-      <div class="soon"><i></i>Coming soon for Windows</div>
+      <section class="wrap hero">
+        <div>
+          <h1>Your business ops, run by a team of bots.</h1>
+          <p class="lede">Tell them what you need in a chat, like you would a teammate. They do it on computers of their own, which you can watch and take over, and they ask before anything goes out.</p>
+          <div class="ctas">
+            <a class="button" href="#download"><svg><use href="#windows" /></svg>Download for Windows</a>
+            <a class="quiet" href="#pricing">See the plans</a>
+          </div>
+          <p class="fine">Start free. Windows 10 and 11, 64-bit.</p>
+        </div>
+
+        <div class="chat" role="img" aria-label="A chat: you ask Wispy to chase three unpaid invoices; Fadwa finds them, writes the reminders, and sends them once you approve.">
+          <div class="chat-head">
+            <svg class="wisp-hop" aria-hidden="true"><use href="#wispy" /></svg>
+            <div class="who"><b>Wispy</b><span>Chief of Staff</span></div>
+          </div>
+          <div class="thread" id="thread" aria-hidden="true">
+            <div class="msg me"><div class="bubble">Chase the three unpaid September invoices, and tell me who answers.</div></div>
+            <div class="msg bot">
+              <svg class="face"><use href="#wispy" /></svg>
+              <div class="bubble"><span class="name">Wispy</span>On it. Fadwa keeps the books, so I've asked her.</div>
+            </div>
+            <div class="msg bot">
+              <svg class="face" style="fill: #ff6fb5"><use href="#wisp" /></svg>
+              <div class="bubble"><span class="name">Fadwa</span>Found them: Atlas Print $1,240, Nour Café $380, Kech Tours $2,050. The reminders are written.</div>
+            </div>
+            <div class="msg bot">
+              <svg class="face" style="fill: #ff6fb5"><use href="#wisp" /></svg>
+              <div class="bubble">
+                <span class="name">Fadwa</span>
+                <div class="ask">
+                  <p>Send 3 reminder emails?</p>
+                  <div class="row"><span class="yes" id="yes">Send</span><span class="no">Not now</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="msg bot">
+              <svg class="face"><use href="#wispy" /></svg>
+              <div class="bubble"><span class="name">Wispy</span>Sent. I'll tell you as soon as one of them replies.</div>
+            </div>
+            <button class="replay" id="replay" type="button" tabindex="-1">Play again</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="wrap ways" id="how">
+        <h2>Like a team, without the hiring.</h2>
+
+        <div class="way">
+          <div>
+            <h3>Watch them work, or take over</h3>
+            <p>Every bot works on a real computer in the cloud. Open it to see what it's doing, live, and take the mouse whenever you like.</p>
+          </div>
+          <div class="screen" aria-hidden="true">
+            <div class="bar"><i class="live"></i>Fadwa's computer<span class="take">Take over</span></div>
+            <div class="page">
+              <table>
+                <tr><td>Atlas Print</td><td><span class="tag">Overdue 12 days</span></td><td>$1,240.00</td></tr>
+                <tr class="on"><td>Nour Café</td><td><span class="tag">Overdue 9 days</span></td><td>$380.00</td></tr>
+                <tr><td>Kech Tours</td><td><span class="tag">Overdue 4 days</span></td><td>$2,050.00</td></tr>
+              </table>
+              <svg class="cursor" viewBox="0 0 18 18"><path d="M2 1.5l12.5 7.2-5.6 1.4-2.5 5.4z" fill="#16132B" stroke="#fff" stroke-width="1.2" stroke-linejoin="round" /></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="way">
+          <div>
+            <h3>Nothing goes out without your OK</h3>
+            <p>Looking things up happens straight away. Sending, creating and paying wait for you to say yes.</p>
+          </div>
+          <div class="asks" aria-hidden="true">
+            <div class="card"><div class="what">Send 3 reminder emails<small>Fadwa, from accounts@</small></div><span class="ok">Send</span></div>
+            <div class="card"><div class="what">Book the 10:30 call with Kech Tours<small>Wispy, on your calendar</small></div><span class="ok">Book</span></div>
+            <div class="card"><div class="what">Pay the hosting bill, $24<small>Fadwa, from the company card</small></div><span class="ok">Pay</span></div>
+          </div>
+        </div>
+
+        <div class="way">
+          <div>
+            <h3>An email address of its own</h3>
+            <p>Your main bot gets an address on Pro, and more bots do on Max. Write to it, copy it in, forward it a thread: it reads, does the work and answers.</p>
+          </div>
+          <div class="mail" aria-hidden="true">
+            <div class="hdr"><b>From</b> Nour Café<br /><b>To</b> <span class="addr">wispy.yourcompany@deskwisp.com</span><br /><b>Subject</b> Re: Invoice 2209</div>
+            <div class="body"><p>Sorry for the delay! Paying it today.</p><p style="color: var(--faint)">Wispy marked invoice 2209 as promised and told you in the chat.</p></div>
+          </div>
+        </div>
+
+        <div class="way">
+          <div>
+            <h3>Wherever you are</h3>
+            <p>In the Windows app, or from your phone in the chat apps you already use. They remember who you are and what they did yesterday.</p>
+          </div>
+          <div class="places" aria-label="Where you can reach your bots"><span>The Windows app</span><span>Telegram</span><span>Discord</span><span>Slack</span><span>Email</span></div>
+        </div>
+      </section>
+
+      <section class="wrap plans" id="pricing">
+        <h2>Start free. Grow when they're busy.</h2>
+        <div class="tiers">
+          <div class="tier">
+            <h3>Free</h3>
+            <div class="price">$0</div>
+            <div class="computer"><b>1 computer, 1 screen per bot</b><span>Each bot works on one thing at a time</span></div>
+            <ul>
+              <li>$1 of AI credit every month</li>
+              <li>10 computer hours a month</li>
+              <li>As many bots as you like, sharing it</li>
+              <li class="no">No email for your bots</li>
+              <li class="no">No sharing with other people</li>
+            </ul>
+            <a class="button" href="#download">Start free</a>
+          </div>
+          <div class="tier dark">
+            <h3>Pro</h3>
+            <div class="price">$29<small> /month</small></div>
+            <div class="computer"><b>1 computer, 2 screens per bot</b><span>Each bot does two things at once</span></div>
+            <ul>
+              <li>$10 of AI credit every month</li>
+              <li>60 computer hours a month</li>
+              <li>As many bots as you like, sharing it</li>
+              <li>An email address for your main bot</li>
+              <li>Share your bots' computers with 2 people</li>
+            </ul>
+            <a class="button" href="#download">Get Pro</a>
+          </div>
+          <div class="tier">
+            <h3>Max</h3>
+            <div class="price">$199<small> /month</small></div>
+            <div class="computer"><b>1 computer, 4 screens per bot</b><span>Each bot does four things at once</span></div>
+            <ul>
+              <li>$100 of AI credit every month</li>
+              <li>300 computer hours a month</li>
+              <li>As many bots as you like, on any of them</li>
+              <li>Up to 5 email addresses for your bots</li>
+              <li>Share your bots' computers with up to 5 people</li>
+            </ul>
+            <a class="button" href="#download">Get Max</a>
+          </div>
+        </div>
+        <p class="note">Download the app and sign in to start on Free. Pick Pro or Max in the app, under Account and usage. Computers sleep when nothing's using them, so only the time they work counts.</p>
+      </section>
+
+      <section class="get" id="download">
+        <div class="wrap">
+          <div class="mascot" aria-hidden="true"><svg class="wisp-hop"><use href="#wispy" /></svg></div>
+          <div>
+            <h2>Get Deskwisp for Windows</h2>
+            <p>Install it, sign in, and say hello to Wispy. It updates itself from then on.</p>
+            <a class="button" href="/download/Deskwisp-Setup.exe" id="dl"><svg><use href="#windows" /></svg>Download for Windows</a>
+            <p class="meta" id="meta">Windows 10 and 11, 64-bit. If Windows asks before the first install, choose More info, then Run anyway.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="wrap faq" aria-labelledby="faq-title">
+        <div>
+        <h2 id="faq-title">Questions</h2>
+        <details>
+          <summary>What's AI credit?</summary>
+          <p>It's what your bots spend on the AI models they think and talk with. Every plan comes with some each month, and you can add more in the app when they've been busy.</p>
+        </details>
+        <details>
+          <summary>What are computer hours?</summary>
+          <p>The time your bots' computer is working for them. It sleeps when nothing's using it, and the hours start over each month.</p>
+        </details>
+        <details>
+          <summary>Can I change or cancel my plan?</summary>
+          <p>Yes, whenever you like, in the app under Account and usage.</p>
+        </details>
+        <details>
+          <summary>Does it work on a Mac or on my phone?</summary>
+          <p>The app is for Windows. From your phone, you can talk to your bots in Telegram, Discord, Slack or by email.</p>
+        </details>
+        </div>
+      </section>
     </main>
-    <footer>
-      © 2026 Deskwisp
+
+    <footer class="foot">
+      <div class="wrap">
+        <span class="copy">© 2026 Deskwisp</span>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+        <a href="mailto:hello@deskwisp.com">hello@deskwisp.com</a>
+      </div>
     </footer>
+
+    <script>
+      // The chat plays once, a message at a time (all at once with reduced motion).
+      (() => {
+        const msgs = [...document.querySelectorAll("#thread .msg")];
+        const yes = document.getElementById("yes");
+        const replay = document.getElementById("replay");
+        const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+        let run = 0;
+        async function play() {
+          const me = ++run;
+          msgs.forEach((m) => m.classList.remove("shown"));
+          yes.classList.remove("pressed");
+          replay.classList.remove("shown");
+          if (calm) {
+            msgs.forEach((m) => m.classList.add("shown"));
+            return;
+          }
+          const beats = [500, 1300, 1900, 1500, 1700];
+          for (let i = 0; i < msgs.length; i++) {
+            await wait(beats[i]);
+            if (me !== run) return;
+            if (i === 4) {
+              yes.classList.add("pressed");
+              await wait(600);
+              if (me !== run) return;
+            }
+            msgs[i].classList.add("shown");
+          }
+          await wait(1200);
+          if (me === run) replay.classList.add("shown");
+        }
+        replay.addEventListener("click", play);
+        play();
+      })();
+
+      // The newest version, from what the app itself reads (scripts/release-win.sh writes it).
+      fetch("/download/win/latest.json", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((l) => {
+          if (!l || !/^\d+\.\d+\.\d+$/.test(l.version)) return;
+          const when = l.released ? new Date(l.released).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "";
+          document.getElementById("meta").textContent = `Version ${l.version}${when ? `, ${when}` : ""}. Windows 10 and 11, 64-bit. If Windows asks before the first install, choose More info, then Run anyway.`;
+        })
+        .catch(() => {});
+    </script>
   </body>
 </html>
