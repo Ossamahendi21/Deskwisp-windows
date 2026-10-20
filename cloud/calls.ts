@@ -176,7 +176,7 @@ const MALE_VOICES = ["cedar", "ash", "echo", "ballad", "verse"];
 const VOICES = new Set([...MALE_VOICES, "marin", "coral", "shimmer", "sage"]);
 function voiceFor(b: Bot) {
   if (typeof b.voice === "string" && VOICES.has(b.voice)) return b.voice;
-  if (b.isMain && (b.name === "Wispy" || b.name === "Wispy" || b.name === "Sam")) return "cedar";
+  if (b.isMain && (b.name === "Wispy" || b.name === "Sam")) return "cedar";
   return MALE_VOICES[[...b.id].reduce((n, ch) => n + ch.charCodeAt(0), 0) % MALE_VOICES.length];
 }
 
