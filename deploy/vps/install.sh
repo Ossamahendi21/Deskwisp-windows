@@ -30,13 +30,16 @@ NODE_MAJOR=24
 NODE_DIR=/usr/local/lib/deskwisp-node
 NODE="$NODE_DIR/bin/node"
 
-# Ports 8790 and 8791 must be free (or already Deskwisp's).
+# Ports 8790 and 8791 must be free, or already Deskwisp's: held by a process of the deskwisp user (its
+# services; Node may name itself MainThread there, so the user is what's checked, not the name).
 for port in 8790 8791; do
-  holder="$(ss -tlnpH "( sport = :$port )" 2>/dev/null | grep -o 'users:(("[^"]*"' | head -1 | cut -d'"' -f2 || true)"
-  if [ -n "$holder" ] && [ "$holder" != node ]; then
-    echo "Port $port is taken by $holder: Deskwisp needs it free." >&2
-    exit 1
-  fi
+  line="$(ss -tlnpH "( sport = :$port )" 2>/dev/null | head -1 || true)"
+  [ -n "$line" ] || continue
+  pid="$(printf '%s' "$line" | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2 || true)"
+  if [ -n "$pid" ] && [ "$(ps -o user= -p "$pid" 2>/dev/null | tr -d ' ')" = deskwisp ]; then continue; fi
+  holder="$(printf '%s' "$line" | grep -o 'users:(("[^"]*"' | head -1 | cut -d'"' -f2 || true)"
+  echo "Port $port is taken by ${holder:-another program}${pid:+ (pid $pid)}: Deskwisp needs it free." >&2
+  exit 1
 done
 
 # Node 24, the newest 24.x, checked against its published SHA-256, in its own folder.
