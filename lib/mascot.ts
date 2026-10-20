@@ -18,7 +18,7 @@ export const ACCENT = "#7C5CFF";
 export const MAIN_COLOR = "#16132B";
 
 /** A workspace's main bot (its id from older installs is kept as it was): drawn in ink, with an accent spark. */
-export const isMainBotId = (botId: string) => /^(wispy|sam|wispy)(-\d+)?$/.test(botId);
+export const isMainBotId = (botId: string) => /^(sam|wispy)(-\d+)?$/.test(botId);
 
 /** Each bot's own face when it's working, fixed by its id: open eyes, a smile, or a wink. */
 const FACES = ["open", "happy", "wink"] as const;

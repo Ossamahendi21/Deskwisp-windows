@@ -1,6 +1,7 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { workspaceOf, MAIN_WORKSPACE, botChatId, type AppState, type Bot, type Chat, type Message, type Session, type Reaction, type Tapback } from "@/lib/types";
+import { oldBotIds, renameBotIds } from "@/lib/bot-ids";
 import { fileStore, onPostgres, selfHosted, type Persistence, type StateAccess } from "./persist";
 import { cloudStore } from "./persist-cloud";
 import { pgStore } from "./persist-pg";
@@ -12,22 +13,16 @@ import { userDeskwispHome, userChromeDir, userDataDir } from "./user-paths";
  * user (DESKWISP_DATABASE_URL); lib/server/persist.ts.
  */
 
-const seedBots: Bot[] = [
-  // Ids stay as older installs saved them; the names and colors are Deskwisp's.
-  { id: "wispy", name: "Wispy", role: "Chief of Staff", color: "#16132B", isMain: true, computerStatus: "none" },
-  { id: "otto", name: "Yassin", role: "Outbound", color: "#FFC83D", isMain: false, computerStatus: "none" },
-  { id: "rook", name: "Rim", role: "Recruiting", color: "#47C46B", isMain: false, computerStatus: "none" },
-  { id: "iris", name: "Ines", role: "Inbox", color: "#5B8CFF", isMain: false, computerStatus: "none" },
-  { id: "penny", name: "Fadwa", role: "Finance", color: "#FF6FB5", isMain: false, computerStatus: "none" },
-];
-
-/** The main bot as on day one: no computer yet (one launches from the Deskwisp template on its first task), nothing connected. */
-const freshMain = (): Bot => ({ ...seedBots.find((b) => b.isMain)!, computerId: undefined, computerStatus: "none" });
+/** The main bot as on day one: Wispy, no computer yet (one launches from the Deskwisp template on its first task), nothing connected. */
+const freshMain = (): Bot => ({ id: "wispy", name: "Wispy", role: "Chief of Staff", color: "#16132B", isMain: true, computerId: undefined, computerStatus: "none" });
 
 const botChat = (botId: string, at = Date.now()): Chat => ({ id: botChatId(botId), kind: "bot", botIds: [botId], createdAt: at, typing: [] });
 
-/** Bring older saved state up to the current shape: every bot has a chat, sessions are threads. */
+/** Bring older saved state up to the current shape: every bot has a chat, sessions are threads, main bots have Wispy ids. */
 function migrate(raw: Record<string, unknown>): AppState {
+  // Main bots from before Deskwisp's own ids get them, everywhere they're named (lib/bot-ids.ts).
+  const old = oldBotIds(Array.isArray(raw.bots) ? (raw.bots as { id: string }[]).filter((b) => typeof b?.id === "string") : []);
+  if (old.size) raw = renameBotIds(raw, old);
   const state = raw as unknown as AppState & { samThinking?: boolean };
   // A fresh start is the main bot (Wispy) alone; it (or you) adds the rest of the team. It can't be removed.
   state.bots ??= [freshMain()];
