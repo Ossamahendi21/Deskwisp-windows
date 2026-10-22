@@ -22,20 +22,20 @@
         padding-bottom: 96px;
       }
       .hero h1 {
-        font-size: clamp(44px, 6.2vw, 78px);
+        font-size: clamp(44px, 6.4vw, 104px);
         line-height: 0.98;
         letter-spacing: -0.03em;
         font-weight: 740;
         font-stretch: 92%;
         font-variation-settings: "opsz" 96;
         margin: 0 0 24px;
-        max-width: 11ch;
+        max-width: 12ch;
       }
       .hero .lede {
-        font-size: 20px;
+        font-size: clamp(19px, 1.45vw, 23px);
         line-height: 1.5;
         color: var(--muted);
-        max-width: 34ch;
+        max-width: 36ch;
         margin: 0 0 32px;
       }
       .ctas {
@@ -143,7 +143,7 @@
         padding: 10px 14px;
         border-radius: 18px;
         background: var(--paper);
-        font-size: 15.5px;
+        font-size: clamp(15.5px, 1vw, 18px);
         line-height: 1.45;
       }
       .msg .name {
@@ -229,14 +229,14 @@
       }
       .ways > h2,
       .plans > h2 {
-        font-size: clamp(32px, 4.4vw, 52px);
+        font-size: clamp(32px, 4.4vw, 68px);
         line-height: 1;
         letter-spacing: -0.028em;
         font-weight: 720;
         font-stretch: 94%;
         font-variation-settings: "opsz" 72;
         margin: 0 0 48px;
-        max-width: 18ch;
+        max-width: 20ch;
       }
       .way {
         display: grid;
@@ -247,17 +247,18 @@
         border-top: 1px solid var(--line);
       }
       .way h3 {
-        font-size: 30px;
+        font-size: clamp(26px, 2.3vw, 36px);
         line-height: 1.1;
         letter-spacing: -0.025em;
         font-weight: 700;
         font-variation-settings: "opsz" 48;
         margin: 0 0 12px;
       }
-      .way p {
+      .way > div > p {
         color: var(--muted);
         margin: 0;
-        max-width: 40ch;
+        max-width: 44ch;
+        font-size: clamp(17px, 1.25vw, 20px);
       }
       @media (max-width: 900px) {
         .way {
@@ -339,7 +340,7 @@
       .asks {
         display: grid;
         gap: 12px;
-        max-width: 460px;
+        max-width: 600px;
       }
       .asks .card {
         display: flex;
@@ -381,7 +382,7 @@
         background: var(--white);
         border-radius: var(--radius-m);
         box-shadow: 0 0 0 1px var(--line);
-        max-width: 480px;
+        max-width: 620px;
         overflow: hidden;
       }
       .mail .hdr {
@@ -564,7 +565,7 @@
         height: 108px;
       }
       .get h2 {
-        font-size: clamp(36px, 5vw, 60px);
+        font-size: clamp(36px, 5vw, 76px);
         line-height: 1;
         letter-spacing: -0.03em;
         font-weight: 730;
@@ -610,7 +611,7 @@
         padding-bottom: 88px;
       }
       .faq > div {
-        max-width: 760px;
+        max-width: 980px;
       }
       .faq h2 {
         font-size: 34px;
