@@ -11,6 +11,10 @@ deskwisp.com {
 	# What the apps read to find a new version (scripts/release-win.sh): always asked for afresh.
 	@latest path /download/latest.json /download/win/latest.json
 	header @latest Cache-Control "no-cache"
+	# Pages and their stylesheet: the browser checks for a newer one every time (a quick 304 when
+	# nothing changed), so a new version of the site shows at once, not after the cache runs out.
+	@pages path / /*.html /*.css /privacy/ /terms/
+	header @pages Cache-Control "no-cache"
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options nosniff
