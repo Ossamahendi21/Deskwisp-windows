@@ -1,9 +1,14 @@
 /* deskwisp.com (deploy/vps/site): one stylesheet for every page. Wispy's ink and spark, one typeface. */
 @font-face {
-  font-family: "Bricolage Grotesque";
-  src: url("/fonts/bricolage-grotesque.woff2") format("woff2");
-  font-weight: 200 800;
-  font-stretch: 75% 100%;
+  font-family: "Geist";
+  src: url("/fonts/geist.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/fonts/geist-mono.woff2") format("woff2");
+  font-weight: 100 900;
   font-display: swap;
 }
 
@@ -23,7 +28,8 @@
   --radius-s: 10px;
   --radius-m: 16px;
   --radius-l: 28px;
-  --wrap: 1760px;
+  --wrap: 1440px;
+  --mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
 
 * {
@@ -37,10 +43,9 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font-family: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
-  font-size: 17px;
-  line-height: 1.6;
-  font-variation-settings: "opsz" 14;
+  font-family: "Geist", "Segoe UI", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 a {
@@ -59,7 +64,7 @@ svg {
   width: 100%;
   max-width: var(--wrap);
   margin: 0 auto;
-  padding: 0 clamp(24px, 4vw, 80px);
+  padding: 0 clamp(20px, 4.3vw, 62px);
 }
 @media (max-width: 600px) {
   .wrap {
@@ -72,17 +77,16 @@ svg {
   display: flex;
   align-items: center;
   gap: 28px;
-  height: 84px;
+  height: 94px;
 }
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-weight: 700;
-  font-size: 20px;
-  letter-spacing: -0.02em;
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: -0.04em;
   text-decoration: none;
-  font-variation-settings: "opsz" 32;
 }
 .brand svg {
   width: 30px;
@@ -96,8 +100,9 @@ svg {
 }
 .top nav a {
   text-decoration: none;
-  color: var(--muted);
-  font-size: 15.5px;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 500;
 }
 .top nav a:hover {
   color: var(--ink);
@@ -113,12 +118,12 @@ svg {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 13px 22px;
+  padding: 14px 24px;
   border-radius: 999px;
   background: var(--ink);
   color: var(--white);
   font-weight: 600;
-  font-size: 16px;
+  font-size: 15px;
   text-decoration: none;
   border: 0;
   cursor: pointer;
@@ -132,8 +137,8 @@ svg {
   height: 18px;
 }
 .button.small {
-  padding: 9px 16px;
-  font-size: 15px;
+  padding: 10px 18px;
+  font-size: 14px;
 }
 .top nav .button {
   color: var(--white);
@@ -146,12 +151,10 @@ svg {
   padding-bottom: 96px;
 }
 .doc h1 {
-  font-size: clamp(38px, 6vw, 56px);
-  line-height: 1.02;
-  letter-spacing: -0.035em;
-  font-weight: 750;
-  font-stretch: 88%;
-  font-variation-settings: "opsz" 96;
+  font-size: clamp(44px, 6.4vw, 80px);
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+  font-weight: 900;
   margin: 24px 0 12px;
 }
 .doc .when {
@@ -159,16 +162,22 @@ svg {
   margin: 0 0 40px;
 }
 .doc h2 {
-  font-size: 23px;
-  line-height: 1.25;
-  letter-spacing: -0.015em;
-  font-weight: 680;
-  font-variation-settings: "opsz" 36;
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  font-weight: 800;
   margin: 44px 0 10px;
 }
 .doc p,
 .doc li {
   color: var(--ink-2);
+  font-size: 17px;
+  line-height: 1.6;
+}
+.doc .when {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
 }
 .doc ul {
   padding-left: 22px;
@@ -222,7 +231,9 @@ svg {
   border-top: 1px solid var(--line);
   padding: 28px 0 40px;
   color: var(--faint);
-  font-size: 15px;
+  font-size: 13px;
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
 }
 .foot .wrap {
   display: flex;
