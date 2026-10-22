@@ -42,6 +42,22 @@ const eyes = (face: "rest" | (typeof FACES)[number], c: string) => {
 const spark = (c: string) => `<path d="M33 3.2c.4 2.6 1.4 3.6 4 4-2.6.4-3.6 1.4-4 4-.4-2.6-1.4-3.6-4-4 2.6-.4 3.6-1.4 4-4z" fill="${c}"/>`;
 
 /**
+ * The Deskwisp logo: Wispy in white, smiling, its spark in yellow, on violet. It's the app's icon, the
+ * installer's, the favicons, the website's and the one the chat apps show (scripts/render-icons.mjs
+ * renders them all from it). Inside the app the main bot keeps its ink. "circle" for icons, "square"
+ * for pictures that other apps crop themselves.
+ */
+const LOGO_GLYPH =
+  `<path d="${WISP}" fill="#fff"/>` +
+  `<path d="M13.4 25.6q1.9-2.3 3.8 0M22.8 25.6q1.9-2.3 3.8 0" fill="none" stroke="${MAIN_COLOR}" stroke-width="1.8" stroke-linecap="round"/>` +
+  `<path d="M17.4 28.6q2.6 3.4 5.2 0z" fill="${MAIN_COLOR}"/>` +
+  spark("#FFC83D");
+export const logoMarkup = (shape: "circle" | "square" = "circle") =>
+  (shape === "circle" ? `<circle cx="20" cy="20" r="20" fill="${ACCENT}"/>` : `<rect width="40" height="40" fill="${ACCENT}"/>`) +
+  `<g transform="translate(7.2 7.2) scale(.64)">${LOGO_GLYPH}</g>`;
+export const logoSvg = (shape: "circle" | "square" = "circle") => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">${logoMarkup(shape)}</svg>`;
+
+/**
  * A bot's mascot. `accent` false draws the main bot's spark in a quiet grey instead of the accent
  * (for spots where the accent would clash).
  */
