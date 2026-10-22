@@ -665,7 +665,7 @@
         width: min(520px, 92%);
         aspect-ratio: 1;
         border-radius: 50%;
-        background: radial-gradient(circle at 35% 30%, #a08bff 0%, var(--spark) 55%, #6243f0 100%);
+        background: var(--spark);
       }
       .disc > * {
         position: relative;
@@ -742,18 +742,17 @@
         font-style: normal;
       }
 
-      /* The agent card: Wispy at its desk. It tilts toward the mouse, settles in as the section scrolls
-         into view, and shows what the perk being read (or pointed at) looks like on its computer. */
+      /* The agent card: Wispy's profile, and what it's doing for each thing in the list, one after another. */
       .perks li {
-        cursor: default;
+        cursor: pointer;
         border-radius: 16px;
         margin: -10px -12px;
         padding: 10px 12px;
-        transition: background 0.25s, opacity 0.25s;
+        transition: background 0.3s, opacity 0.3s, box-shadow 0.3s;
       }
       @media (min-width: 961px) {
         .perks li {
-          opacity: 0.55;
+          opacity: 0.5;
         }
         .perks li.on {
           opacity: 1;
@@ -761,7 +760,7 @@
           box-shadow: 0 0 0 1px #ececea;
         }
         .perks li.on .ic {
-          background: var(--spark);
+          background: var(--ink);
           box-shadow: none;
         }
         .perks li.on .ic svg {
@@ -770,99 +769,44 @@
       }
       .perks li .ic,
       .perks li .ic svg {
-        transition: background 0.25s, stroke 0.25s;
+        transition: background 0.3s, stroke 0.3s;
       }
       .stage {
         position: relative;
         display: grid;
         place-items: center;
-        min-height: 620px;
-        perspective: 1400px;
+        min-height: 600px;
       }
-      .orb {
+      .stage::before {
+        content: "";
         position: absolute;
         top: 50%;
         left: 50%;
+        transform: translate(-50%, -50%);
         width: min(520px, 92%);
         aspect-ratio: 1;
         border-radius: 50%;
-        background: radial-gradient(circle at 35% 30%, #a08bff 0%, var(--spark) 55%, #6243f0 100%);
-        transform: translate(-50%, -50%) translate3d(var(--ox, 0px), var(--oy, 0px), 0) scale(var(--os, 1));
-      }
-      .orbit {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: min(620px, 108%);
-        aspect-ratio: 1;
-        border-radius: 50%;
-        border: 1.5px dashed rgba(124, 92, 255, 0.35);
-        transform: translate(-50%, -50%) rotate(var(--rot, 0deg));
-      }
-      .sat {
-        position: absolute;
-        z-index: 2;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 9px 14px;
-        border-radius: 999px;
-        background: #fff;
-        font-size: 13.5px;
-        font-weight: 600;
-        white-space: nowrap;
-        box-shadow: 0 0 0 1px #ececea, 0 18px 30px -18px rgba(22, 19, 43, 0.5);
-        transform: translate3d(var(--sx, 0px), var(--sy, 0px), 0);
-      }
-      .sat .dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
         background: var(--spark);
-      }
-      .sat .dot.ok {
-        background: #22c55e;
-      }
-      .sat .dot.sun {
-        background: var(--sun);
-      }
-      .sat.s1 {
-        top: 9%;
-        left: 0;
-      }
-      .sat.s2 {
-        top: 44%;
-        right: -2%;
-      }
-      .sat.s3 {
-        bottom: 8%;
-        left: 4%;
       }
       .agent {
         position: relative;
-        z-index: 1;
-        width: min(420px, 100%);
-        padding: 16px;
-        border-radius: 30px;
-        background: linear-gradient(160deg, #221e3d, var(--ink) 60%);
-        color: #fff;
-        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06) inset, 0 60px 90px -45px rgba(22, 19, 43, 0.75);
-        transform-style: preserve-3d;
-        will-change: transform;
+        width: min(430px, 100%);
+        background: #fff;
+        color: var(--ink);
+        border-radius: 20px;
+        box-shadow: 0 0 0 1px rgba(22, 19, 43, 0.1), 0 2px 4px rgba(22, 19, 43, 0.06), 0 32px 64px -32px rgba(22, 19, 43, 0.55);
+        overflow: hidden;
+        font-variant-numeric: tabular-nums;
       }
-      .agent > * {
-        position: relative;
-      }
-      .a-top {
+      .a-head {
         display: flex;
         align-items: center;
-        gap: 12px;
-        padding: 4px 4px 14px;
-        transform: translateZ(40px);
+        gap: 14px;
+        padding: 20px 20px 16px;
       }
       .a-face {
-        width: 46px;
-        height: 46px;
+        width: 52px;
+        height: 52px;
         border-radius: 14px;
         background: var(--spark);
         display: grid;
@@ -870,141 +814,171 @@
         flex: none;
       }
       .a-face svg {
-        width: 32px;
-        height: 32px;
+        width: 36px;
+        height: 36px;
       }
       .a-who b {
         display: block;
-        font-size: 19px;
+        font-size: 20px;
         font-weight: 800;
         letter-spacing: -0.03em;
-        line-height: 1.1;
+        line-height: 1.15;
       }
       .a-who span {
-        color: #a9a6bb;
+        color: #6b6b67;
         font-size: 13.5px;
       }
       .a-live {
         margin-left: auto;
+        align-self: flex-start;
         display: inline-flex;
         align-items: center;
-        gap: 7px;
-        padding: 5px 11px;
+        gap: 6px;
+        padding: 4px 10px;
         border-radius: 999px;
-        background: rgba(34, 197, 94, 0.14);
-        color: #7ee2a1;
-        font-family: var(--mono);
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
+        background: #ecf9f0;
+        color: #15803d;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
       }
       .a-live i {
-        width: 7px;
-        height: 7px;
+        width: 6px;
+        height: 6px;
         border-radius: 50%;
         background: #22c55e;
-        animation: blink 1.6s ease-in-out infinite;
       }
-      @keyframes blink {
-        50% {
-          opacity: 0.3;
-        }
+      .a-meta {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        margin: 0;
+        border-top: 1px solid #efefec;
+        border-bottom: 1px solid #efefec;
       }
-      .a-screen {
-        border-radius: 18px;
-        background: #fff;
-        color: var(--ink);
+      .a-meta div {
+        padding: 10px 20px;
+      }
+      .a-meta div + div {
+        border-left: 1px solid #efefec;
+      }
+      .a-meta dt {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #8d8d89;
+      }
+      .a-meta dd {
+        margin: 2px 0 0;
+        font-size: 13.5px;
+        font-weight: 600;
+      }
+      .a-panel {
+        margin: 16px 16px 0;
+        border-radius: 14px;
+        box-shadow: 0 0 0 1px #ececea;
         overflow: hidden;
-        transform: translateZ(26px);
       }
-      .a-bar {
+      .a-ph {
         display: flex;
+        justify-content: space-between;
         align-items: center;
-        gap: 6px;
-        padding: 10px 12px;
-        background: #f3f3f1;
-        border-bottom: 1px solid #ececea;
+        padding: 10px 14px;
+        background: #fafaf9;
+        border-bottom: 1px solid #efefec;
+        font-size: 13px;
       }
-      .a-bar i {
-        width: 9px;
-        height: 9px;
-        border-radius: 50%;
-        background: #dcdcd7;
+      .a-ph b {
+        font-weight: 700;
       }
-      .a-bar span {
-        margin-left: 8px;
+      .a-ph span {
         font-family: var(--mono);
         font-size: 11px;
-        color: #8d8d89;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #6b6b67;
       }
       .a-scenes {
         position: relative;
-        height: 196px;
+        height: 172px;
       }
       .scene {
         position: absolute;
         inset: 0;
-        padding: 14px;
+        padding: 12px 14px;
         opacity: 0;
-        transform: translateY(10px);
-        transition: opacity 0.35s, transform 0.35s;
-        pointer-events: none;
+        visibility: hidden;
+        transition: opacity 0.4s, visibility 0.4s;
       }
       .scene.on {
         opacity: 1;
-        transform: none;
+        visibility: visible;
       }
       .sheet,
       .inbox {
         display: grid;
         font-size: 13.5px;
       }
-      .sh-h {
-        display: flex;
-        justify-content: space-between;
-        padding: 0 4px 10px;
+      .sh-h,
+      .sh-r {
+        display: grid;
+        grid-template-columns: 1fr 72px 84px;
+        gap: 10px;
+        align-items: center;
+        padding: 9px 6px;
       }
-      .sh-h span {
-        color: #c2410c;
-        font-size: 12.5px;
+      .sh-h {
+        padding-top: 2px;
+        font-size: 11.5px;
         font-weight: 600;
+        color: #8d8d89;
+      }
+      .sh-h span:nth-child(2),
+      .sh-r span:nth-child(2) {
+        text-align: right;
       }
       .sh-r,
       .in-r {
-        display: grid;
-        grid-template-columns: 1fr auto auto;
-        gap: 12px;
-        align-items: center;
-        padding: 9px 6px;
         border-top: 1px solid #f0f0ee;
       }
       .sh-r.hl,
       .in-r.hl {
-        background: var(--spark-soft);
-        border-radius: 10px;
-        border-color: transparent;
+        background: #f6f3ff;
       }
       .sh-r em,
       .in-r em {
+        justify-self: start;
         font-style: normal;
         font-size: 11.5px;
-        font-weight: 700;
-        padding: 3px 8px;
+        font-weight: 600;
+        padding: 2px 8px;
         border-radius: 6px;
         background: #f0f0ee;
         color: #5e5e5b;
       }
-      .sh-r em.late {
-        background: #fff1e6;
-        color: #c2410c;
+      em.late {
+        background: #fff4e5;
+        color: #b45309;
       }
-      .sh-r em.paid {
-        background: #e8f8ee;
+      em.paid {
+        background: #ecf9f0;
         color: #15803d;
       }
+      em.work {
+        background: var(--spark-soft);
+        color: #4b2fd6;
+      }
       .in-r {
-        grid-template-columns: 92px 1fr auto;
+        display: grid;
+        grid-template-columns: 84px minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        padding: 10px 6px;
+      }
+      .in-r:first-child {
+        border-top: 0;
       }
       .in-r span {
         color: #5e5e5b;
@@ -1012,107 +986,84 @@
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      .in-r.hl em {
-        background: var(--spark);
-        color: #fff;
-      }
-      .cursor {
-        position: absolute;
-        width: 18px;
-        height: 18px;
-        left: 60%;
-        top: 60%;
-        animation: roam 5s ease-in-out infinite;
-      }
-      @keyframes roam {
-        0%,
-        100% {
-          transform: translate(0, 0);
-        }
-        35% {
-          transform: translate(-90px, -38px);
-        }
-        65% {
-          transform: translate(40px, 38px);
-        }
-      }
-      .call {
+      .call,
+      .phone {
         height: 100%;
         display: grid;
         place-content: center;
         justify-items: center;
-        gap: 6px;
+        gap: 4px;
         text-align: center;
+        font-size: 14px;
       }
-      .call span:last-child {
+      .call span:last-child,
+      .phone span {
         color: #6b6b67;
-        font-size: 13.5px;
+        font-size: 13px;
+        max-width: 260px;
       }
       .wave {
         display: flex;
-        gap: 5px;
+        gap: 4px;
         align-items: center;
-        height: 54px;
-        margin-bottom: 8px;
+        height: 44px;
+        margin-bottom: 10px;
       }
       .wave i {
-        width: 6px;
+        width: 4px;
         height: 100%;
-        border-radius: 3px;
+        border-radius: 2px;
         background: var(--spark);
-        animation: talk 1.1s ease-in-out infinite;
+        transform: scaleY(0.3);
+        animation: talk 1.2s ease-in-out infinite;
       }
       .wave i:nth-child(2n) {
-        animation-delay: -0.4s;
+        animation-delay: -0.45s;
       }
       .wave i:nth-child(3n) {
-        animation-delay: -0.7s;
+        animation-delay: -0.8s;
       }
       @keyframes talk {
         0%,
         100% {
-          transform: scaleY(0.25);
+          transform: scaleY(0.3);
         }
         50% {
           transform: scaleY(1);
         }
       }
       .notes {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        align-content: center;
-        height: 100%;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        font-size: 13.5px;
+      }
+      .notes li {
+        display: grid;
+        grid-template-columns: 104px 1fr;
+        gap: 10px;
+        padding: 8px 6px;
+        border-top: 1px solid #f0f0ee;
+      }
+      .notes li:first-child {
+        border-top: 0;
       }
       .notes span {
-        padding: 7px 11px;
-        border-radius: 10px;
-        background: #f3f3f1;
-        font-size: 13px;
-      }
-      .notes span:nth-child(odd) {
-        background: var(--spark-soft);
-        color: #3b25b8;
+        color: #8d8d89;
       }
       .okcard {
         display: grid;
         gap: 4px;
-        margin: 8px auto 0;
-        max-width: 300px;
-        padding: 16px;
-        border-radius: 16px;
-        box-shadow: 0 0 0 1px #ececea, 0 16px 30px -20px rgba(22, 19, 43, 0.5);
-      }
-      .okcard small {
-        font-family: var(--mono);
-        font-size: 10.5px;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        color: #b45309;
+        padding: 14px 16px;
+        margin-top: 8px;
+        border-radius: 12px;
+        box-shadow: 0 0 0 1px #ececea;
+        border-left: 3px solid var(--sun);
       }
       .okcard b {
-        font-size: 16px;
-        letter-spacing: -0.02em;
+        font-size: 15px;
+        letter-spacing: -0.01em;
       }
       .okcard span {
         color: #6b6b67;
@@ -1121,96 +1072,75 @@
       .okcard div {
         display: flex;
         gap: 8px;
-        margin-top: 8px;
+        margin-top: 10px;
       }
       .okcard em {
         font-style: normal;
         font-size: 13px;
         font-weight: 600;
         padding: 6px 14px;
-        border-radius: 999px;
-        background: #f0f0ee;
+        border-radius: 8px;
+        box-shadow: 0 0 0 1px #e4e4e0;
       }
       .okcard em.go {
         background: var(--ink);
         color: #fff;
-      }
-      .phone {
-        height: 100%;
-        display: grid;
-        place-content: center;
-        justify-items: center;
-        gap: 8px;
-        text-align: center;
+        box-shadow: none;
       }
       .phone b {
         font-family: var(--mono);
-        font-size: 20px;
-        letter-spacing: 0.02em;
-      }
-      .phone span:last-child {
-        color: #6b6b67;
-        font-size: 13.5px;
+        font-size: 19px;
+        font-weight: 600;
       }
       .a-tabs {
         display: grid;
         grid-template-columns: repeat(6, 1fr);
         gap: 6px;
-        margin-top: 12px;
-        transform: translateZ(18px);
+        padding: 14px 16px 12px;
       }
       .a-tabs button {
         display: grid;
         place-items: center;
-        height: 40px;
+        height: 38px;
         border: 0;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
+        background: #f3f3f1;
         cursor: pointer;
-        transition: background 0.25s;
+        transition: background 0.3s;
       }
       .a-tabs button:hover {
-        background: rgba(255, 255, 255, 0.12);
+        background: #e9e9e6;
       }
       .a-tabs button.on {
-        background: var(--spark);
+        background: var(--ink);
       }
       .a-tabs svg {
         width: 18px;
         height: 18px;
         fill: none;
-        stroke: #fff;
+        stroke: var(--ink);
         stroke-width: 1.7;
         stroke-linecap: round;
         stroke-linejoin: round;
+        transition: stroke 0.3s;
       }
-      .a-foot {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 14px 6px 2px;
-        font-size: 13.5px;
-        color: #d9d6e8;
-        transform: translateZ(12px);
+      .a-tabs button.on svg {
+        stroke: #fff;
       }
-      .a-foot span:first-child {
-        font-family: var(--mono);
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        color: #b9a8ff;
+      .a-bar {
+        height: 3px;
+        background: #f0f0ee;
       }
-      .a-foot span:last-child {
-        overflow-wrap: anywhere;
-        text-align: right;
+      .a-bar i {
+        display: block;
+        height: 100%;
+        width: 0;
+        background: var(--spark);
       }
-      .glare {
-        position: absolute !important;
-        inset: 0;
-        border-radius: inherit;
-        pointer-events: none;
-        background: radial-gradient(circle at var(--gx, 30%) var(--gy, 0%), rgba(255, 255, 255, 0.16), transparent 50%);
-        transform: translateZ(50px);
+      @media (min-width: 1400px) {
+        .agent {
+          width: 460px;
+        }
       }
       @media (max-width: 960px) {
         .stage {
@@ -1220,28 +1150,19 @@
       @media (max-width: 600px) {
         .stage {
           min-height: 0;
-          padding: 72px 0 64px;
+          padding: 40px 0;
         }
-        .sat {
-          font-size: 12px;
-          padding: 7px 11px;
+        .a-meta div {
+          padding: 10px 14px;
         }
-        .sat.s1 {
-          top: 8px;
+        .a-head {
+          padding: 16px 16px 14px;
         }
-        .sat.s2 {
-          top: auto;
-          bottom: 10px;
-          right: 0;
+        .a-panel {
+          margin: 14px 12px 0;
         }
-        .sat.s3 {
-          display: none;
-        }
-        .agent {
+        .a-tabs {
           padding: 12px;
-        }
-        .a-scenes {
-          height: 206px;
         }
       }
 
@@ -1584,9 +1505,7 @@
       }
       @media (prefers-reduced-motion: reduce) {
         .note.call .ring,
-        .a-live i,
-        .wave i,
-        .cursor {
+        .wave i {
           animation: none;
         }
       }
@@ -1688,69 +1607,67 @@
             <span class="eyebrow">Inside every AI agent</span>
             <h2 class="h2">A desk of its own.</h2>
             <ul class="perks" id="perks">
-              <li data-k="0" data-label="COMPUTER" data-value="Cloud desktop · up to 4 screens" tabindex="0" class="on"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg></span><div><b>A cloud computer</b><span>A real desktop in the cloud with up to 4 screens. Watch your AI agent work live, or take the mouse.</span></div></li>
-              <li data-k="1" data-label="EMAIL" data-value="wispy.yourcompany@deskwisp.com" tabindex="0"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg></span><div><b>A work email address</b><span>Forward it a thread or copy it in. It reads, does the work and replies (Pro and Max).</span></div></li>
-              <li data-k="2" data-label="VOICE" data-value="Call it from the app" tabindex="0"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 013 3v6a3 3 0 01-6 0V6a3 3 0 013-3z" /><path d="M5 11a7 7 0 0014 0M12 18v3" /></svg></span><div><b>A voice you can call</b><span>Call it from the app and talk the task through, hands-free.</span></div></li>
-              <li data-k="3" data-label="MEMORY" data-value="Customers, prices, how you work" tabindex="0"><span class="ic"><svg viewBox="0 0 24 24"><path d="M9 4a3 3 0 00-3 3 3 3 0 00-2 5 3 3 0 002 5 3 3 0 003 3h1V4z" /><path d="M15 4a3 3 0 013 3 3 3 0 012 5 3 3 0 01-2 5 3 3 0 01-3 3h-1V4z" /></svg></span><div><b>Memory of your business</b><span>Customers, prices, suppliers and how you like things done, kept across every chat.</span></div></li>
-              <li data-k="4" data-label="APPROVAL" data-value="Asks before it acts" tabindex="0"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" /><path d="M9 12l2 2 4-4" /></svg></span><div><b>Human approval built in</b><span>It looks things up right away. Sending, buying and deleting wait for your OK.</span></div></li>
-              <li data-k="5" data-label="PHONE NUMBER" data-value="Coming soon" tabindex="0"><span class="ic"><svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5" /><path d="M11 18.5h2" /></svg></span><div><b>A phone number <i class="soon">Coming soon</i></b><span>Text it or call it from any phone.</span></div></li>
+              <li data-k="0" data-title="Cloud computer" data-status="Live" tabindex="0" class="on"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg></span><div><b>A cloud computer</b><span>A real desktop in the cloud with up to 4 screens. Watch your AI agent work live, or take the mouse.</span></div></li>
+              <li data-k="1" data-title="Inbox" data-status="3 new" tabindex="0"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg></span><div><b>A work email address</b><span>Forward it a thread or copy it in. It reads, does the work and replies (Pro and Max).</span></div></li>
+              <li data-k="2" data-title="Voice call" data-status="01:12" tabindex="0"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 013 3v6a3 3 0 01-6 0V6a3 3 0 013-3z" /><path d="M5 11a7 7 0 0014 0M12 18v3" /></svg></span><div><b>A voice you can call</b><span>Call it from the app and talk the task through, hands-free.</span></div></li>
+              <li data-k="3" data-title="Memory" data-status="214 notes" tabindex="0"><span class="ic"><svg viewBox="0 0 24 24"><path d="M9 4a3 3 0 00-3 3 3 3 0 00-2 5 3 3 0 002 5 3 3 0 003 3h1V4z" /><path d="M15 4a3 3 0 013 3 3 3 0 012 5 3 3 0 01-2 5 3 3 0 01-3 3h-1V4z" /></svg></span><div><b>Memory of your business</b><span>Customers, prices, suppliers and how you like things done, kept across every chat.</span></div></li>
+              <li data-k="4" data-title="Approvals" data-status="1 waiting" tabindex="0"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" /><path d="M9 12l2 2 4-4" /></svg></span><div><b>Human approval built in</b><span>It looks things up right away. Sending, buying and deleting wait for your OK.</span></div></li>
+              <li data-k="5" data-title="Phone number" data-status="Soon" tabindex="0"><span class="ic"><svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5" /><path d="M11 18.5h2" /></svg></span><div><b>A phone number <i class="soon">Coming soon</i></b><span>Text it or call it from any phone.</span></div></li>
             </ul>
           </div>
           <div class="stage" id="stage" aria-hidden="true">
-            <div class="orb"></div>
-            <div class="orbit"></div>
-            <div class="sat s1" data-speed="-90"><i class="dot ok"></i>Invoice 2209 marked paid</div>
-            <div class="sat s2" data-speed="70"><i class="dot"></i>3 replies drafted</div>
-            <div class="sat s3" data-speed="-40"><i class="dot sun"></i>Needs you: 1 approval</div>
             <div class="agent" id="agent">
-              <div class="a-top">
+              <div class="a-head">
                 <span class="a-face"><svg><use href="#wispy-light" /></svg></span>
-                <div class="a-who"><b>Wispy</b><span>AI operations agent</span></div>
-                <span class="a-live"><i></i>Working</span>
+                <div class="a-who"><b>Wispy</b><span>Operations agent</span></div>
+                <span class="a-live"><i></i>On duty</span>
               </div>
-              <div class="a-screen">
-                <div class="a-bar"><i></i><i></i><i></i><span>wispy · cloud computer</span></div>
+              <dl class="a-meta">
+                <div><dt>Agent ID</dt><dd>DW-0001</dd></div>
+                <div><dt>Company</dt><dd>Your company</dd></div>
+                <div><dt>Since</dt><dd>Oct 2026</dd></div>
+              </dl>
+              <div class="a-panel">
+                <div class="a-ph"><b id="a-title">Cloud computer</b><span id="a-status">Live</span></div>
                 <div class="a-scenes">
-                  <div class="scene on" data-k="0">
+                  <div class="scene on">
                     <div class="sheet">
-                      <div class="sh-h"><b>Invoices · September</b><span>3 overdue</span></div>
+                      <div class="sh-h"><span>Invoices · September</span><span>Amount</span><span>Status</span></div>
                       <div class="sh-r"><span>Atlas Print</span><span>$1,240</span><em class="late">Reminded</em></div>
-                      <div class="sh-r hl"><span>Kech Tours</span><span>$2,050</span><em class="late">Writing…</em></div>
+                      <div class="sh-r hl"><span>Kech Tours</span><span>$2,050</span><em class="work">Writing</em></div>
                       <div class="sh-r"><span>Nour Café</span><span>$380</span><em class="paid">Paid</em></div>
                     </div>
-                    <svg class="cursor" viewBox="0 0 16 16"><path d="M2 1l11 6.5-5 1.2-2.3 4.8z" fill="#16132B" stroke="#fff" stroke-width="1" /></svg>
                   </div>
-                  <div class="scene" data-k="1">
+                  <div class="scene">
                     <div class="inbox">
                       <div class="in-r"><b>Atlas Print</b><span>Re: Invoice 2208, paying Friday</span><em>Replied</em></div>
-                      <div class="in-r hl"><b>Kech Tours</b><span>Quote for the March trip?</span><em>Draft ready</em></div>
+                      <div class="in-r hl"><b>Kech Tours</b><span>Quote for the March trip?</span><em class="work">Draft ready</em></div>
                       <div class="in-r"><b>New lead</b><span>Do you ship to Rabat?</span><em>Replied</em></div>
                     </div>
                   </div>
-                  <div class="scene" data-k="2">
-                    <div class="call"><span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><b>On a call with you</b><span>01:12 · “Move Atlas to Friday at 3”</span></div>
+                  <div class="scene">
+                    <div class="call"><span class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><b>Talking with you</b><span>“Move Atlas to Friday at 3.”</span></div>
                   </div>
-                  <div class="scene" data-k="3">
-                    <div class="notes"><span>Atlas Print pays on the 5th</span><span>Logo design: $450</span><span>Nour Café prefers French</span><span>Reports go out on Mondays</span><span>Fadwa keeps the books</span></div>
+                  <div class="scene">
+                    <ul class="notes"><li><span>Atlas Print</span>Pays on the 5th</li><li><span>Logo design</span>$450, 50% upfront</li><li><span>Nour Café</span>Writes in French</li><li><span>Reports</span>Every Monday, 9 AM</li></ul>
                   </div>
-                  <div class="scene" data-k="4">
-                    <div class="okcard"><small>NEEDS YOUR OK</small><b>Send the quote to Kech Tours?</b><span>$2,900 · 4 nights · PDF attached</span><div><em class="go">Send</em><em>Edit first</em></div></div>
+                  <div class="scene">
+                    <div class="okcard"><b>Send the quote to Kech Tours?</b><span>$2,900 · 4 nights · quote-0312.pdf</span><div><em class="go">Approve</em><em>Edit first</em></div></div>
                   </div>
-                  <div class="scene" data-k="5">
-                    <div class="phone"><b>+1 (555) 0•• ••••</b><span class="soon">Coming soon</span><span>Its own number for texts and calls</span></div>
+                  <div class="scene">
+                    <div class="phone"><b>+1 (555) 0•• ••••</b><span>Its own number for texts and calls is on the way.</span></div>
                   </div>
                 </div>
               </div>
               <div class="a-tabs">
-                  <button type="button" data-k="0" aria-label="A cloud computer" class="on"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg></button>
-                  <button type="button" data-k="1" aria-label="A work email address"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg></button>
-                  <button type="button" data-k="2" aria-label="A voice you can call"><svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 013 3v6a3 3 0 01-6 0V6a3 3 0 013-3z" /><path d="M5 11a7 7 0 0014 0M12 18v3" /></svg></button>
-                  <button type="button" data-k="3" aria-label="Memory of your business"><svg viewBox="0 0 24 24"><path d="M9 4a3 3 0 00-3 3 3 3 0 00-2 5 3 3 0 002 5 3 3 0 003 3h1V4z" /><path d="M15 4a3 3 0 013 3 3 3 0 012 5 3 3 0 01-2 5 3 3 0 01-3 3h-1V4z" /></svg></button>
-                  <button type="button" data-k="4" aria-label="Human approval built in"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" /><path d="M9 12l2 2 4-4" /></svg></button>
-                  <button type="button" data-k="5" aria-label="A phone number"><svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5" /><path d="M11 18.5h2" /></svg></button>
+                <button type="button" data-k="0" aria-label="A cloud computer" class="on"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg></button>
+                <button type="button" data-k="1" aria-label="A work email address"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg></button>
+                <button type="button" data-k="2" aria-label="A voice you can call"><svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 013 3v6a3 3 0 01-6 0V6a3 3 0 013-3z" /><path d="M5 11a7 7 0 0014 0M12 18v3" /></svg></button>
+                <button type="button" data-k="3" aria-label="Memory of your business"><svg viewBox="0 0 24 24"><path d="M9 4a3 3 0 00-3 3 3 3 0 00-2 5 3 3 0 002 5 3 3 0 003 3h1V4z" /><path d="M15 4a3 3 0 013 3 3 3 0 012 5 3 3 0 01-2 5 3 3 0 01-3 3h-1V4z" /></svg></button>
+                <button type="button" data-k="4" aria-label="Human approval built in"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" /><path d="M9 12l2 2 4-4" /></svg></button>
+                <button type="button" data-k="5" aria-label="A phone number"><svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5" /><path d="M11 18.5h2" /></svg></button>
               </div>
-              <div class="a-foot"><span id="a-k">COMPUTER</span><span id="a-v">Cloud desktop · up to 4 screens</span></div>
-              <div class="glare"></div>
+              <div class="a-bar"><i id="a-bar"></i></div>
             </div>
           </div>
         </div>
@@ -1963,95 +1880,52 @@
         play();
       })();
 
-      // The agent card: the perk being read picks what its computer shows (pointing or tapping picks too),
-      // the card settles in as the section scrolls into view and leans toward the mouse.
+      // The agent card goes through the list, one after another, and starts over. Picking one (in the list
+      // or under the card) shows it and carries on from there.
       (() => {
         const sec = document.getElementById("how");
-        const stage = document.getElementById("stage");
         const card = document.getElementById("agent");
         if (!sec || !card) return;
         const perks = [...sec.querySelectorAll(".perks li")];
         const tabs = [...card.querySelectorAll(".a-tabs button")];
         const scenes = [...card.querySelectorAll(".scene")];
-        const sats = [...stage.querySelectorAll(".sat")];
-        const kEl = document.getElementById("a-k");
-        const vEl = document.getElementById("a-v");
-        const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
-        const fine = matchMedia("(pointer: fine)").matches;
+        const title = document.getElementById("a-title");
+        const status = document.getElementById("a-status");
+        const bar = document.getElementById("a-bar");
+        const STEP = 3600;
         let k = 0;
-        let held = false;
+        let start = performance.now();
+        let visible = false;
         function pick(n) {
-          if (n === k) return;
           k = n;
+          start = performance.now();
           perks.forEach((p, i) => p.classList.toggle("on", i === n));
           tabs.forEach((t, i) => t.classList.toggle("on", i === n));
           scenes.forEach((s, i) => s.classList.toggle("on", i === n));
-          kEl.textContent = perks[n].dataset.label;
-          vEl.textContent = perks[n].dataset.value;
+          title.textContent = perks[n].dataset.title;
+          status.textContent = perks[n].dataset.status;
         }
         perks.forEach((p, i) => {
-          p.addEventListener("pointerenter", () => ((held = true), pick(i)));
-          p.addEventListener("pointerleave", () => (held = false));
-          p.addEventListener("focus", () => ((held = true), pick(i)));
-          p.addEventListener("blur", () => (held = false));
           p.addEventListener("click", () => pick(i));
+          p.addEventListener("keydown", (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), pick(i)));
         });
-        let hold = 0;
-        tabs.forEach((t, i) =>
-          t.addEventListener("click", () => {
-            pick(i);
-            hold = performance.now() + 4000;
-          }),
-        );
-        if (calm) return;
-
-        const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
-        let mx = 0, my = 0, tx = 0, ty = 0, gx = 30, gy = 0, on = false;
-        if (fine) {
-          stage.addEventListener("pointermove", (e) => {
-            const r = stage.getBoundingClientRect();
-            tx = clamp(((e.clientX - r.left) / r.width) * 2 - 1, -1, 1);
-            ty = clamp(((e.clientY - r.top) / r.height) * 2 - 1, -1, 1);
-            gx = ((e.clientX - r.left) / r.width) * 100;
-            gy = ((e.clientY - r.top) / r.height) * 100;
-          });
-          stage.addEventListener("pointerleave", () => ((tx = 0), (ty = 0), (gx = 30), (gy = 0)));
-        }
-        function frame() {
-          if (!on) return;
-          const r = sec.getBoundingClientRect();
-          const vh = innerHeight;
-          const p = clamp((vh - r.top) / (vh + r.height));
-          const enter = clamp((vh - stage.getBoundingClientRect().top) / (vh * 0.75));
-          const e = 1 - Math.pow(1 - enter, 3);
-          mx += (tx - mx) * 0.08;
-          my += (ty - my) * 0.08;
-          card.style.transform = `translateY(${(1 - e) * 80}px) rotateX(${(1 - e) * 24 - my * 9}deg) rotateY(${mx * 12}deg)`;
-          card.style.setProperty("--gx", gx + "%");
-          card.style.setProperty("--gy", gy + "%");
-          stage.style.setProperty("--os", (0.82 + e * 0.18).toFixed(3));
-          stage.style.setProperty("--oy", ((p - 0.5) * -70).toFixed(1) + "px");
-          stage.style.setProperty("--ox", (mx * -14).toFixed(1) + "px");
-          stage.style.setProperty("--rot", (p * 140).toFixed(1) + "deg");
-          sats.forEach((s) => {
-            const sp = +s.dataset.speed;
-            s.style.setProperty("--sy", ((p - 0.5) * sp + my * 10).toFixed(1) + "px");
-            s.style.setProperty("--sx", (mx * sp * 0.12).toFixed(1) + "px");
-          });
-          // The perk being read: from the first to the last as the section passes through the screen. On a
-          // narrow screen the list is above the card, so the card goes through them on its own instead.
-          const now = performance.now();
-          if (!held && now > hold) {
-            if (innerWidth > 960) pick(Math.round(clamp((p - 0.3) / 0.4) * (perks.length - 1)));
-            else pick(Math.floor(now / 2600) % perks.length);
-          }
+        tabs.forEach((t, i) => t.addEventListener("click", () => pick(i)));
+        function frame(now) {
+          if (!visible) return;
+          const t = (now - start) / STEP;
+          if (t >= 1) pick((k + 1) % perks.length);
+          else bar.style.width = (t * 100).toFixed(2) + "%";
           requestAnimationFrame(frame);
         }
+        // Only while it's on screen, so it starts from where the reader left it.
         new IntersectionObserver(([e]) => {
-          const was = on;
-          on = e.isIntersecting;
-          if (on && !was) requestAnimationFrame(frame);
-        }).observe(sec);
+          const was = visible;
+          visible = e.isIntersecting;
+          if (visible && !was) {
+            start = performance.now();
+            requestAnimationFrame(frame);
+          }
+        }).observe(card);
       })();
 
       // The comparison's rows come in one after another the first time it's on screen.
