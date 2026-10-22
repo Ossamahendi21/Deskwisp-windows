@@ -1,6 +1,0 @@
-# deskwisp.com: everything here is public, for search engines and AI assistants alike.
-User-agent: *
-Allow: /
-Disallow: /download/
-
-Sitemap: https://deskwisp.com/sitemap.xml
