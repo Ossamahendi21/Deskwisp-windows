@@ -1,20 +1,19 @@
 #!/usr/bin/env node
 /**
- * Renders the bots' pictures (edge/public/mascot: PNG for Slack and Discord, JPG for Telegram) and the
- * Deskwisp logo (edge/public/brand), from the same drawing the app uses (lib/mascot.ts). Run after
+ * Renders the bots' pictures (edge/public/mascot: PNG for Slack and Discord, JPG for Telegram), from the
+ * same drawing the app uses (lib/mascot.ts). The logo is scripts/render-icons.mjs's. Run after
  * changing the mascot, copy edge/public/{mascot,brand} to cloud/public (Deskwisp Cloud serves them), then
  * deploy the cloud and edge/ (cd edge && fly deploy). Needs Chrome (Playwright).
  */
 import { mkdirSync } from "node:fs";
 import { chromium } from "playwright";
-import { ACCENT, MAIN_COLOR, mascotMarkup, PICTURE_COLORS } from "../lib/mascot.ts";
+import { MAIN_COLOR, mascotMarkup, PICTURE_COLORS } from "../lib/mascot.ts";
 
 const CREAM = "#FBFAFF";
 const jobs = [{ name: `main-${MAIN_COLOR.slice(1)}`, markup: mascotMarkup("wispy", MAIN_COLOR), bg: CREAM }];
 for (const c of PICTURE_COLORS) jobs.push({ name: `wisp-${c.slice(1)}`, markup: mascotMarkup("bot", c), bg: CREAM });
 
 mkdirSync("edge/public/mascot", { recursive: true });
-mkdirSync("edge/public/brand", { recursive: true });
 const browser = await chromium.launch({ channel: "chrome" });
 const page = await browser.newPage({ viewport: { width: 1024, height: 1024 } });
 const shot = async (markup, bg, size, scale, out, jpg) => {
@@ -24,9 +23,5 @@ const shot = async (markup, bg, size, scale, out, jpg) => {
   if (jpg) await page.screenshot({ path: out.replace(/\.png$/, ".jpg"), type: "jpeg", quality: 92, clip: { x: 0, y: 0, width: size, height: size } });
 };
 for (const j of jobs) await shot(j.markup, j.bg, 512, 0.8, `edge/public/mascot/${j.name}.png`, true);
-// The logo: the main wisp, awake, on the accent, its spark in white.
-const logo = mascotMarkup("wispy", MAIN_COLOR, { mood: "awake" }).replaceAll(ACCENT, "#FFFFFF");
-await shot(logo, ACCENT, 512, 0.74, "edge/public/brand/deskwisp-512.png");
-await shot(logo, ACCENT, 1024, 0.74, "edge/public/brand/deskwisp-1024.png");
 await browser.close();
-console.log(`rendered ${jobs.length} mascots and the logo`);
+console.log(`rendered ${jobs.length} mascots`);
