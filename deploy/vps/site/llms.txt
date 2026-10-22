@@ -1,0 +1,24 @@
+# Deskwisp
+
+> Deskwisp is a Windows app that gives a small business a team of AI agents (AI employees) for its back office. Each agent works on its own cloud computer, can have its own work email address and a voice, remembers the business, and handles tasks such as email, invoices and payment reminders, lead follow-ups, keeping sheets and CRMs up to date, research and reports. You chat with the agents or call them, and they ask before they send, buy or delete anything.
+
+## Key facts
+
+- Platform: Windows 10 and 11 (64-bit). Agents can also be reached in Telegram, Discord, Slack and by email.
+- Each agent has: a cloud computer with up to 4 screens (watch it live or take over), a work email address (Pro and Max), a voice you can call from the app, and a memory of your business. Its own phone number is coming soon.
+- Safety: looking things up happens straight away; sending, creating, buying and deleting wait for the user's approval.
+- AI agent vs AI chatbot: a chatbot answers in a chat window and leaves the work to you; a Deskwisp agent does the task on its own computer, works alongside other agents, and remembers your customers and prices.
+
+## Plans
+
+- Free: $0. $1 of AI credit and 10 computer hours a month, 1 screen per bot, as many bots as you like.
+- Pro: $29 a month. $10 of AI credit, 60 computer hours a month, 2 screens per bot, an email address for the main bot, share with 2 people.
+- Max: $199 a month. $100 of AI credit, 300 computer hours a month, 4 screens per bot, up to 5 email addresses, share with up to 5 people.
+
+## Links
+
+- Home: https://deskwisp.com/
+- Download for Windows: https://deskwisp.com/download/Deskwisp-Setup.exe
+- Privacy policy: https://deskwisp.com/privacy/
+- Terms of service: https://deskwisp.com/terms/
+- Contact: hello@deskwisp.com
