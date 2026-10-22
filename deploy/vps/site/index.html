@@ -9,8 +9,8 @@
     <meta property="og:description" content="A team of AI bots for the busywork of your business, on Windows." />
     <meta property="og:image" content="https://deskwisp.com/deskwisp.png" />
     <link rel="icon" href="/deskwisp.png" />
-    <link rel="preload" href="/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="/site.css?v=60" />
+    <link rel="preload" href="/fonts/geist.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/site.css?v=62" />
     <style>
       /* The opening: what Deskwisp says, and a chat with the bots playing out beside it. */
       .hero {
@@ -660,6 +660,150 @@
         .msg {
           transition: none;
         }
+      }
+
+      /* ================================================================ Type and layout: Geist, heavy and tight,
+         big headings, tall sections that alternate their background edge to edge. */
+      body {
+        background: var(--white);
+      }
+      @media (min-width: 901px) {
+        .hero {
+          grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+        }
+      }
+      .hero {
+        gap: clamp(40px, 5vw, 96px);
+        padding-top: clamp(24px, 3vw, 56px);
+        padding-bottom: clamp(72px, 9vw, 130px);
+      }
+      .hero h1 {
+        font-size: clamp(52px, 6.3vw, 92px);
+        font-weight: 900;
+        line-height: 0.9;
+        letter-spacing: -0.062em;
+        max-width: none;
+        margin-bottom: 28px;
+      }
+      .hero .lede {
+        font-size: 21px;
+        line-height: 30px;
+        color: #5e5e5b;
+        max-width: 470px;
+      }
+      .ctas .button {
+        padding: 15px 26px;
+      }
+      .ctas .quiet {
+        font-size: 15px;
+        border-bottom-width: 2px;
+      }
+      .fine,
+      .get .meta,
+      .msg .name,
+      .chat-head span,
+      .screen .bar,
+      .tag,
+      .asks .what small,
+      .mail .hdr {
+        font-family: var(--mono);
+        letter-spacing: 0.02em;
+      }
+      .fine {
+        font-size: 13px;
+      }
+      .msg .name {
+        font-size: 11.5px;
+      }
+      .ways {
+        background: #f7f7f5;
+        box-shadow: 0 0 0 100vmax #f7f7f5;
+        clip-path: inset(0 -100vmax);
+        padding-top: clamp(80px, 9vw, 130px);
+        padding-bottom: clamp(80px, 9vw, 130px);
+      }
+      .ways > h2,
+      .plans > h2 {
+        font-size: clamp(44px, 5.6vw, 80px);
+        font-weight: 900;
+        line-height: 0.95;
+        letter-spacing: -0.055em;
+        max-width: 13ch;
+        margin-bottom: clamp(40px, 4vw, 64px);
+      }
+      .way {
+        gap: clamp(40px, 5vw, 96px);
+        padding: clamp(40px, 4vw, 64px) 0;
+      }
+      .way h3 {
+        font-size: clamp(28px, 2.6vw, 40px);
+        font-weight: 800;
+        line-height: 1.02;
+        letter-spacing: -0.045em;
+        margin-bottom: 14px;
+      }
+      .way > div > p {
+        font-size: 18px;
+        line-height: 27px;
+        color: #5e5e5b;
+        max-width: 440px;
+      }
+      .plans {
+        padding-top: clamp(80px, 9vw, 130px);
+        padding-bottom: clamp(80px, 9vw, 130px);
+      }
+      .tier h3 {
+        font-weight: 800;
+        letter-spacing: -0.03em;
+      }
+      .tier .price {
+        font-weight: 900;
+        letter-spacing: -0.06em;
+        font-size: clamp(44px, 3.6vw, 56px);
+      }
+      .tier ul {
+        font-size: 15px;
+      }
+      .get .wrap {
+        padding-top: clamp(80px, 8vw, 120px);
+        padding-bottom: clamp(80px, 8vw, 120px);
+      }
+      .get h2 {
+        font-size: clamp(44px, 5.4vw, 84px);
+        font-weight: 900;
+        line-height: 0.96;
+        letter-spacing: -0.06em;
+        margin-bottom: 18px;
+      }
+      .get p {
+        font-size: 18px;
+        line-height: 27px;
+      }
+      .faq {
+        background: #f7f7f5;
+        box-shadow: 0 0 0 100vmax #f7f7f5;
+        clip-path: inset(0 -100vmax);
+        padding-top: clamp(80px, 9vw, 130px);
+        padding-bottom: clamp(80px, 9vw, 130px);
+      }
+      .faq h2 {
+        font-size: clamp(40px, 4.8vw, 68px);
+        font-weight: 900;
+        line-height: 0.95;
+        letter-spacing: -0.055em;
+        margin-bottom: 28px;
+      }
+      .faq summary {
+        font-weight: 600;
+        font-size: 18px;
+        letter-spacing: -0.01em;
+      }
+      .faq details p {
+        font-size: 16px;
+        line-height: 25px;
+      }
+      .foot {
+        background: #f7f7f5;
       }
     </style>
   </head>
