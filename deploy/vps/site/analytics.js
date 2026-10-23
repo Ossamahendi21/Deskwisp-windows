@@ -4,8 +4,8 @@
 // Every click on the Windows download counts as a "download_windows" event, with the spot it came from.
 (() => {
   // The site's GA4 Measurement ID (Google Analytics → Admin → Data streams → the web stream).
-  const GA_ID = "G-XXXXXXXXXX";
-  if (!/^G-[A-Z0-9]{6,}$/.test(GA_ID) || GA_ID === "G-XXXXXXXXXX") return;
+  const GA_ID = "G-HW0D4E140P";
+  if (!/^G-[A-Z0-9]{6,}$/.test(GA_ID)) return;
 
   const KEY = "deskwisp-consent";
   const read = () => {
