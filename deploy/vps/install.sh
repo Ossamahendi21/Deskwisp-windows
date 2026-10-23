@@ -108,6 +108,15 @@ backup="$(mktemp)"
 had_main=0
 [ -f "$main" ] && { cp -a "$main" "$backup"; had_main=1; }
 install -m 0644 "$here/deskwisp.caddy" /etc/caddy/deskwisp.caddy
+# The website's access log (deskwisp.caddy), written by Caddy's own user.
+cuser="$(systemctl show -p User --value caddy 2>/dev/null || true)"
+cuser="${cuser:-caddy}"
+if id "$cuser" >/dev/null 2>&1; then
+  install -d -m 0755 -o "$cuser" -g "$cuser" /var/log/caddy
+  [ -e /var/log/caddy/deskwisp-site.log ] || install -m 0640 -o "$cuser" -g "$cuser" /dev/null /var/log/caddy/deskwisp-site.log
+else
+  install -d -m 0755 /var/log/caddy
+fi
 if [ "$fresh_caddy" = 1 ]; then
   printf '# Deskwisp (deploy/vps/install.sh). Other sites can go below.\nimport /etc/caddy/deskwisp.caddy\n' >"$main"
 elif ! grep -Eq '^\s*import\s+(/etc/caddy/)?deskwisp\.caddy\s*$' "$main" 2>/dev/null; then
@@ -124,6 +133,12 @@ rm -f "$backup"
 systemctl enable caddy >/dev/null 2>&1 || true
 if systemctl is-active --quiet caddy; then systemctl reload caddy; else systemctl start caddy; fi
 echo "Caddy: Deskwisp's sites are in"
+
+# The website's own counts: sudo deskwisp-site-stats, and each day's totals kept by cron.
+install -m 0755 "$here/site-stats.py" /usr/local/bin/deskwisp-site-stats
+install -d -m 0755 /var/lib/deskwisp
+printf '#!/bin/sh\n/usr/local/bin/deskwisp-site-stats --save\n' >/etc/cron.daily/deskwisp-site-stats
+chmod 0755 /etc/cron.daily/deskwisp-site-stats
 
 # Ports 80 and 443 (Oracle's Ubuntu images let only 22 in), kept across reboots.
 opened=0

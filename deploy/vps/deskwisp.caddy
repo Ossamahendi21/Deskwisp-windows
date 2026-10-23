@@ -5,6 +5,16 @@
 
 # The website.
 deskwisp.com {
+	# Every request, for the site's own counts (deploy/vps/site-stats.py: sudo deskwisp-site-stats),
+	# kept 30 days; only daily totals are kept after that.
+	log {
+		output file /var/log/caddy/deskwisp-site.log {
+			roll_size 50MiB
+			roll_keep 20
+			roll_keep_for 720h
+		}
+		format json
+	}
 	root * /var/www/deskwisp
 	file_server
 	encode gzip
