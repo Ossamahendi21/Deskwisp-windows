@@ -105,6 +105,26 @@ test("a newer release: checking, downloading with progress, ready, then run sile
   await s.close();
 });
 
+test("on Windows the installer waits for Deskwisp and everything running from its folder to be gone", async () => {
+  const s = await site({ "/download/win/latest.json": latest(), "/download/win/Deskwisp-Setup-0.2.0-x64.exe": exe });
+  const dir = tmp();
+  const { u, runs } = updater(s, dir, { platform: "win32", appDir: "C:\\Users\\O'Neil\\AppData\\Local\\Programs\\Deskwisp", pid: 4242 });
+  await u.check();
+  await until(() => u.status().state === "ready", "ready");
+  assert.equal(u.install({ reopen: true }), true);
+  assert.equal(runs[0].file, "powershell.exe");
+  assert.equal(runs[0].opts.detached, true);
+  const at = runs[0].args.indexOf("-EncodedCommand");
+  assert.ok(at > 0 && runs[0].args.includes("Hidden"));
+  const script = Buffer.from(runs[0].args[at + 1], "base64").toString("utf16le");
+  assert.match(script, /Wait-Process -Id 4242 -Timeout 30/);
+  assert.match(script, /\$dir = 'C:\\Users\\O''Neil\\AppData\\Local\\Programs\\Deskwisp\\'/, "its folder, quoted, with a closing backslash");
+  assert.match(script, /Stop-Process -Force/);
+  const installer = path.join(dir, "Deskwisp-Setup-0.2.0-x64.exe").replace(/'/g, "''");
+  assert.ok(script.includes(`Start-Process -FilePath '${installer}' -ArgumentList @('--updated', '/S', '--force-run')`), script);
+  await s.close();
+});
+
 test("with automatic downloads off, it waits for Download", async () => {
   const s = await site({ "/download/win/latest.json": latest(), "/download/win/Deskwisp-Setup-0.2.0-x64.exe": exe });
   const dir = tmp();
