@@ -312,7 +312,7 @@ export async function searchNumbers(areaCode?: string): Promise<{ areaCode: stri
 }
 
 /**
- * A bot's own number: found again by its tag, or bought (about $3 a month) in the area code picked
+ * A bot's own number: found again by its tag, or bought (about $6 a month of AI credit, twice what AgentPhone asks) in the area code picked
  * (searchNumbers), else DESKWISP_PHONE_AREA (415 unless set), with an AgentPhone agent for it. Through
  * Deskwisp Cloud an area code with none left moves on to one nearby. Only when asked: numbers cost money.
  */

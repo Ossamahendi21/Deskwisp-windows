@@ -292,7 +292,7 @@ test("GET /v1/usage sums the user's own rows by kind, by day in their time zone,
     assert.equal(r.status, 200, r.text);
     const sheet = r.json as CloudUsage;
     assert.equal(sheet.charged, false, "this cloud prices each use but takes nothing (DESKWISP_AI_CREDITS isn't on)");
-    const cost = { chat: 1000 * 2 + 100 * 10, agent: 60_000 * 2 + 540_000 * 0.1 + 6_000 * 10, jev: 51, call: 195_000, search: 10_000 };
+    const cost = { chat: 1000 * 2 + 100 * 10, agent: 60_000 * 2 + 540_000 * 0.1 + 6_000 * 10, jev: 51, call: 390_000, search: 10_000 };
     assert.deepEqual(
       sheet.kinds.map((k) => [k.kind, k.source ?? null, k.units, k.count, k.costMicros]),
       [
@@ -335,7 +335,7 @@ test("rows written before seconds were counted (call.minutes) are still a call's
     const sheet = r.json as CloudUsage;
     assert.deepEqual(
       sheet.bots.map((b) => [b.botId, b.callSeconds, b.costMicros]),
-      [["sam", 90 + 30, 97_500 + 65_000]],
+      [["sam", 90 + 30, 97_500 + 130_000]],
     );
   } finally {
     await dropUsers([u]);

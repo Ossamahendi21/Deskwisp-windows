@@ -297,7 +297,7 @@ test("a call answered in the cloud goes to the Mac when AgentPhone says it ended
 const callSeconds = async (userId: string) =>
   (await query<{ units: number; cost: number; detail: Record<string, unknown> }>("SELECT units::float8 AS units, cost_micros::float8 AS cost, detail FROM deskwisp.cloud_usage WHERE user_id = $1 AND kind = 'agentphone.voice_seconds' ORDER BY id", [userId])).rows;
 
-test("every call's seconds are counted once, at AgentPhone's 13 cents a minute: the Mac's, the cloud's, and a paused number's", async () => {
+test("every call's seconds are counted once, at 26 cents a minute (twice AgentPhone's 13): the Mac's, the cloud's, and a paused number's", async () => {
   const { userId, agentId, secret, line, mobile } = await setUp();
   // The Mac answers this one's turns: the cloud still counts its seconds, from AgentPhone's own length when it ends.
   const mac = await connectMac(cloud.url, userId, { answer: () => ({ status: 200, headers: { "content-type": "application/json" }, body: b64(JSON.stringify({ text: "Hi, it's Sam." })) }) });
@@ -312,7 +312,7 @@ test("every call's seconds are counted once, at AgentPhone's 13 cents a minute: 
   const ended = JSON.stringify({ event: "agent.call_ended", channel: "voice", agentId, data: { callId, from: mobile, to: line.phone, durationSeconds: 75, startedAt: "2026-10-06T10:00:00Z", endedAt: "2026-10-06T10:01:15Z" } });
   for (let i = 0; i < 2; i++) assert.equal((await post("/hooks/agentphone", ended, agentPhoneHeaders(secret, ended))).status, 200);
   const done = await until(async () => (await callSeconds(userId)).find((r) => r.detail.ref === callId && r.units === 75));
-  assert.equal(done.cost, Math.ceil((75 * 130_000) / 60));
+  assert.equal(done.cost, Math.ceil((75 * 260_000) / 60));
   assert.equal((await callSeconds(userId)).filter((r) => r.detail.ref === callId).length, 1, "one row for the call, however often it's delivered");
   mac.ws.close();
 
@@ -324,7 +324,7 @@ test("every call's seconds are counted once, at AgentPhone's 13 cents a minute: 
   const pausedEnd = JSON.stringify({ event: "agent.call_ended", channel: "voice", agentId, data: { callId: pausedId, to: line.phone, startedAt: "2026-10-06T10:00:00Z", endedAt: "2026-10-06T10:00:06Z" } });
   assert.equal((await post("/hooks/agentphone", pausedEnd, agentPhoneHeaders(secret, pausedEnd))).status, 200);
   const paused = await until(async () => (await callSeconds(userId)).find((r) => r.detail.ref === pausedId));
-  assert.deepEqual([paused.units, paused.cost], [6, 13_000]);
+  assert.deepEqual([paused.units, paused.cost], [6, 26_000]);
   // No estimated minutes on top of the seconds, for any call.
   assert.equal((await query("SELECT 1 FROM deskwisp.cloud_usage WHERE user_id = $1 AND kind = 'call.minutes'", [userId])).rowCount, 0);
 });

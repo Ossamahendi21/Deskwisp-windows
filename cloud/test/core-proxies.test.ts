@@ -272,7 +272,7 @@ test("AgentPhone: numbers in every answer that lists or makes them are recorded 
     [...numbers].sort().map((x) => [x.slice(-10), alice]),
   );
   const bought = await until(async () => (await query("SELECT units::float8 AS units, cost_micros::float8 AS cost FROM deskwisp.cloud_usage WHERE user_id = $1 AND kind = 'agentphone.numbers'", [alice])).rows[0]);
-  assert.deepEqual(bought, { units: 1, cost: 3_000_000 });
+  assert.deepEqual(bought, { units: 1, cost: 6_000_000 });
 });
 
 test("AgentPhone: a number bought is a line whose first caller in 15 minutes claims it; one attached is a line with no window", async () => {
