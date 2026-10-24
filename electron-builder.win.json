@@ -62,6 +62,7 @@
     "shortcutName": "Deskwisp",
     "installerIcon": "build/icon.ico",
     "uninstallerIcon": "build/icon.ico",
+    "include": "build/installer.nsh",
     "artifactName": "Deskwisp-Setup-${version}-x64.${ext}"
   }
 }
