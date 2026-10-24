@@ -1055,6 +1055,35 @@ export async function setLineCard(workspaceId: string) {
   return ap<Record<string, unknown>>("PUT", `/numbers/${line.numberId}/contact-card`, { firstName: main.name, displayName: main.name }, line.scope);
 }
 
+/**
+ * iMessage for a team: an iMessage line on the AgentPhone account (through Deskwisp Cloud, the user's
+ * own: AgentPhone bills them for it), made the team's number, which its main bot answers on (and its
+ * other bots through it). The lines the account has, and which team here each one is (null: none).
+ */
+export async function imessageLines() {
+  const numbers = (await ap<{ data: (ApNumber & { type?: string })[] }>("GET", "/numbers?limit=100")).data;
+  const teams = getState().workspaces ?? [];
+  return numbers.filter((n) => n.type === "imessage").map((n) => ({ id: n.id, phone: n.phoneNumber, team: teams.find((w) => w.line?.numberId === n.id)?.name ?? null }));
+}
+
+/** One of the account's iMessage lines (imessageLines) made the team's number, with the main bot's name on its contact card. */
+export async function attachImessageLine(workspaceId: string, phone: string) {
+  const line = (await imessageLines()).find((l) => digits(l.phone) === digits(phone));
+  if (!line) throw new Error("That iMessage line isn't on your AgentPhone account.");
+  const done = await assignWorkspaceLine(workspaceId, line.phone, "sub");
+  await setLineCard(workspaceId).catch((e: Error) => console.warn(`[phone] the iMessage contact card wasn't set: ${e.message}`));
+  return done;
+}
+
+/**
+ * A new iMessage line, bought on the AgentPhone account (AgentPhone bills it each month: one that only
+ * receives, or one that sends too), then made the team's number.
+ */
+export async function getImessageLine(workspaceId: string, sends: boolean) {
+  const n = await ap<ApNumber>("POST", "/numbers", { country: "US", type: "imessage", imessageType: sends ? "outbound" : "inbound" });
+  return attachImessageLine(workspaceId, n.phoneNumber);
+}
+
 /** Undo `assignWorkspaceLine`: the number goes back to the agent it came from, and the workspace has no number. */
 export async function releaseWorkspaceLine(workspaceId: string) {
   const ws = getState().workspaces?.find((w) => w.id === workspaceId);

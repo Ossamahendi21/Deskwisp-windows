@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CHANNELS, PAIR_CODE_MS, PAIR_CODE_TRIES, pairCodeLive, workspaceOf, type AppState, type Bot, type ChannelLink } from "@/lib/types";
+import { ConnectAgentPhone } from "./agentphone-connect";
 import { Spinner } from "./mascot";
 import { BrandTile, post } from "./ui";
 
@@ -11,7 +12,7 @@ import { BrandTile, post } from "./ui";
  * so setting up Telegram never pushes the profile around more than it has to.
  */
 
-type Kind = "slack" | "telegram" | "discord";
+type Kind = "slack" | "telegram" | "discord" | "imessage";
 
 export function WhereToFind({ state, bot: b }: { state: AppState; bot: Bot }) {
   const [open, setOpen] = useState<Kind | null>(null);
@@ -19,7 +20,7 @@ export function WhereToFind({ state, bot: b }: { state: AppState; bot: Bot }) {
   const line = state.workspaces?.find((w) => w.id === workspaceOf(b))?.line;
   const status = (kind: string): { text: string; tone: "live" | "wait" | "error" | "off" } => {
     if (kind === "email") return b.email ? { text: b.email, tone: "live" } : { text: "Its own inbox", tone: "off" };
-    if (kind === "imessage") return line ? { text: b.isMain ? pretty(line.phone) : `Through the team's number`, tone: "live" } : { text: "Uses the team's number", tone: "off" };
+    if (kind === "imessage") return line ? { text: b.isMain ? pretty(line.phone) : `Through the team's number`, tone: "live" } : { text: "Set up iMessage", tone: "off" };
     const l = links.find((x) => x.kind === kind);
     if (!l) return { text: CHANNELS.find((c) => c.id === kind)!.hint, tone: "off" };
     if (l.status === "error") return { text: "Needs attention", tone: "error" };
@@ -35,7 +36,7 @@ export function WhereToFind({ state, bot: b }: { state: AppState; bot: Bot }) {
       <div className="grid grid-cols-3 gap-2">
         {CHANNELS.map((ch) => {
           const s = status(ch.id);
-          const setup = ch.live && ["slack", "telegram", "discord"].includes(ch.id);
+          const setup = (ch.live && ["slack", "telegram", "discord"].includes(ch.id)) || ch.id === "imessage";
           const soon = !ch.live && ch.id === "whatsapp";
           const body = (
             <>
@@ -80,9 +81,191 @@ const primary = "shrink-0 whitespace-nowrap rounded-full bg-ink px-3.5 py-2 text
 const quiet = "shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-medium leading-4 text-[#3A3A38] shadow-[inset_0_0_0_1px_#E2E2DF] hover:bg-[#F7F7F6]";
 
 function Setup({ state, bot: b, kind, link }: { state: AppState; bot: Bot; kind: Kind; link?: ChannelLink }) {
+  if (kind === "imessage") return <ImessageSetup state={state} bot={b} />;
   if (link) return <Linked bot={b} link={link} />;
   if (kind === "slack") return <SlackSetup state={state} bot={b} />;
   return <TokenSetup bot={b} kind={kind} />;
+}
+
+type ImLine = { id: string; phone: string; team: string | null };
+
+/**
+ * iMessage: the team's number made an iMessage line on the user's own AgentPhone account (AgentPhone
+ * bills them for it; lib/server/phone.ts imessageLines). The main bot answers on it, the team's other
+ * bots through it. Steps: connect AgentPhone (once), then use a line the account has, or get one there
+ * (only receives, or sends too). With a line: which one, and "Stop using it here".
+ */
+function ImessageSetup({ state, bot: b }: { state: AppState; bot: Bot }) {
+  const ws = workspaceOf(b);
+  const team = state.workspaces?.find((w) => w.id === ws);
+  const main = state.bots.find((x) => x.isMain && workspaceOf(x) === ws);
+  const line = team?.line;
+  const [asked, setAsked] = useState(0);
+  const [phones, setPhones] = useState<{ on: boolean; connect: boolean } | null>(null);
+  const [lines, setLines] = useState<ImLine[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [buying, setBuying] = useState(false);
+  const [sends, setSends] = useState(true);
+  useEffect(() => {
+    if (line) return;
+    let gone = false;
+    void (async () => {
+      const st = (await fetch(`/api/phone${asked > 0 ? "?fresh=1" : ""}`, { cache: "no-store" })
+        .then((r) => r.json())
+        .catch(() => null)) as { on?: boolean; connect?: boolean } | null;
+      if (gone) return;
+      setPhones({ on: !!st?.on, connect: !!st?.connect });
+      if (!st?.on) return;
+      const res = await fetch("/api/phone", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "imessage-lines" }) }).catch(() => null);
+      const j = (await res?.json().catch(() => null)) as { lines?: ImLine[]; error?: string } | null;
+      if (gone) return;
+      if (!j || j.error || !Array.isArray(j.lines)) {
+        setError(j?.error ?? "Couldn't read your AgentPhone account. Try again.");
+        setLines([]);
+      } else setLines(j.lines);
+    })();
+    return () => {
+      gone = true;
+    };
+  }, [asked, line]);
+
+  const act = async (what: string, body: Record<string, unknown>) => {
+    setBusy(what);
+    setError(null);
+    const res = await post("/api/phone", body);
+    const j = (await res.json().catch(() => ({}))) as { error?: string };
+    setBusy(null);
+    if (!res.ok || j.error) setError(j.error ?? "That didn't work. Try again.");
+    else setAsked((n) => n + 1);
+  };
+
+  if (line)
+    return (
+      <div className={card}>
+        <span className="text-[13px] leading-5 text-[#3A3A38]">
+          {b.isMain ? (
+            <>
+              People {line.type === "imessage" ? "iMessage" : "text"} {b.name} at <b>{pretty(line.phone)}</b>, {team?.name ?? "the team"}&apos;s number. {b.name} answers there and hands work to the team.
+            </>
+          ) : (
+            <>
+              {b.name} gets messages through {main?.name ?? "the main bot"}, on {team?.name ?? "the team"}&apos;s number <b>{pretty(line.phone)}</b>.
+            </>
+          )}
+        </span>
+        {b.isMain && (
+          <div className="flex items-center gap-2">
+            <button onClick={() => void act("release", { action: "release-line", workspaceId: ws })} disabled={!!busy} className={quiet}>
+              {busy === "release" ? "Stopping…" : "Stop using it here"}
+            </button>
+            <span className="text-[11.5px] leading-4 text-[#9A9A98]">The line stays on your AgentPhone account.</span>
+          </div>
+        )}
+        {error && <span className="text-[12px] text-[#C2410C]">{error}</span>}
+      </div>
+    );
+  if (!b.isMain && main)
+    return (
+      <div className={card}>
+        <span className="text-[13px] leading-5 text-[#3A3A38]">
+          iMessage is the team&apos;s: set it up on {main.name} (its Where to find), and {b.name} gets messages through {main.name}.
+        </span>
+      </div>
+    );
+  if (!phones)
+    return (
+      <div className={`${card} flex-row items-center`}>
+        <Spinner size={14} />
+        <span className="text-[12.5px] text-[#6B6B6B]">Checking…</span>
+      </div>
+    );
+  if (!phones.on)
+    return (
+      <div className={card}>
+        {phones.connect ? (
+          <ConnectAgentPhone bot={b} what="imessage" className="" onDone={() => setAsked((n) => n + 1)} />
+        ) : (
+          <span className="text-[13px] leading-5 text-[#3A3A38]">Sign in to Deskwisp to set up iMessage.</span>
+        )}
+      </div>
+    );
+
+  const free = (lines ?? []).filter((l) => !l.team || l.team === team?.name);
+  const taken = (lines ?? []).filter((l) => l.team && l.team !== team?.name);
+  return (
+    <div className={card}>
+      <span className="text-[13px] leading-5 text-[#3A3A38]">
+        People iMessage {b.name} on an iMessage line from your AgentPhone account. AgentPhone bills you for the line each month; it costs far more than a regular number (
+        <a href="https://agentphone.ai/pricing" target="_blank" rel="noreferrer" className="underline">
+          their prices
+        </a>
+        ).
+      </span>
+      {lines === null ? (
+        <span className="flex items-center gap-2 text-[12.5px] text-[#6B6B6B]">
+          <Spinner size={14} /> Looking at your AgentPhone account…
+        </span>
+      ) : (
+        <>
+          {free.map((l) => (
+            <div key={l.id} className="flex items-center justify-between gap-2 rounded-xl bg-[#F7F7F6] px-3 py-2">
+              <span className="font-mono text-[12.5px]">{pretty(l.phone)}</span>
+              <button onClick={() => void act(l.id, { action: "imessage-use", workspaceId: ws, number: l.phone })} disabled={!!busy} className={primary}>
+                {busy === l.id ? "Setting up…" : `Use for ${b.name}`}
+              </button>
+            </div>
+          ))}
+          {taken.map((l) => (
+            <div key={l.id} className="flex items-center justify-between gap-2 rounded-xl px-3 py-2 opacity-60 shadow-[inset_0_0_0_1px_#ECECEA]">
+              <span className="font-mono text-[12.5px]">{pretty(l.phone)}</span>
+              <span className="text-[11.5px] text-[#6B6B6B]">{l.team}&apos;s number</span>
+            </div>
+          ))}
+          {!buying ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[12px] text-[#6B6B6B]">{free.length ? "Or a new one:" : "No iMessage line on your AgentPhone account yet."}</span>
+              <button onClick={() => setBuying(true)} disabled={!!busy} className={quiet}>
+                Get an iMessage line
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 rounded-xl p-3 shadow-[inset_0_0_0_1px_#E6E6E3]">
+              <div role="radiogroup" aria-label="What the line does" className="flex flex-wrap gap-1.5">
+                {[
+                  { v: true, label: "Sends and receives" },
+                  { v: false, label: "Only receives" },
+                ].map((o) => (
+                  <button
+                    key={o.label}
+                    role="radio"
+                    aria-checked={sends === o.v}
+                    onClick={() => setSends(o.v)}
+                    disabled={!!busy}
+                    className={`rounded-full px-2.5 py-1 text-[12.5px] font-medium leading-4 ${sends === o.v ? "bg-ink text-white" : "text-[#3A3A38] shadow-[0_0_0_1px_#E6E6E3] hover:bg-black/[0.04]"}`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              <span className="text-[11.5px] leading-4 text-[#6B6B6B]">
+                {sends ? `${b.name} can start conversations and answer.` : `${b.name} answers people who write first.`} It&apos;s bought on your AgentPhone account, which pays for it every month.
+              </span>
+              <div className="flex items-center gap-2">
+                <button onClick={() => void act("buy", { action: "imessage-get", workspaceId: ws, sends })} disabled={!!busy} className={primary}>
+                  {busy === "buy" ? "Getting it…" : "Get the line"}
+                </button>
+                <button onClick={() => setBuying(false)} disabled={!!busy} className="text-[12.5px] text-[#6B6B6B] hover:text-ink">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+      {error && <span className="text-[12px] text-[#C2410C]">{error}</span>}
+    </div>
+  );
 }
 
 /** Telegram and Discord: make the bot's account there, paste its token. */
