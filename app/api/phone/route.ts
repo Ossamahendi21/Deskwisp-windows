@@ -1,6 +1,6 @@
 import { cloudOn, cloudSession } from "@/lib/server/cloud";
 import { onPostgres } from "@/lib/server/persist";
-import { assignWorkspaceLine, checkWorkspaceLine, ensurePhone, phoneCatchUp, phoneStatus, releaseWorkspaceLine, removeOwnerPhone, setLineCard } from "@/lib/server/phone";
+import { assignWorkspaceLine, checkWorkspaceLine, ensurePhone, getImessageLine, imessageLines, phoneCatchUp, phoneStatus, releaseWorkspaceLine, removeOwnerPhone, setLineCard, attachImessageLine } from "@/lib/server/phone";
 import { notReady } from "@/lib/server/ready";
 
 export const dynamic = "force-dynamic";
@@ -22,12 +22,16 @@ export async function GET(request?: Request) {
  * { action: "remove-owner", number } removes one of the user's mobiles (adding one is /api/phone/verify/start and /check);
  * { action: "assign-line", workspaceId, number, scope } makes an existing number the workspace's (its main bot's);
  * { action: "release-line", workspaceId } puts it back where it came from; { action: "check-line", workspaceId } reads it back.
+ * iMessage (a team's number that's an iMessage line on the user's AgentPhone account): { action: "imessage-lines" }
+ * lists the account's lines; { action: "imessage-use", workspaceId, number } makes one the team's;
+ * { action: "imessage-get", workspaceId, sends } buys one there (AgentPhone bills it) and makes it the team's.
  */
 export async function POST(request: Request) {
   const unready = notReady();
   if (unready) return unready;
-  const { action, botId, number, workspaceId, scope, areaCode } = (await request.json().catch(() => ({}))) as {
+  const { action, botId, number, workspaceId, scope, areaCode, sends } = (await request.json().catch(() => ({}))) as {
     action?: string;
+    sends?: boolean;
     botId?: string;
     areaCode?: string;
     number?: string;
@@ -42,6 +46,9 @@ export async function POST(request: Request) {
     // The user's own number is added with a texted code now: /api/phone/verify/start, then /check.
     if (action === "owner") return Response.json({ error: "Verify the number with a code first" }, { status: 400 });
     if (action === "assign-line" && workspaceId && number && scope) return Response.json(await assignWorkspaceLine(workspaceId, number, scope));
+    if (action === "imessage-lines") return Response.json({ lines: await imessageLines() });
+    if (action === "imessage-use" && workspaceId && number) return Response.json(await attachImessageLine(workspaceId, number));
+    if (action === "imessage-get" && workspaceId) return Response.json(await getImessageLine(workspaceId, sends === true));
     if (action === "release-line" && workspaceId) return Response.json(await releaseWorkspaceLine(workspaceId));
     if (action === "check-line" && workspaceId) return Response.json(await checkWorkspaceLine(workspaceId));
     if (action === "catch-up") return Response.json({ found: await phoneCatchUp() });
