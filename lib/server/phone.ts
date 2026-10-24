@@ -1104,7 +1104,10 @@ function ownerList() {
 export async function phoneStatus() {
   // What the Deskwisp plan holds now, so the app says why a number or an email isn't on offer (lib/plan-includes.ts).
   const room = planRoom();
-  if (!phoneOn()) return { on: false as const, room };
+  // Phones off: on Deskwisp Cloud the user can connect their own AgentPhone account (/api/phone/key).
+  if (!phoneOn()) return { on: false as const, room, connect: cloudOn() && !!cloudSessionNow()?.agentphoneConnect };
+  // On the user's own AgentPhone account, they pay for each number themselves: the plan doesn't limit them.
+  const own = cloudOn() && !!cloudSessionNow()?.agentphone?.own;
   const reg = await ap<{ campaign_status?: string; message?: string }>("GET", "/register/status").catch(() => null);
   return {
     on: true as const,
@@ -1128,9 +1131,10 @@ export async function phoneStatus() {
       .bots.filter((b) => b.phone)
       .map((b) => ({ bot: b.name, phone: prettyPhone(b.phone!) })),
     // With Deskwisp Cloud's plan limits on, Free gets no number (the cloud refuses the purchase): the app shows why instead of "Get a number".
-    planNeeded: planNeededForNumber(),
+    planNeeded: !own && planNeededForNumber(),
     // Each plan's numbers and emails (Free none, Pro 1, Max 5) and how many the user has: the app says why when there's no room.
     room,
+    own,
   };
 }
 

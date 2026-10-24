@@ -43,8 +43,13 @@ export type CloudSession = {
      */
     addresses?: "dotted";
   } | null;
-  /** AgentPhone goes through /proxy/agentphone, which always acts in this user's sub-account. Null when the cloud has no AgentPhone. */
-  agentphone: { subAccountId: string; hookUrl: string } | null;
+  /**
+   * AgentPhone goes through /proxy/agentphone: on the user's own AgentPhone account when they connected
+   * one (own, cloud/phone-key.ts), else in their sub-account of Deskwisp's. Null when neither is there.
+   */
+  agentphone: { subAccountId: string | null; own?: boolean; hookUrl: string } | null;
+  /** The user can connect their own AgentPhone account (PUT /v1/phone/key). Absent from older clouds. */
+  agentphoneConnect?: boolean;
   /** Honcho goes through /proxy/honcho; every workspace id the user touches must start with this prefix. */
   honcho: { workspacePrefix: string } | null;
   /** Composio goes through /proxy/composio, as this Composio user id only. */

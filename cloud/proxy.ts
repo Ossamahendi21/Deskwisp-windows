@@ -1,3 +1,4 @@
+import { ownPhoneKey } from "./phone-key.ts";
 import { trackCloudEvent } from "./analytics.ts";
 import { request as httpRequest, STATUS_CODES, type IncomingHttpHeaders, type IncomingMessage, type OutgoingHttpHeaders, type ServerResponse } from "node:http";
 import { request as httpsRequest } from "node:https";
@@ -72,6 +73,8 @@ type Call = {
   model?: string | null;
   /** That session's bot, once looked up. */
   sessionBot?: string | null;
+  /** An AgentPhone call made with the user's own key (phone-key.ts): no sub-account, no credit, no plan limits. */
+  ownKey?: boolean;
   /** A turn this call starts, let through by turn-guard.ts admitTurn: given back if the call fails. */
   start?: Start;
   /** Given back once the call is over and what it cost is recorded (a treg call's hold on the credit: tregCall). */
@@ -595,11 +598,15 @@ const openai: Spec = {
 const hookUrl = () => `${config.publicUrl()}/hooks/agentphone`;
 const SUB_ACCOUNT_KEYS = new Set(["subaccountid", "subaccount", "subaccountids"]);
 
-/** Every AgentPhone call acts in the user's own sub-account, whatever the Mac sent. Naming one any other way is refused. */
+/**
+ * Every AgentPhone call acts in the user's own sub-account of Deskwisp's, whatever the Mac sent, or, with
+ * the user's own key (phone-key.ts), on their own account. Naming a sub-account any other way is refused.
+ */
 async function inSubAccount(call: Call) {
+  if ([...queryValues(call.query), ...keysIn(call.json)].some((x) => SUB_ACCOUNT_KEYS.has(x.key))) throw new HttpError(400, "Deskwisp Cloud picks the AgentPhone sub-account.");
+  if (call.ownKey) return;
   const sub = (await accountFor(call.user.id))?.agentphoneSubAccount;
   if (!sub) throw new HttpError(409, "Your phone isn't set up yet. Restart Deskwisp and try again.");
-  if ([...queryValues(call.query), ...keysIn(call.json)].some((x) => SUB_ACCOUNT_KEYS.has(x.key))) throw new HttpError(400, "Deskwisp Cloud picks the AgentPhone sub-account.");
   call.headers["x-sub-account-id"] = sub;
 }
 
@@ -758,6 +765,8 @@ const agentphone: Spec = {
     // second next to the plan's.
     rule("POST v1/numbers", {
       check: async (call) => {
+        // On the user's own AgentPhone account, they pay for each number themselves: no plan limit.
+        if (call.ownKey) return;
         await requireRoomForNumber(call.user.id, call.horafirmKey);
         await refuseSecondPlanNumber(call.user.id, isObject(call.json) ? (call.json.externalId ?? call.json.external_id) : undefined);
       },
@@ -1623,10 +1632,12 @@ const MAC_SOURCES = new Set(["chat", "session", "memory", "call", "decide"]);
 
 async function handle(provider: Provider, prefix: string, req: IncomingMessage, res: ServerResponse, user: CloudUser) {
   const spec = SPECS[provider];
-  const key = spec.key();
-  if (!key) throw new HttpError(503, `${spec.name} isn't set up on this cloud.`);
+  // AgentPhone with the user's own key when they gave one (phone-key.ts), else Deskwisp's.
+  const own = provider === "agentphone" ? await ownPhoneKey(user.id) : null;
+  const key = own ?? spec.key();
+  if (!key) throw new HttpError(503, provider === "agentphone" ? "Connect your AgentPhone account first (a bot's Phone, Connect AgentPhone)." : `${spec.name} isn't set up on this cloud.`);
   const { path, query: q } = target(req.url, prefix);
-  const call: Call = { user, horafirmKey: bearer(req), method: req.method ?? "GET", path, params: {}, query: q, headers: {}, owned: new Set(), asked: req.headers, ...usageHeaders(req) };
+  const call: Call = { user, horafirmKey: bearer(req), method: req.method ?? "GET", path, params: {}, query: q, headers: {}, owned: new Set(), asked: req.headers, ...usageHeaders(req), ...(own ? { ownKey: true } : {}) };
   const r = match(spec, call);
   if (Number(req.headers["content-length"] ?? 0) > MAX_BODY) throw new HttpError(413, "Request too large");
   let body: IncomingMessage | null = null;
@@ -1650,7 +1661,8 @@ async function sendOn(provider: Provider, spec: Spec, key: string, r: Rule, call
   for (const name of r.own ?? []) await mustOwn(provider, call, call.params[name]);
   await r.check?.(call);
   // Last before it's sent: a call that isn't allowed is refused for that, not for the credit.
-  if (r.spends) await requireCredit(user.id, await r.minCost?.(call));
+  // What the user's own AgentPhone account pays for needs no credit here.
+  if (r.spends && !call.ownKey) await requireCredit(user.id, await r.minCost?.(call));
   await r.before?.(call);
   // A turn that doesn't start gives back what was set aside for it (turn-guard.ts admitTurn).
   let up: IncomingMessage;

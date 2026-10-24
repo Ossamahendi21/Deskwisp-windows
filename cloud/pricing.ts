@@ -202,6 +202,8 @@ const GSM7_EXTENDED = new Set([..."^{}\\[~]|€\f"]);
  * the seconds of each call are instead).
  */
 export function costOf(kind: string, units: number, detail: Record<string, unknown> = {}): number {
+  // On the user's own AgentPhone account (phone-key.ts), AgentPhone bills them: counted, at nothing here.
+  if (detail.ownKey === true && kind.startsWith("agentphone.")) return 0;
   const u = n(units);
   let micros = 0;
   if (kind === "openai.tokens") micros = tokenCost(detail);
