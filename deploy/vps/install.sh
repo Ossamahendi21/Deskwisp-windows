@@ -134,6 +134,18 @@ systemctl enable caddy >/dev/null 2>&1 || true
 if systemctl is-active --quiet caddy; then systemctl reload caddy; else systemctl start caddy; fi
 echo "Caddy: Deskwisp's sites are in"
 
+# Backups (backup.sh): pg_dump as new as Neon's Postgres, from the PostgreSQL project's apt repository,
+# and a copy of the database and the settings every night at 03:17 UTC.
+if ! ls /usr/lib/postgresql/18/bin/pg_dump >/dev/null 2>&1; then
+  apt-get install -y -q postgresql-common >/dev/null
+  /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+  apt-get install -y -q postgresql-client-18 >/dev/null
+fi
+install -m 0755 "$here/backup.sh" /usr/local/bin/deskwisp-backup
+printf 'SHELL=/bin/sh\nPATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\n17 3 * * * root /usr/local/bin/deskwisp-backup >/var/log/deskwisp-backup.log 2>&1\n' >/etc/cron.d/deskwisp-backup
+chmod 0644 /etc/cron.d/deskwisp-backup
+echo "Backups: every night (sudo deskwisp-backup for one now)"
+
 # The website's own counts: sudo deskwisp-site-stats, and each day's totals kept by cron.
 install -m 0755 "$here/site-stats.py" /usr/local/bin/deskwisp-site-stats
 install -d -m 0755 /var/lib/deskwisp

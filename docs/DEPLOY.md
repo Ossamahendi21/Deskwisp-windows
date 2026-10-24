@@ -142,3 +142,29 @@ info" → "Run anyway"). Updates don't: they come through the app. A code-signin
 warning; `electron-builder.win.json` is where it goes.
 
 `bash scripts/release-win.sh --no-publish` only builds, into `dist-win/`.
+
+## 6. Backups and watching
+
+**Backups.** `install.sh` sets up `deskwisp-backup` (deploy/vps/backup.sh), run every night at 03:17 UTC:
+the whole database (`db.dump`) and the settings with their keys (`settings.tgz`) go into
+`/var/backups/deskwisp/<date>/`, root only, the newest 14 days kept. One now: `sudo deskwisp-backup`. The
+last night's run: `sudo cat /var/log/deskwisp-backup.log`.
+
+A copy off the server, from the PC (Git Bash), now and then:
+
+    scp -i <key> -r ubuntu@<server>:/var/backups/deskwisp/<date> /d/Backups/deskwisp/
+
+(the folder is root's: first `sudo cp -r /var/backups/deskwisp/<date> /home/ubuntu/ && sudo chown -R ubuntu /home/ubuntu/<date>`
+on the server, then scp from `/home/ubuntu/<date>` and delete it there). Keep it somewhere private: it
+holds every customer's data and Deskwisp's keys.
+
+Putting the database back (into a new Neon branch first, to check it):
+
+    pg_restore --clean --if-exists --no-owner -d "<connection string>" db.dump
+
+Neon also keeps its own history: a branch can be restored to a past moment from its console.
+
+**Watching.** A free UptimeRobot account (uptimerobot.com), with three HTTPS monitors every 5 minutes
+that email when one is down: `https://deskwisp.com`, `https://app.deskwisp.com/health` and
+`https://cloud.deskwisp.com/api/health`. On the server, the services restart themselves if they stop
+(systemd), and `sudo journalctl -u deskwisp-dcloud -u deskwisp-cloud -n 100` shows what they said.
