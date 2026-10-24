@@ -333,6 +333,11 @@ export class PgStore implements Store {
     await this.rows("DELETE FROM deskwisp.computers WHERE id = $1", [id]);
   }
 
+  async setBoxId(id: string, boxId: string) {
+    if (!isUuid(id)) return;
+    await this.rows("UPDATE deskwisp.computers SET box_id = $2 WHERE id = $1", [id, boxId]);
+  }
+
   async setPasswords(id: string, vncPassword: string, viewPassword: string) {
     if (!isUuid(id)) return;
     await this.rows("UPDATE deskwisp.computers SET vnc_password = $2, view_password = $3 WHERE id = $1", [id, vncPassword, viewPassword]);

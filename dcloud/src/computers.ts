@@ -53,6 +53,8 @@ export class Computers {
   private readonly sweeper: ReturnType<typeof setInterval>;
   /** Boxes awake now, whose they are, and up to when their time has been counted. */
   private readonly awake = new Map<string, { owner: string; since: number }>();
+  /** Computers getting a new box now (revive), so two requests at once make one. */
+  private readonly reviving = new Map<string, Promise<Computer>>();
 
   constructor(cfg: Config, reg: Store, provider: Provider, planOf: (owner: string) => Promise<Tier> = async () => "max_deskwisp") {
     this.cfg = cfg;
@@ -150,7 +152,7 @@ export class Computers {
     if (this.open.has(boxId) && Date.now() - (this.checked.get(boxId) ?? 0) < 30_000) return false;
     const st = await this.provider.state(boxId);
     this.checked.set(boxId, Date.now());
-    if (st === "gone") throw new HttpError(404, "Computer not found", "not_found");
+    if (st === "gone") throw new HttpError(404, "Computer not found", "box_gone");
     if (st === "paused") {
       this.asleep.add(boxId);
       this.open.delete(boxId);
@@ -164,6 +166,65 @@ export class Computers {
    * counts as used; without it (a look), a sleeping box answers 409 computer_asleep and stays asleep.
    */
   async box(c: Computer, wake = false): Promise<Box> {
+    try {
+      return await this.boxOf(c, wake);
+    } catch (e) {
+      // Its box is gone from the provider: a new one takes its place (revive), and it's asked again.
+      if (!(e instanceof HttpError && e.code === "box_gone")) throw e;
+      return this.boxOf(await this.revive(c), wake);
+    }
+  }
+
+  /**
+   * A computer whose box the provider no longer has (an E2B sandbox that ran its longest life out, or
+   * was removed there) gets a fresh box from the template under the same computer: same id, same
+   * passwords, so the app, which knows only the computer, carries on. What was on the old box went with
+   * it. Without this the computer answered 404 for good, and the app, told its computer was deleted,
+   * "moved" its main bot to the same computer again and again ("My computer was deleted…").
+   */
+  private revive(c: Computer): Promise<Computer> {
+    let p = this.reviving.get(c.id);
+    if (p) return p;
+    p = (async () => {
+      const out = await this.hoursOut(c.owner);
+      if (out) throw out;
+      console.warn(`[dcloud] computer ${c.id}'s box ${c.boxId} is gone: making it a new one`);
+      for (const m of [this.open, this.used, this.told, this.checked]) m.delete(c.boxId);
+      this.readied.delete(c.boxId);
+      this.asleep.delete(c.boxId);
+      await this.stopped(c.boxId);
+      const box = await this.provider.create({ cpu: c.cpu, ramGb: c.ram, meta: { owner: c.owner, name: c.name } });
+      await this.reg.setBoxId(c.id, box.id);
+      const now: Computer = { ...c, boxId: box.id };
+      this.open.set(box.id, Promise.resolve(box));
+      this.checked.set(box.id, Date.now());
+      this.woke(box.id, c.owner);
+      this.touch(box.id);
+      try {
+        await desk.ready(box, now.vncPassword, now.viewPassword);
+        this.readied.add(box.id);
+      } catch (e) {
+        await this.provider.kill(box.id).catch(() => {});
+        this.open.delete(box.id);
+        await this.stopped(box.id);
+        throw new HttpError(503, (e as Error).message, "computer_failed");
+      }
+      return now;
+    })().finally(() => this.reviving.delete(c.id));
+    this.reviving.set(c.id, p);
+    return p;
+  }
+
+  /** The computer as it is now: one whose box is gone is given a new one first (revive). */
+  private async alive(c: Computer): Promise<Computer> {
+    // Known open a moment ago (each request doesn't ask the provider again).
+    if (this.open.has(c.boxId) && Date.now() - (this.checked.get(c.boxId) ?? 0) < 30_000) return c;
+    const st = await this.provider.state(c.boxId);
+    this.checked.set(c.boxId, Date.now());
+    return st === "gone" ? this.revive(c) : c;
+  }
+
+  private async boxOf(c: Computer, wake: boolean): Promise<Box> {
     if (!wake && (await this.sleeping(c.boxId))) throw new HttpError(409, "The computer is asleep", "computer_asleep");
     // Waking it takes hours of the plan: none left, it stays asleep.
     if (wake && !this.awake.has(c.boxId)) {
@@ -180,7 +241,7 @@ export class Computers {
     try {
       box = await p;
     } catch (e) {
-      if (e instanceof BoxGone) throw new HttpError(404, "Computer not found", "not_found");
+      if (e instanceof BoxGone) throw new HttpError(404, "Computer not found", "box_gone");
       throw e;
     }
     this.asleep.delete(c.boxId);
@@ -338,8 +399,10 @@ export class Computers {
       return this.view(await this.create(owner, w.id, String(body?.name ?? "Computer").slice(0, 80)));
     }
 
-    const comp = b ? await this.mine(owner, b) : null;
-    if (!comp) return false;
+    // A computer whose box is gone is given a new one before anything else (revive); deleting one doesn't need it.
+    const found = b ? await this.mine(owner, b) : null;
+    if (!found) return false;
+    const comp = !c && method === "DELETE" ? found : await this.alive(found);
 
     if (!c) {
       if (method === "GET") {

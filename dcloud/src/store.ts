@@ -140,6 +140,8 @@ export interface Store {
   anyComputer(id: string): Promise<Computer | null>;
   addComputer(c: Omit<Computer, "id" | "createdAt" | "vncPassword" | "viewPassword">): Promise<Computer>;
   removeComputer(id: string): Promise<void>;
+  /** A computer's new box, when the provider lost its old one (computers.ts revive). */
+  setBoxId(id: string, boxId: string): Promise<void>;
   /** New passwords for a computer (made for one from before view-only ones, or changed after someone left). */
   setPasswords(id: string, vncPassword: string, viewPassword: string): Promise<void>;
 
@@ -396,6 +398,13 @@ export class JsonStore implements Store {
 
   async removeComputer(id: string) {
     this.data.computers = this.data.computers.filter((c) => c.id !== id);
+    this.save();
+  }
+
+  async setBoxId(id: string, boxId: string) {
+    const c = this.data.computers.find((x) => x.id === id);
+    if (!c) return;
+    c.boxId = boxId;
     this.save();
   }
 

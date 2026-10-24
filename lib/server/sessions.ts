@@ -921,6 +921,8 @@ async function heal(botId: string, computerId: string, known: boolean): Promise<
   const now = bot(botId);
   // Not set up (its chat said why), or no room for one of its own (its chat said where it works instead).
   if (epoch !== stateEpoch() || !now?.computerId || now.computerStatus !== "ready") return true;
+  // Back on the very computer it had (the cloud gave it a new box under the same id): nothing moved, so nothing to say.
+  if (now.computerId === computerId) return true;
   addMessage({
     chatId: botChatId(botId),
     role: "bot",
