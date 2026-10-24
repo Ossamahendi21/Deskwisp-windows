@@ -1,7 +1,6 @@
 /**
- * What each metered use (usage.ts) costs the user's AI credit, in micro-dollars (1 cent = 10,000): at
- * cost, so $1 of credit is $1 of what OpenAI, Twilio or Typesafe charge, except AgentPhone's numbers,
- * calls and texts, at PHONE_MARKUP times their price. A row's cost
+ * What each metered use (usage.ts) costs Horafirm, in micro-dollars (1 cent = 10,000): AI credit is spent
+ * at cost, so $1 of credit is $1 of what OpenAI, AgentPhone, Twilio or Typesafe charge. A row's cost
  * is rounded up to a whole micro-dollar. Every price is one named constant here, so it can change in
  * one place.
  *
@@ -22,7 +21,7 @@
  * - Transcription (gpt-transcribe): $0.0045 a minute of audio, by the second.
  * - GPT-Live (gpt-live-1): $0.05 a minute of audio, by the second. A call over a SIP trunk adds the
  *   SIP leg (61.7 a second, from an internal estimate, not yet checked against an invoice).
- * - AgentPhone: agentphone.ai/pricing (then PHONE_MARKUP). $3 a number a month; an iMessage line by kind ($150 receive
+ * - AgentPhone: agentphone.ai/pricing. $3 a number a month; an iMessage line by kind ($150 receive
  *   only, $250 sends too); 2 cents a text segment and 3 cents a picture message, in or out; 13 cents a
  *   minute of a call through the webhook voice agent (what Deskwisp uses), billed by the second. The words
  *   the bot says on a call are its own model answers, counted as tokens.
@@ -66,21 +65,15 @@ const TRANSCRIBE_SECOND = 4_500 / 60;
 const LIVE_AUDIO_SECOND = 50_000 / 60;
 /** A second of a SIP trunk's leg, on top of the audio, for a call that came over one. */
 const SIP_LEG_SECOND = 61.7;
-/**
- * Phone numbers, calls and texts are the one thing Deskwisp sells above cost: the user's credit pays
- * this many times what AgentPhone charges (2: twice, so Deskwisp keeps as much as AgentPhone gets).
- * A plan's own numbers stay included (agentphone.plan_numbers).
- */
-export const PHONE_MARKUP = 2;
 /** A minute of a call through AgentPhone's webhook voice agent, billed by the second. */
-const VOICE_WEBHOOK_MINUTE = 130_000 * PHONE_MARKUP;
+const VOICE_WEBHOOK_MINUTE = 130_000;
 /** A month of a number; an iMessage line that only receives, or one that sends too. */
-const NUMBER = 3_000_000 * PHONE_MARKUP;
-const IMESSAGE_INBOUND = 150_000_000 * PHONE_MARKUP;
-const IMESSAGE_OUTBOUND = 250_000_000 * PHONE_MARKUP;
+const NUMBER = 3_000_000;
+const IMESSAGE_INBOUND = 150_000_000;
+const IMESSAGE_OUTBOUND = 250_000_000;
 /** A text, per segment (in or out); a picture message, each. */
-const SMS_SEGMENT = 20_000 * PHONE_MARKUP;
-const MMS = 30_000 * PHONE_MARKUP;
+const SMS_SEGMENT = 20_000;
+const MMS = 30_000;
 /** Per Jev token, by model: input, and output (free). */
 const JEV: { model: RegExp; input: number; output: number }[] = [{ model: /^jev(-latest|-1\.13(\.\d+)?)$/, input: 0.042, output: 0 }];
 const JEV_DEAREST = { input: 0.042, output: 0 };

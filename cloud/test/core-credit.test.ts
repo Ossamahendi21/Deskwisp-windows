@@ -158,8 +158,8 @@ test("each kind of use is priced at what it costs Horafirm, rounded up to a whol
   assert.equal(costOf("openai.live_seconds", 42, { transport: "sip" }), Math.ceil(42 * (50_000 / 60 + 61.7)));
   assert.equal(costOf("openai.live_seconds", 42), Math.ceil(42 * (50_000 / 60 + 61.7)));
   // AgentPhone's webhook voice agent: 13 cents a minute, billed by the second.
-  assert.equal(costOf("agentphone.voice_seconds", 60), 260_000);
-  assert.equal(costOf("agentphone.voice_seconds", 61), Math.ceil((61 * 260_000) / 60));
+  assert.equal(costOf("agentphone.voice_seconds", 60), 130_000);
+  assert.equal(costOf("agentphone.voice_seconds", 61), Math.ceil((61 * 130_000) / 60));
   // The estimate a call answered in the cloud used to be priced at is gone: its seconds and tokens are counted instead.
   assert.equal(costOf("call.minutes", 2.5), 0);
   // A web search: $10 per 1K calls; opening a page or finding in one isn't a call.
@@ -167,13 +167,13 @@ test("each kind of use is priced at what it costs Horafirm, rounded up to a whol
   assert.equal(costOf("openai.web_search", 1, {}), 10_000);
   assert.equal(costOf("openai.web_search", 1, { action: "open_page" }), 0);
   assert.equal(costOf("openai.web_search", 1, { action: "find_in_page" }), 0);
-  assert.equal(costOf("agentphone.numbers", 1, { type: "sms" }), 6_000_000);
-  assert.equal(costOf("agentphone.numbers", 1, {}), 6_000_000);
-  assert.equal(costOf("agentphone.numbers", 1, { type: "imessage", imessageType: "inbound" }), 300_000_000);
-  assert.equal(costOf("agentphone.numbers", 1, { type: "imessage", imessageType: "outbound" }), 500_000_000);
-  assert.equal(costOf("agentphone.numbers", 1, { type: "imessage" }), 500_000_000);
-  assert.equal(costOf("agentphone.sms", 2), 80_000);
-  assert.equal(costOf("agentphone.sms", 1, { mms: true }), 60_000);
+  assert.equal(costOf("agentphone.numbers", 1, { type: "sms" }), 3_000_000);
+  assert.equal(costOf("agentphone.numbers", 1, {}), 3_000_000);
+  assert.equal(costOf("agentphone.numbers", 1, { type: "imessage", imessageType: "inbound" }), 150_000_000);
+  assert.equal(costOf("agentphone.numbers", 1, { type: "imessage", imessageType: "outbound" }), 250_000_000);
+  assert.equal(costOf("agentphone.numbers", 1, { type: "imessage" }), 250_000_000);
+  assert.equal(costOf("agentphone.sms", 2), 40_000);
+  assert.equal(costOf("agentphone.sms", 1, { mms: true }), 30_000);
   // Jev: $0.042 per 1M input tokens, output free; jev-latest is jev-1.13.0, and a Jev model with no price here is priced as it.
   assert.equal(costOf("typesafe.tokens", 1_000, { model: "jev-1.13.0", input: 1_000, output: 0 }), 42);
   assert.equal(costOf("typesafe.tokens", 1_000_000, { model: "jev-latest", input: 1_000_000, output: 3 }), 42_000);
@@ -218,11 +218,11 @@ test("a use is paid from this month's plan credit first, then the rest, which ma
   const u = await newUser();
   await setCredit(u, { free: 5_000_000, plan: 1_000_000, planEnds: inAMonth() });
   await recordUsage(u, "agentphone.voice_seconds", 600);
-  assert.deepEqual(await row(u), { plan: "0", free: "3400000" });
-  assert.equal((await usageOf(u, "agentphone.voice_seconds"))[0].cost, 2_600_000);
+  assert.deepEqual(await row(u), { plan: "0", free: "4700000" });
+  assert.equal((await usageOf(u, "agentphone.voice_seconds"))[0].cost, 1_300_000);
   // An overrun (a turn already under way) goes below 0; the next grant covers it.
   await recordUsage(u, "agentphone.voice_seconds", 3_000);
-  assert.equal(await creditLeft(u), 3_400_000 - 13_000_000);
+  assert.equal(await creditLeft(u), 4_700_000 - 6_500_000);
   // A month that's over counts for nothing.
   await setCredit(u, { free: 0, plan: 9_000_000, planEnds: new Date(Date.now() - 1000) });
   assert.equal(await creditLeft(u), 0);
@@ -336,14 +336,14 @@ test("treg calls at once share what's left: each holds its cap until it's counte
 
 test("a number needs credit for its month: an iMessage line's is far more", async () => {
   const u = await newUser();
-  await setCredit(u, { free: 7_000_000 });
+  await setCredit(u, { free: 4_000_000 });
   const line = await as(u, "POST", "/proxy/agentphone/v1/numbers", { country: "US", type: "imessage", imessageType: "outbound" });
   assert.equal(line.status, 402, line.text);
   assert.equal(line.json.code, "ai_credit_empty");
   const number = await as(u, "POST", "/proxy/agentphone/v1/numbers", { country: "US", areaCode: "415", type: "sms" });
   assert.equal(number.status, 200, number.text);
   const bought = await until(async () => (await usageOf(u, "agentphone.numbers"))[0]);
-  assert.equal(bought.cost, 6_000_000);
+  assert.equal(bought.cost, 3_000_000);
   assert.equal(await creditLeft(u), 1_000_000);
 });
 
@@ -353,7 +353,7 @@ test("texts are paid by segment, sent or received, and a received one once howev
   const sent = await as(u, "POST", "/proxy/agentphone/v1/messages", { agent_id: "a", number_id: "n", to_number: "+14155550100", body: "x".repeat(200) });
   assert.equal(sent.status, 200, sent.text);
   const out = await until(async () => (await usageOf(u, "agentphone.sms"))[0]);
-  assert.deepEqual([out.units, out.cost, out.detail.direction], [2, 80_000, "out"]);
+  assert.deepEqual([out.units, out.cost, out.detail.direction], [2, 40_000, "out"]);
 
   const agentId = `ag_${tag}_in`;
   await query("INSERT INTO deskwisp.cloud_agents (agent_id, user_id, secret_sealed) VALUES ($1, $2, $3)", [agentId, u, seal("whsec_in")]);
@@ -363,8 +363,8 @@ test("texts are paid by segment, sent or received, and a received one once howev
   for (let i = 0; i < 2; i++) assert.equal((await fetch(`${cloud.url}/hooks/agentphone`, { method: "POST", headers, body })).status, 200);
   await until(async () => (await usageOf(u, "agentphone.sms")).length === 2);
   const rows = await usageOf(u, "agentphone.sms");
-  assert.deepEqual([rows[1].units, rows[1].cost, rows[1].detail.direction], [1, 40_000, "in"]);
-  assert.equal(await creditLeft(u), 1_000_000 - 120_000);
+  assert.deepEqual([rows[1].units, rows[1].cost, rows[1].detail.direction], [1, 20_000, "in"]);
+  assert.equal(await creditLeft(u), 1_000_000 - 60_000);
 });
 
 test("POST /v1/session gives a new user their one-time $5", async () => {

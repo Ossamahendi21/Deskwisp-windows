@@ -573,7 +573,7 @@ const placeOf = (o: NumberOption) => [o.city, o.state].filter(Boolean).join(", "
 const optionLabel = (o: NumberOption) => (placeOf(o) ? `${o.areaCode} · ${placeOf(o)}` : o.areaCode);
 
 /**
- * Give the bot its own phone number (AgentPhone; about $6 a month of AI credit off a plan), when phones are set up. It asks
+ * Give the bot its own phone number (AgentPhone, about $3 a month), when phones are set up. It asks
  * where first: an area code (the user's own mobile's, else 415), searched as it's typed, with the
  * places that have numbers as pills (nearby ones when that code has none left). The number is bought
  * in the area code picked; then the card shows it, and how to make it yours (LineLink).
