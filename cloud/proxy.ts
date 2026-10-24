@@ -1676,13 +1676,40 @@ async function sendOn(provider: Provider, spec: Spec, key: string, r: Rule, call
   for (let tries = 0; r.retry && call.json !== undefined && (up.statusCode ?? 502) >= 400 && tries < 12; tries++) {
     const raw = await readAll(up, MAX_BODY, spec.name);
     if (!r.retry(call, up.statusCode ?? 502, raw.toString("utf8"))) {
+      call.start?.release();
+      if (up.statusCode === 402 && spec === agentphone) return paymentAsked(spec, raw, res);
       res.writeHead(up.statusCode ?? 502, { ...responseHeaders(up.headers, ["content-length"]), "content-length": String(raw.length) });
       return void res.end(raw);
     }
     up = await send(spec, key, call, req, res, Buffer.from(JSON.stringify(call.json)), r.readToEnd);
   }
   if ((up.statusCode ?? 502) >= 300) call.start?.release();
+  // AgentPhone's 402 is its account wanting paying ("No card on file" on the user's own AgentPhone
+  // account), never the user's AI credit: it goes back saying whose it is, with a code of its own, so
+  // the app doesn't take it for "AI credit used up" and pause the bots (lib/server/cloud.ts outOfCredits).
+  // (treg's 402s are its own to answer: tregCall.)
+  if (up.statusCode === 402 && spec === agentphone) return paymentAsked(spec, await readAll(up, MAX_BODY, spec.name), res);
   await answer(spec, r, call, up, res);
+}
+
+/** A provider's 402, as the app is told it: whose it is, its words, and the code provider_payment. */
+function paymentAsked(spec: Spec, raw: Buffer, res: ServerResponse) {
+  const said = providerWords(raw);
+  res.writeHead(402, { "content-type": "application/json" });
+  res.end(JSON.stringify({ error: `${spec.name}: ${said ?? "it asks for payment on its account."}`, code: "provider_payment" }));
+}
+
+/** What a provider's error body says: its error (a string, or one with a message), detail or message. */
+function providerWords(raw: Buffer): string | undefined {
+  try {
+    const j = JSON.parse(raw.toString("utf8")) as { error?: unknown; detail?: unknown; message?: unknown };
+    const e = j.error;
+    const said = typeof e === "string" ? e : isObject(e) && typeof e.message === "string" ? e.message : typeof j.detail === "string" ? j.detail : typeof j.message === "string" ? j.message : "";
+    return said.trim().slice(0, 300) || undefined;
+  } catch {
+    const text = raw.toString("utf8").trim();
+    return text && text.length < 300 && !text.startsWith("<") ? text : undefined;
+  }
 }
 
 /* ---------------- The live call sideband (WebSocket) ---------------- */

@@ -67,6 +67,8 @@ before(async () => {
   agentphone = await fakeProvider((g) => {
     if (![`Bearer ${OWN}`, "Bearer ap-test-key"].includes(String(g.headers.authorization))) return { status: 401, json: { error: "invalid api key" } };
     if (g.method === "GET" && g.path === "/v1/numbers") return { json: { data: [], hasMore: false, total: 0 } };
+    // An iMessage line on an account with no card: AgentPhone's 402.
+    if (g.method === "POST" && g.path === "/v1/numbers" && g.json?.type === "imessage") return { status: 402, json: { error: "No card on file. Add a payment method and try again." } };
     if (g.method === "POST" && g.path === "/v1/numbers") return { json: { id: `num_${tag}_${++n}`, phoneNumber: newNumber(), type: "sms" } };
     if (g.method === "POST" && g.path === "/v1/messages") return { json: { id: `msg_${tag}_${++n}`, status: "queued" } };
     return { status: 418, json: { error: "the fake doesn't know this" } };
@@ -128,6 +130,10 @@ test("with their own key: no sub-account, no credit asked or taken, and the sess
   assert.equal(await creditLeft(u), 0);
   // Naming a sub-account is still refused.
   assert.equal((await as(u, "GET", "/proxy/agentphone/v1/numbers?subAccountId=sub_someone")).status, 400);
+  // AgentPhone wanting paying on their account isn't their AI credit: it says whose, with a code of its own.
+  const unpaid = await as(u, "POST", "/proxy/agentphone/v1/numbers", { country: "US", type: "imessage", imessageType: "outbound" });
+  assert.equal(unpaid.status, 402, unpaid.text);
+  assert.deepEqual(unpaid.json, { error: "AgentPhone: No card on file. Add a payment method and try again.", code: "provider_payment" });
 });
 
 test("forgetting the key puts the user back on Deskwisp's account, with its credit and sub-account", async () => {
