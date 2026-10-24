@@ -1,7 +1,7 @@
 {
   "name": "deskwisp",
   "description": "A team of AI bots that work for you, each with its own computer.",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
