@@ -94,6 +94,10 @@ function createUpdater({
   fetchImpl = (...a) => fetch(...a),
   spawnImpl = spawn,
   now = () => Date.now(),
+  // Where Deskwisp runs from and its process: on Windows the installer waits for both to be gone (waitThenRun).
+  platform = process.platform,
+  appDir = path.dirname(process.execPath),
+  pid = process.pid,
 }) {
   let lastNote = "";
   let state = "idle";
@@ -287,13 +291,37 @@ function createUpdater({
     const args = ["--updated", "/S", ...(reopen ? ["--force-run"] : [])];
     note(`installing Deskwisp ${newer?.version} (${reopen ? "then opening it" : "on quit"})`);
     try {
-      spawnImpl(ready, args, { detached: true, stdio: "ignore", windowsHide: true }).unref();
+      if (platform === "win32") spawnImpl("powershell.exe", waitThenRun(ready, args), { detached: true, stdio: "ignore", windowsHide: true }).unref();
+      else spawnImpl(ready, args, { detached: true, stdio: "ignore", windowsHide: true }).unref();
     } catch (e) {
       note(`couldn't run the installer: ${e?.message ?? e}`);
       return false;
     }
     ready = undefined;
     return true;
+  }
+
+  /**
+   * PowerShell's arguments to run the installer only once Deskwisp has let go of its files: this process
+   * gone, then every other one still running from its folder (its windows' helpers, the server it ran),
+   * up to 30 seconds each, the last stopped if they're still there. Run straight away, the installer
+   * finds them still holding their files and stops ("Failed to uninstall old application files").
+   */
+  function waitThenRun(installer, args) {
+    const q = (x) => `'${String(x).replace(/'/g, "''")}'`;
+    const folder = appDir.endsWith("\\") ? appDir : `${appDir}\\`;
+    const script = [
+      "$ErrorActionPreference = 'SilentlyContinue'",
+      `$dir = ${q(folder)}`,
+      "$mine = { Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($dir, [System.StringComparison]::OrdinalIgnoreCase) } }",
+      `Wait-Process -Id ${Number(pid)} -Timeout 30`,
+      "$until = (Get-Date).AddSeconds(30)",
+      "while ((Get-Date) -lt $until -and (& $mine)) { Start-Sleep -Milliseconds 500 }",
+      "& $mine | Stop-Process -Force",
+      "Start-Sleep -Milliseconds 800",
+      `Start-Process -FilePath ${q(installer)} -ArgumentList @(${args.map(q).join(", ")})`,
+    ].join("\n");
+    return ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")];
   }
 
   return { check, download, restore, install, status, isReady: () => !!ready };
