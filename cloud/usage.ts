@@ -49,7 +49,15 @@ async function recorded<T>(userId: string, kind: string, micros: () => number, w
 }
 
 /** One more use of `kind` by this user, paid for from their AI credit. */
+/** AgentPhone use on the user's own account (phone-key.ts) is marked so (detail.ownKey): AgentPhone bills them, and pricing.ts makes it $0. */
+async function withOwnKey(userId: string, kind: string, detail?: Record<string, unknown>): Promise<Record<string, unknown> | undefined> {
+  if (!kind.startsWith("agentphone.")) return detail;
+  const r = await query("SELECT 1 FROM deskwisp.phone_keys WHERE user_id = $1", [userId]).catch(() => null);
+  return r?.rowCount ? { ...(detail ?? {}), ownKey: true } : detail;
+}
+
 export async function recordUsage(userId: string, kind: string, units: number, detail?: Record<string, unknown>): Promise<void> {
+  detail = await withOwnKey(userId, kind, detail);
   const cost = costOf(kind, units, detail);
   let ranOut = false;
   await recorded(
@@ -77,6 +85,7 @@ export async function recordUsage(userId: string, kind: string, units: number, d
  * what was paid for it already is taken.
  */
 export async function recordUsageFor(userId: string, kind: string, ref: string, units: number, detail: Record<string, unknown> = {}): Promise<void> {
+  detail = (await withOwnKey(userId, kind, detail)) ?? {};
   let paid = 0;
   let ranOut = false;
   await recorded(

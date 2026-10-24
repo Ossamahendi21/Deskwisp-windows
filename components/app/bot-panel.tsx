@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { botChatId, live, MAIN_WORKSPACE, screenCount, sharesComputer, workBot, workspaceOf, type AppState, type Bot, type Routine, type Session } from "@/lib/types";
 import { mainOwnShort, ownComputerShort } from "@/lib/horafirm-plans";
 import { emailShort, numberShort, upgradeLabel, type PlanRoomShort } from "@/lib/plan-includes";
@@ -115,7 +115,8 @@ function Details({
   const plan = usePhonePlan();
   // What the Deskwisp plan includes for this bot (lib/plan-includes.ts), when Deskwisp Cloud holds plans to it.
   const planBot = !!b.isMain && workspaceOf(b) === MAIN_WORKSPACE;
-  const numberRoom = plan.room ? numberShort(plan.room.tier, plan.room.numbers, { isPlanBot: planBot }) : null;
+  // On the user's own AgentPhone account they pay for each number: the plan doesn't limit numbers.
+  const numberRoom = plan.room && !plan.own ? numberShort(plan.room.tier, plan.room.numbers, { isPlanBot: planBot }) : null;
   const emailRoom = plan.room && !b.email ? emailShort(plan.room.tier, plan.room.emails, { isPlanBot: planBot }) : null;
   // Max has room for this bot's email, which it gets when the user asks (Get an email).
   const emailOnAsk = !!plan.room && plan.room.tier === "max_deskwisp" && !planBot && !b.email && !emailRoom;
@@ -179,6 +180,7 @@ function Details({
           empty={line && main ? `Text ${main.name} at ${prettyPhone(line.phone)}: ${main.name} passes work to ${b.name}.` : "No number yet."}
         />
         {!line && !b.phone && <GetNumber bot={b} plan={plan} room={numberRoom} onUpgrade={onUpgrade} />}
+        {!line && !b.phone && plan.on === false && plan.connect && <ConnectAgentPhone bot={b} onDone={plan.reload} />}
         {/* Whose phone the number is linked to: the first to call or text it, then calls and texts from it count as the user. */}
         {reach && <LineLink key={reach} phone={reach} className="px-4 pb-[11px]" />}
         <div className="h-px bg-black/[0.05]" />
@@ -458,7 +460,8 @@ type Found = { areaCode: string; options: NumberOption[]; anywhere?: boolean };
 
 /** What the Deskwisp plan holds now (lib/server/plan-room.ts): null where Deskwisp Cloud doesn't hold plans to what they include. */
 type Room = { tier: DeskwispTier; numbers: number; emails: number } | null;
-type PhonePlan = { on: boolean | null; planNeeded: boolean; room: Room };
+/** `own`: numbers on the user's own AgentPhone account (no plan limit); `connect`: phones are off, and one can be connected. */
+type PhonePlan = { on: boolean | null; planNeeded: boolean; room: Room; own: boolean; connect: boolean; reload: () => void };
 
 /**
  * Phones on here (AgentPhone through Deskwisp Cloud), and whether a number or an inbox needs Pro or Max:
@@ -466,26 +469,28 @@ type PhonePlan = { on: boolean | null; planNeeded: boolean; room: Room };
  * Deskwisp comes back to the front while it still says Free: the user may have just paid in the browser.
  */
 function usePhonePlan(): PhonePlan {
-  const [plan, setPlan] = useState<PhonePlan>({ on: null, planNeeded: false, room: null });
+  const [asked, setAsked] = useState(0);
+  const reload = useCallback(() => setAsked((n) => n + 1), []);
+  const [plan, setPlan] = useState<Omit<PhonePlan, "reload">>({ on: null, planNeeded: false, room: null, own: false, connect: false });
   const needed = useRef(false);
   useEffect(() => {
     const ask = (fresh: boolean) =>
       void fetch(`/api/phone${fresh ? "?fresh=1" : ""}`, { cache: "no-store" })
         .then((r) => r.json())
-        .then((j: { on?: boolean; planNeeded?: boolean; room?: Room }) => {
+        .then((j: { on?: boolean; planNeeded?: boolean; room?: Room; own?: boolean; connect?: boolean }) => {
           // Asked again on focus while the plan has less than Max: the user may have just upgraded.
           needed.current = !!j.planNeeded || (!!j.room && j.room.tier !== "max_deskwisp");
-          setPlan({ on: !!j.on, planNeeded: !!j.planNeeded, room: j.room ?? null });
+          setPlan({ on: !!j.on, planNeeded: !!j.planNeeded, room: j.room ?? null, own: !!j.own, connect: !!j.connect });
         })
         .catch(() => {});
-    ask(false);
+    ask(asked > 0);
     const back = () => {
       if (needed.current) ask(true);
     };
     window.addEventListener("focus", back);
     return () => window.removeEventListener("focus", back);
-  }, []);
-  return plan;
+  }, [asked]);
+  return { ...plan, reload };
 }
 
 /** On Free: a number or an email comes with a plan. "Purchase a plan" opens the plans (Account). */
@@ -568,12 +573,88 @@ function GetEmail({ bot: b }: { bot: Bot }) {
   );
 }
 
+/**
+ * Phone numbers come from AgentPhone, on the user's own account: they sign up there, pay AgentPhone for
+ * their numbers, calls and texts, and paste their API key here (Deskwisp Cloud checks it with AgentPhone
+ * and keeps it sealed: cloud/phone-key.ts). Then "Get a number" appears in its place.
+ */
+function ConnectAgentPhone({ bot: b, onDone }: { bot: Bot; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [key, setKey] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [signup, setSignup] = useState("https://agentphone.ai");
+  useEffect(() => {
+    if (!open) return;
+    void fetch("/api/phone/key", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { signup?: string }) => j.signup && /^https:\/\//.test(j.signup) && setSignup(j.signup))
+      .catch(() => {});
+  }, [open]);
+  const connect = async () => {
+    setBusy(true);
+    setError(null);
+    const res = await fetch("/api/phone/key", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: key.trim() }) }).catch(() => null);
+    const j = (await res?.json().catch(() => null)) as { connected?: boolean; error?: string } | null;
+    setBusy(false);
+    if (!res?.ok || !j?.connected) return setError(j?.error ?? "Couldn't connect AgentPhone. Try again.");
+    setKey("");
+    onDone();
+  };
+  if (!open)
+    return (
+      <div className="flex items-center gap-2 px-4 pb-[11px]">
+        <button onClick={() => setOpen(true)} data-tip="Numbers come from AgentPhone, on your own account." className="rounded-full bg-ink px-3 py-1.5 text-[12.5px] font-medium leading-4 text-white">
+          {`Get ${b.name} a number`}
+        </button>
+      </div>
+    );
+  return (
+    <div className="flex flex-col gap-2 px-4 pb-[11px] text-[12px] leading-4">
+      <span className="text-[#3A3A38]">
+        {b.name}&apos;s numbers come from AgentPhone, on your own account: you pay AgentPhone for each number, its calls and its texts, and {b.name} uses them here. US and Canadian numbers.
+      </span>
+      <ol className="flex list-decimal flex-col gap-1 pl-4 text-[#3A3A38]">
+        <li>
+          <button onClick={() => window.open(signup)} className="font-medium text-ink underline underline-offset-2">
+            Sign up at AgentPhone
+          </button>{" "}
+          and add a payment method.
+        </li>
+        <li>Create an API key there, and paste it here.</li>
+      </ol>
+      <div className="flex items-center gap-2">
+        <input
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && key.trim() && !busy && void connect()}
+          disabled={busy}
+          type="password"
+          autoFocus
+          spellCheck={false}
+          autoComplete="off"
+          placeholder="AgentPhone API key"
+          aria-label="AgentPhone API key"
+          className="h-7 min-w-0 flex-1 rounded-full bg-[#F7F7F6] px-3 text-[13px] outline-none shadow-[0_0_0_1px_#E6E6E3] focus:shadow-[0_0_0_1.5px_#16132B] disabled:opacity-50"
+        />
+        <button onClick={() => void connect()} disabled={busy || !key.trim()} className="shrink-0 rounded-full bg-ink px-3 py-1.5 text-[12.5px] font-medium leading-4 text-white disabled:opacity-50">
+          {busy ? "Checking…" : "Connect"}
+        </button>
+        <button onClick={() => (setOpen(false), setError(null))} disabled={busy} className="shrink-0 text-[12.5px] text-[#6B6B6B] hover:text-ink">
+          Cancel
+        </button>
+      </div>
+      {error && <span className="text-[#C2410C]">{error}</span>}
+    </div>
+  );
+}
+
 /** "628 · San Francisco, CA". */
 const placeOf = (o: NumberOption) => [o.city, o.state].filter(Boolean).join(", ");
 const optionLabel = (o: NumberOption) => (placeOf(o) ? `${o.areaCode} · ${placeOf(o)}` : o.areaCode);
 
 /**
- * Give the bot its own phone number (AgentPhone; about $6 a month of AI credit off a plan), when phones are set up. It asks
+ * Give the bot its own phone number (AgentPhone, about $3 a month), when phones are set up. It asks
  * where first: an area code (the user's own mobile's, else 415), searched as it's typed, with the
  * places that have numbers as pills (nearby ones when that code has none left). The number is bought
  * in the area code picked; then the card shows it, and how to make it yours (LineLink).
@@ -581,7 +662,7 @@ const optionLabel = (o: NumberOption) => (placeOf(o) ? `${o.areaCode} · ${place
 function GetNumber({ bot: b, plan, room, onUpgrade }: { bot: Bot; plan: PhonePlan; room: PlanRoomShort | null; onUpgrade: () => void }) {
   const { on } = plan;
   // No number on the plan for this bot (lib/plan-includes.ts), or, from a cloud that doesn't say what's held, none on Free.
-  const planNeeded = !!room || (!plan.room && plan.planNeeded);
+  const planNeeded = !plan.own && (!!room || (!plan.room && plan.planNeeded));
   const [picking, setPicking] = useState(false);
   /** The area code typed; null until the first search says which one to start from. */
   const [code, setCode] = useState<string | null>(null);
@@ -651,6 +732,18 @@ function GetNumber({ bot: b, plan, room, onUpgrade }: { bot: Bot; plan: PhonePla
         >
           {`Get ${b.name} a number`}
         </button>
+        {plan.own && (
+          <button
+            onClick={async () => {
+              await fetch("/api/phone/key", { method: "DELETE" }).catch(() => null);
+              plan.reload();
+            }}
+            data-tip="Numbers already bought stay on your AgentPhone account."
+            className="text-[12px] leading-4 text-[#6B6B6B] hover:text-ink"
+          >
+            Disconnect AgentPhone
+          </button>
+        )}
       </div>
     );
   // A number the plan doesn't include: "Get a number" says why, with the upgrade that has room, instead of opening the picker.

@@ -1,3 +1,4 @@
+import { ownPhoneKey } from "./phone-key.ts";
 import { trackCloudEvent } from "./analytics.ts";
 import { bearer, type CloudUser } from "./auth.ts";
 import { config } from "./config.ts";
@@ -366,7 +367,14 @@ async function setUp(user: CloudUser): Promise<CloudSession> {
             ...(config.ownMail() ? { api: "/mail", addresses: "dotted" as const } : {}),
           }
         : null,
-    agentphone: config.agentphoneKey() && row.agentphone_sub_account ? { subAccountId: row.agentphone_sub_account, hookUrl: publicUrl ? `${publicUrl}/hooks/agentphone` : "" } : null,
+    // Phones: on the user's own AgentPhone account when they connected one (phone-key.ts), else in their sub-account of Deskwisp's.
+    agentphone: (await ownPhoneKey(user.id))
+      ? { subAccountId: null, own: true, hookUrl: publicUrl ? `${publicUrl}/hooks/agentphone` : "" }
+      : config.agentphoneKey() && row.agentphone_sub_account
+        ? { subAccountId: row.agentphone_sub_account, hookUrl: publicUrl ? `${publicUrl}/hooks/agentphone` : "" }
+        : null,
+    // Without phones here, whether the app can offer to connect the user's own AgentPhone account.
+    agentphoneConnect: true,
     honcho: config.honchoKey() ? { workspacePrefix: honchoPrefix(user.id) } : null,
     composio: config.composioKey() ? { userId: composioUserId(user.id) } : null,
     openai: config.openaiKey() ? { executorKey: executorKey() } : null,
