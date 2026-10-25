@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   if (unready) return unready;
   const body = (await request.json().catch(() => ({}))) as { share?: unknown };
   if (typeof body.share !== "boolean") return Response.json({ error: "share must be true or false" }, { status: 400 });
-  if (!getState().account) return Response.json({ error: "Sign in with Horafirm first." }, { status: 401 });
+  if (!getState().account) return Response.json({ error: "Sign in to Deskwisp first." }, { status: 401 });
   const share = body.share;
   update((s) => {
     if (share) delete s.analyticsOff;

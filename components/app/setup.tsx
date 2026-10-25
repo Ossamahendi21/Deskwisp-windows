@@ -309,7 +309,7 @@ function RelayCard({ items }: { items: Items }) {
     ? error
     : info.on
       ? `On${info.device ? ` as ${info.device.name}` : ""}${connecting ? ", connecting" : ""}. ${n ? `${n} computer${n === 1 ? "" : "s"} routed` : "No computers routed yet"}`
-      : "Off. Bots' computers use Horafirm's connection";
+      : "Off. Bots' computers use Deskwisp Cloud's connection";
   return (
     <Card icon={ICONS.relay} title="Route through this PC" line={line} tone={error ? "todo" : info.on ? (connecting ? "todo" : "ok") : "off"} status={status}>
       <button disabled={busy} onClick={() => void turn(!info.on)} className={info.on ? light : dark}>

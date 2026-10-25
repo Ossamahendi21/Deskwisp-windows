@@ -72,7 +72,7 @@ if [ -f .env.local ]; then
 else
   cp .env.example .env.local
   echo "  - .env.local made from .env.example: fill in at least OPENAI_API_KEY and OPENAI_EXECUTOR_API_KEY,"
-  echo "    or set DESKWISP_SELF_HOSTED=0 in it and sign in with Horafirm, which needs no keys of your own."
+  echo "    or set DESKWISP_SELF_HOSTED=0 in it and sign in to Deskwisp, which needs no keys of your own."
 fi
 
 # 3. The relay agent, when this GitHub login can read Horafirm's relay releases.

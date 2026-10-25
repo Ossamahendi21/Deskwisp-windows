@@ -782,7 +782,7 @@ export async function ensureComputer(botId: string): Promise<void> {
       }
       if (c && BROKEN.has(c.status)) {
         broken = c.status;
-        throw new Error(`Horafirm says it's ${c.status === "error" ? "broken" : c.status}`);
+        throw new Error(`Deskwisp Cloud says it's ${c.status === "error" ? "broken" : c.status}`);
       }
       if (c?.status === "suspended" && Date.now() - wokenAt >= setupWait.wakeAskMs && Date.now() < setupWaitUntil(startedAt, firstWakeAt)) {
         wokenAt = Date.now();
@@ -938,7 +938,7 @@ async function heal(botId: string, computerId: string, known: boolean): Promise<
   const b = bot(botId);
   // Another user's state came in meanwhile, the bot moved on already, or a task is setting this one up (it finds out itself).
   if (epoch !== stateEpoch() || !b || b.computerId !== computerId || b.computerStatus === "cloning") return false;
-  console.warn(`[computer] ${b.name}'s computer ${computerId} is gone from Horafirm; moving it to another`);
+  console.warn(`[computer] ${b.name}'s computer ${computerId} is gone from Deskwisp Cloud; moving it to another`);
   forgetComputer(b);
   // Its bots work on this PC now: their next cloud task gets it a computer.
   if (getState().host !== "horafirm") return true;

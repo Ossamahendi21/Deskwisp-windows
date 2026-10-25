@@ -77,7 +77,7 @@ export function UsageData() {
         <div className="flex flex-1 flex-col gap-0.5">
           <span className="text-[13px] font-medium">Share usage data</span>
           <span className="text-[12px] leading-4 text-[#6B6B6B]">
-            Sends Horafirm counts of what you do in Deskwisp, like bots made and tasks run, and error reports. Never your messages, files, screens, contacts or keys.
+            Sends Deskwisp counts of what you do in Deskwisp, like bots made and tasks run, and error reports. Never your messages, files, screens, contacts or keys.
             {info.locked && " Turned off on this PC."}
           </span>
         </div>

@@ -26,7 +26,7 @@ async function apiKey(): Promise<string> {
   } catch {
     /* no CLI login either */
   }
-  throw new Error("Not signed in to Horafirm");
+  throw new Error("Not signed in to Deskwisp");
 }
 
 /** Horafirm turned a call down: its HTTP status, its code when it sent one (VM_SLOT_ADDON, NOT_FORKABLE…), and its own words. */
@@ -100,7 +100,7 @@ async function call<T>(method: string, path: string, body?: unknown, { wait = me
     try {
       json = text ? JSON.parse(text) : {};
     } catch {
-      if (res.ok) throw new Error(`Horafirm ${method} ${path} sent back something that isn't JSON`);
+      if (res.ok) throw new Error(`Deskwisp Cloud ${method} ${path} sent back something that isn't JSON`);
     }
     const code = typeof json.code === "string" ? json.code : undefined;
     // Still there, not ready for it yet: the same action again when Horafirm says, while there's time.
@@ -118,7 +118,7 @@ async function call<T>(method: string, path: string, body?: unknown, { wait = me
     }
     if (!res.ok)
       throw new HorafirmError(
-        `Horafirm ${method} ${path} → ${res.status}: ${json.error ?? text.slice(0, 200)}`,
+        `Deskwisp Cloud ${method} ${path} → ${res.status}: ${json.error ?? text.slice(0, 200)}`,
         res.status,
         code,
         typeof json.error === "string" ? json.error : undefined,

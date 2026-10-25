@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   const { tier } = (await request.json().catch(() => ({}))) as { tier?: unknown };
   if (tier !== "pro_deskwisp" && tier !== "max_deskwisp") return Response.json({ error: "Pick Pro or Max." }, { status: 400 });
   const key = await loadHorafirmKey();
-  if (!key) return Response.json({ error: "Sign in with Horafirm first." }, { status: 401 });
+  if (!key) return Response.json({ error: "Sign in to Deskwisp first." }, { status: 401 });
   const link = await deskwispBillingLink(key, { tier });
   if ("url" in link) trackServerEvent("deskwisp_checkout_started", { to_plan: tier });
   return "url" in link ? Response.json(link) : Response.json({ error: link.error, ...(link.soon ? { soon: true } : {}) }, { status: link.status });

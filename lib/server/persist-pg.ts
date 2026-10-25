@@ -262,7 +262,7 @@ export function pgStore({ get, replace }: StateAccess): Persistence {
    * ever works on, or saves into, another user's state.
    */
   async function switchTo(userId: string) {
-    if (pinned && userId !== pinned) throw new Error(`this server is for Horafirm user ${pinned}`);
+    if (pinned && userId !== pinned) throw new Error(`this server is for user ${pinned}`);
     await exclusive(async () => {
       if (box.user === userId) return;
       if (box.user) {

@@ -213,7 +213,7 @@ export async function buyCreditOnCard(key: string, p: { amountCents: number; car
     30_000,
   );
   if (!got) {
-    console.warn("[credit] Horafirm didn't answer a card purchase");
+    console.warn("[credit] Deskwisp Cloud didn't answer a card purchase");
     // It may have charged: the app tries again under the same key, which Horafirm answers with the first result.
     return { status: 502, json: { code: "horafirm_unreachable", error: "Couldn't reach Deskwisp. Try again: you won't be charged twice." } };
   }
@@ -225,7 +225,7 @@ export async function buyCreditOnCard(key: string, p: { amountCents: number; car
   if (Number.isSafeInteger(j.amount_cents)) json.amount_cents = j.amount_cents;
   const card = savedCardFrom(j.card);
   if (card) json.card = card;
-  if (got.status >= 500) console.warn(`[credit] Horafirm answered a card purchase with ${got.status}${json.code ? ` (${json.code})` : ""}`);
+  if (got.status >= 500) console.warn(`[credit] Deskwisp Cloud answered a card purchase with ${got.status}${json.code ? ` (${json.code})` : ""}`);
   return { status: got.status, json };
 }
 
@@ -240,7 +240,7 @@ export async function creditCheckoutLink(key: string, amountCents: number): Prom
   if (got.status === 401 || got.status === 403) return { error: SIGNED_OUT, code: "signed_out", status: 401 };
   if (creditOff(got)) return { ...CREDIT_OFF, status: 503 };
   const code = typeof got.json.code === "string" ? got.json.code : undefined;
-  if (got.status >= 500) console.warn(`[credit] Horafirm answered a checkout with ${got.status}${code ? ` (${code})` : ""}`);
+  if (got.status >= 500) console.warn(`[credit] Deskwisp Cloud answered a checkout with ${got.status}${code ? ` (${code})` : ""}`);
   return {
     error: typeof got.json.error === "string" ? got.json.error : `Deskwisp couldn't open checkout (${got.status}). Try again in a minute.`,
     ...(code ? { code } : {}),
@@ -440,8 +440,8 @@ async function refusedFor(e: unknown, main: Bot) {
   const plan = read && deal ? { ...read, deal } : read;
   if (short === "count" && plan?.inUse !== undefined && plan.inUse < plan.computers) {
     // The numbers have room, so a deal's limit they don't show turned it down (its computers of one kind,
-    // say): in Horafirm's own words, where it's Horafirm to ask.
-    if (deal && e.said) return new PlanLimit(e.said.replace(/\b([Cc])ontact us\b/g, (_, c: string) => `${c === "C" ? "Ask" : "ask"} Horafirm`), linkFor(short, plan));
+    // say): in Deskwisp Cloud's own words.
+    if (deal && e.said) return new PlanLimit(e.said, linkFor(short, plan));
     // Else Horafirm's answer stands: a computer came along since it counted.
     return limitOf(short, { ...plan, inUse: plan.computers }, main);
   }
@@ -475,7 +475,7 @@ async function planNow(short: (plan: HorafirmPlan | null) => PlanShort | null | 
  * have the same ids, and Horafirm is asked with their key now.
  */
 function sameUser(epoch: number) {
-  if (epoch !== stateEpoch()) throw new Error("Another Horafirm account signed in meanwhile");
+  if (epoch !== stateEpoch()) throw new Error("Another account signed in meanwhile");
 }
 
 /** A main bot's computer: its id, and whether it's the user's free Deskwisp computer. */
@@ -590,7 +590,7 @@ function shareFree(main: Bot, holder: Bot, why: PlanLimit, epoch: number) {
     chatId: botChatId(main.id),
     role: "bot",
     botId: main.id,
-    text: `I'll work on your free Deskwisp computer, which ${holder.name} has, instead of one of my own. ${limitText(why)} Once your ${why.link ? "Horafirm plan" : "plan"} has room, you can switch me to Its own under Computer in my Details.`,
+    text: `I'll work on your free Deskwisp computer, which ${holder.name} has, instead of one of my own. ${limitText(why)} Once your plan has room, you can switch me to Its own under Computer in my Details.`,
   });
   return null;
 }
@@ -656,7 +656,7 @@ function shareInstead(b: Bot, main: Bot, why: PlanLimit, epoch: number) {
     chatId: botChatId(b.id),
     role: "bot",
     botId: b.id,
-    text: `I'll work on ${main.name}'s computer instead of one of my own. ${limitText(why)} Once your ${why.link ? "Horafirm plan" : "plan"} has room, you can switch me to Its own under Computer in my Details.`,
+    text: `I'll work on ${main.name}'s computer instead of one of my own. ${limitText(why)} Once your plan has room, you can switch me to Its own under Computer in my Details.`,
   });
   return null;
 }
