@@ -30,6 +30,9 @@ function migrate(raw: Record<string, unknown>): AppState {
   state.chats ??= [];
   for (const b of state.bots) if (!state.chats.some((c) => c.id === botChatId(b.id))) state.chats.push({ ...botChat(b.id, 0), workspaceId: b.workspaceId });
   for (const c of state.chats) c.typing = [];
+  // "Being set up" doesn't outlive the Deskwisp that was setting it up: one saved mid-setup (closed,
+  // restarted or updated meanwhile) is set up again on the next need, or with Set up.
+  for (const b of state.bots) if (b.computerStatus === "cloning") b.computerStatus = b.computerId ? "error" : "none";
   // Workspaces: everything from before belongs to the first one, "Main". Each workspace has a main bot.
   state.workspaces ??= [{ id: MAIN_WORKSPACE, name: "Main", createdAt: Date.now() }];
   if (!state.workspaces.some((w) => w.id === state.workspace)) state.workspace = state.workspaces[0].id;

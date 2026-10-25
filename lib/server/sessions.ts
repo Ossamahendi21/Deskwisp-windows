@@ -695,6 +695,15 @@ function screensInUse(botId: string) {
  * computer that may hold the user's work is never deleted for a failed setup. One asleep is woken and
  * waited for, from storage too (a few minutes); waking is never a failed setup.
  */
+/**
+ * The bots whose computer this process is setting up now. A "being set up" in the state with no setup
+ * here (saved while one ran, then Deskwisp closed, restarted or updated) is set up again, instead of
+ * waiting for ever with nothing to finish it.
+ */
+const settingUp = new Set<string>();
+/** Each bot's setup generation: "Start over" (resetComputer) moves it on, so a setup still under way stops touching the bot. */
+const setupGen = new Map<string, number>();
+
 export async function ensureComputer(botId: string): Promise<void> {
   const b = bot(botId);
   const host = b && workComputer(b);
@@ -702,11 +711,13 @@ export async function ensureComputer(botId: string): Promise<void> {
   // The computer this workspace's own computers are copied from: its main bot's, or the free one it works on.
   const wsMain = getState().bots.find((x) => x.isMain && workspaceOf(x) === workspaceOf(b));
   const sam = wsMain && workBot(wsMain, getState().bots);
-  if (!b || !sam || b.computerStatus === "cloning") return;
+  if (!b || !sam || (b.computerStatus === "cloning" && settingUp.has(b.id))) return;
   // Whose state this is. On a hosted server another user's can be swapped in while this waits on Horafirm:
   // their bots, chats and tasks have the same ids, so from then on nothing here touches the state.
+  // "Start over" meanwhile (setupGen) ends it the same way.
   const epoch = stateEpoch();
-  const swapped = () => epoch !== stateEpoch();
+  const gen = setupGen.get(botId) ?? 0;
+  const swapped = () => epoch !== stateEpoch() || (setupGen.get(botId) ?? 0) !== gen;
   // Every computer descends from Sam's, so Sam's comes first (fresh from the Deskwisp template). When it
   // can't be made, this bot's tasks end with Sam's (computerFailed counts them as waiting for it).
   if (!b.isMain && !b.computerId && sam.computerStatus !== "ready") {
@@ -720,6 +731,7 @@ export async function ensureComputer(botId: string): Promise<void> {
   const failedBefore = b.computerStatus === "error" ? b.computerId : undefined;
   let broken: string | undefined;
   update(() => (b.computerStatus = "cloning"));
+  settingUp.add(b.id);
   try {
     const name = `${b.id}-${Date.now().toString(36)}`;
     // Made before, but setting it up didn't finish: that one is set up again, so none is left behind
@@ -822,6 +834,8 @@ export async function ensureComputer(botId: string): Promise<void> {
       }
     });
     computerFailed(b, e as Error, deleted, kept);
+  } finally {
+    if (!swapped()) settingUp.delete(b.id);
   }
   void pump();
 }
@@ -1077,7 +1091,15 @@ function computerFailed(b: Bot, e: Error, deleted = false, kept = false) {
  */
 export async function resetComputer(botId: string) {
   const b = bot(botId);
-  if (!b?.computerId) return;
+  if (!b) return;
+  // A setup still under way stops here (see ensureComputer's swapped).
+  setupGen.set(botId, (setupGen.get(botId) ?? 0) + 1);
+  settingUp.delete(botId);
+  // None yet (its setup never got that far): it only starts over.
+  if (!b.computerId) {
+    if (b.computerStatus !== "none") update(() => (b.computerStatus = "none"));
+    return;
+  }
   // This bot, and the bots that work on its computer (only the main bot's has any).
   const onIt = (x: string) => {
     const xb = bot(x);

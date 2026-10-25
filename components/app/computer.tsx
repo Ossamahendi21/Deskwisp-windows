@@ -717,6 +717,7 @@ export function ComputerView({
                   <ResetMenu
                     state={state}
                     bot={b}
+                    host={c}
                     screen={DISPLAYS.indexOf(display) + 1}
                     busy={onScreen && live(onScreen) ? { why: `${botOn(display).name} is working on it`, task: true } : yours(display) ? { why: "You're driving it" } : watchedHere ? { why: `Watching ${watchedHere.site} here` } : null}
                   />
@@ -1091,7 +1092,48 @@ function MoreScreens({ tier, onClose }: { tier: DeskwispTier; onClose: () => voi
  * else open (logins stay). This screen, all of this bot's, or every bot's on the team. Screens in
  * use are skipped (this one can stop its task first). Each choice asks once more before it runs.
  */
-function ResetMenu({ state, bot: b, screen, busy }: { state: AppState; bot: Bot; screen: number; busy: { why: string; task?: boolean } | null }) {
+/**
+ * Start a bot's computer over: the one it has is deleted, with everything on it, and a new one is set up
+ * from the Deskwisp template (DELETE then POST /api/computer). For a computer stuck setting up, or one
+ * that's gone wrong past what resetting its screens fixes. `host`: the bot whose computer it is.
+ */
+async function startOver(host: Bot): Promise<string | null> {
+  const res = await fetch(`/api/computer?bot=${encodeURIComponent(host.id)}`, { method: "DELETE" }).catch(() => null);
+  const j = (await res?.json().catch(() => null)) as { error?: string } | null;
+  if (!res?.ok || j?.error) return j?.error ?? "Couldn't start over. Try again.";
+  await post("/api/computer", { botId: host.id });
+  return null;
+}
+
+/** Under "Setting up…": after a minute, a way out when it doesn't finish ("Start over", clicked twice). */
+function StartOverWhileSetting({ host }: { host: Bot }) {
+  const [shown, setShown] = useState(false);
+  const [sure, setSure] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const t = setTimeout(() => setShown(true), 60_000);
+    return () => clearTimeout(t);
+  }, []);
+  if (!shown) return null;
+  const go = async () => {
+    if (!sure) return setSure(true);
+    setBusy(true);
+    setError(await startOver(host));
+    setBusy(false);
+    setSure(false);
+  };
+  return (
+    <div className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-1">
+      <button onClick={() => void go()} disabled={busy} className={`rounded-full px-3.5 py-1.5 text-[12.5px] font-medium leading-4 shadow-[0_0_0_1px_#E6E6E3] disabled:opacity-50 ${sure ? "bg-[#FBEAEA] text-[#B42318]" : "bg-white/80 text-[#3A3A38] hover:bg-white"}`}>
+        {busy ? "Starting over…" : sure ? "Start over with a new computer? Click again" : "Taking too long? Start over"}
+      </button>
+      {error && <span className="rounded-full bg-white/80 px-2.5 py-0.5 text-[12px] text-[#B42318]">{error}</span>}
+    </div>
+  );
+}
+
+function ResetMenu({ state, bot: b, host, screen, busy }: { state: AppState; bot: Bot; host: Bot; screen: number; busy: { why: string; task?: boolean } | null }) {
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -1166,6 +1208,23 @@ function ResetMenu({ state, bot: b, screen, busy }: { state: AppState; bot: Bot;
             : item("one", `Reset screen ${screen}`, "Just this screen", { screen })}
           {item("bot", `Reset all of ${b.name}'s screens`, "Screens in use are left alone", {})}
           {team.length > 1 && item("team", "Reset every bot's screens", `${team.length} computers · screens in use are left alone`, { team: true })}
+          <div className="mx-3 my-1 h-px bg-black/[0.06]" />
+          <button
+            onClick={async () => {
+              if (confirm !== "new") return setConfirm("new");
+              setOpen(false);
+              setConfirm(null);
+              setRunning(true);
+              setNote("Starting over…");
+              const failed = await startOver(host);
+              setRunning(false);
+              setNote(failed ?? `Setting up a new computer for ${host.name}…`);
+            }}
+            className={`flex flex-col items-start gap-0.5 rounded-[10px] px-3 py-2 text-left ${confirm === "new" ? "bg-[#FBEAEA]" : "hover:bg-[#F7F7F6]"}`}
+          >
+            <span className={`text-[13.5px] font-medium leading-[18px] ${confirm === "new" ? "text-[#B42318]" : ""}`}>{confirm === "new" ? "Start over with a new computer? Click again" : "Start over with a new computer"}</span>
+            <span className="text-[12px] leading-4 text-[#9A9A98]">Deletes this one and everything on it; its tasks stop</span>
+          </button>
         </div>
       )}
       {note && !open && (
@@ -1504,6 +1563,7 @@ function NoComputer({ state, bot: b, host }: { state: AppState; bot: Bot; /** Th
     return (
       <div className="relative aspect-[16/10] w-full overflow-hidden rounded-[20px]" style={{ backgroundImage: botWash(b) }}>
         <Waking thumbnail={false} bot={b} text={`Setting up ${b.name}'s computer… about a minute`} />
+        <StartOverWhileSetting host={host} />
       </div>
     );
   return (
