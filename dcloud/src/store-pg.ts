@@ -193,19 +193,14 @@ export class PgStore implements Store {
 
   async subscription(userId: string): Promise<Subscription | null> {
     const [r] = await this.rows("SELECT * FROM deskwisp.subscriptions WHERE user_id = $1", [userId]);
-    if (!r) return null;
-    return {
-      userId: r.user_id as string,
-      subscriptionId: r.subscription_id as string,
-      tier: r.tier as Tier,
-      status: r.status as string,
-      periodStart: r.period_start ? ms(r.period_start as Date) : null,
-      periodEnd: r.period_end ? ms(r.period_end as Date) : null,
-      cancelAtPeriodEnd: !!r.cancel_at_period_end,
-      syncedAt: ms(r.synced_at as Date),
-      customerId: (r.customer_id as string | null) ?? null,
-    };
+    return r ? subscriptionRow(r) : null;
   }
+
+  async subscriptionOf(subscriptionId: string): Promise<Subscription | null> {
+    const [r] = await this.rows("SELECT * FROM deskwisp.subscriptions WHERE subscription_id = $1", [subscriptionId]);
+    return r ? subscriptionRow(r) : null;
+  }
+
 
   async setSubscription(s: Subscription) {
     const at = (t: number | null) => (t === null ? null : new Date(t));
@@ -421,4 +416,19 @@ export function directUrl(url: string) {
   } catch {
     return url;
   }
+}
+
+/** A deskwisp.subscriptions row as a Subscription. */
+function subscriptionRow(r: Record<string, unknown>): Subscription {
+  return {
+    userId: r.user_id as string,
+    subscriptionId: r.subscription_id as string,
+    tier: r.tier as Tier,
+    status: r.status as string,
+    periodStart: r.period_start ? ms(r.period_start as Date) : null,
+    periodEnd: r.period_end ? ms(r.period_end as Date) : null,
+    cancelAtPeriodEnd: !!r.cancel_at_period_end,
+    syncedAt: ms(r.synced_at as Date),
+    customerId: (r.customer_id as string | null) ?? null,
+  };
 }

@@ -113,6 +113,8 @@ export interface Store {
    */
   grantTopUp(userId: string, tier: Tier, ref: string, amountMicros: number): Promise<number | null>;
   subscription(userId: string): Promise<Subscription | null>;
+  /** The subscription kept with this Polar id, whoever's it is. */
+  subscriptionOf(subscriptionId: string): Promise<Subscription | null>;
   setSubscription(s: Subscription): Promise<void>;
 
   addKey(userId: string, keyHash: string, label: string): Promise<void>;
@@ -297,6 +299,10 @@ export class JsonStore implements Store {
 
   async subscription(userId: string) {
     return (this.data.subscriptions ?? []).find((s) => s.userId === userId) ?? null;
+  }
+
+  async subscriptionOf(subscriptionId: string) {
+    return (this.data.subscriptions ?? []).find((s) => s.subscriptionId === subscriptionId) ?? null;
   }
 
   async setSubscription(s: Subscription) {
