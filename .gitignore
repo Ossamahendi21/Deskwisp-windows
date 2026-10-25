@@ -21,6 +21,7 @@
 /build/*
 !/build/entitlements.mac.plist
 !/build/entitlements.mac.inherit.plist
+!/build/appx/
 
 # misc
 .DS_Store
@@ -47,6 +48,7 @@ next-env.d.ts
 # desktop app
 /dist-desktop
 /dist-win
+/dist-store
 /desktop/repo.json
 
 # relay agent (scripts/fetch-relay.sh)

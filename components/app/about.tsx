@@ -25,7 +25,7 @@ type Status = {
   error?: string;
   checkedAt?: number;
   auto?: boolean;
-  reason?: "source" | "turned-off";
+  reason?: "source" | "turned-off" | "store";
 };
 type About = {
   version: string;
@@ -350,9 +350,13 @@ function Updates({ status: s, noUpdater }: { status: Status | null; noUpdater: b
   if (s.state === "off") {
     return (
       <div className="px-3 py-3">
-        <Headline tone="plain">Updates are off</Headline>
+        <Headline tone="plain">{s.reason === "store" ? "Updates come from the Microsoft Store" : "Updates are off"}</Headline>
         <p className="m-0 mt-1 text-[12.5px] leading-[17px] text-[#6B6B6B]">
-          {s.reason === "source" ? "This Deskwisp runs from its source folder, so it's as new as the source." : "DESKWISP_UPDATES=0 turns them off on this PC."}
+          {s.reason === "store"
+            ? "The Store keeps this Deskwisp up to date by itself."
+            : s.reason === "source"
+              ? "This Deskwisp runs from its source folder, so it's as new as the source."
+              : "DESKWISP_UPDATES=0 turns them off on this PC."}
         </p>
       </div>
     );

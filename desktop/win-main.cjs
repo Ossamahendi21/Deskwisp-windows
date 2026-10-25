@@ -416,7 +416,15 @@ const VERSION = (() => {
     return app.getVersion();
   }
 })();
-const updatesOn = () => app.isPackaged && (userEnv().DESKWISP_UPDATES ?? process.env.DESKWISP_UPDATES) !== "0";
+/**
+ * The Microsoft Store's Deskwisp (an MSIX package: electron-builder.win.json's appx, scripts/release-store.sh).
+ * It's its own app beside the one from deskwisp.com, with its own data: the Store keeps it up to date, so it
+ * never downloads or runs an installer, and Windows gives it its app id from the package.
+ */
+const STORE = process.windowsStore === true;
+/** Its page in the Store app (Partner Center's Store ID). */
+const STORE_PAGE = "ms-windows-store://pdp/?ProductId=9N9QZ5QT9Q2N";
+const updatesOn = () => app.isPackaged && !STORE && (userEnv().DESKWISP_UPDATES ?? process.env.DESKWISP_UPDATES) !== "0";
 
 const settingsFile = () => path.join(app.getPath("userData"), "update-settings.json");
 function autoDownload() {
@@ -439,7 +447,7 @@ let installStatus;
 /** Where updates are at, for About and the update screen. */
 function updateStatus() {
   if (installStatus) return installStatus;
-  if (!updatesOn()) return { current: VERSION, state: "off", reason: app.isPackaged ? "turned-off" : "source" };
+  if (!updatesOn()) return { current: VERSION, state: "off", reason: STORE ? "store" : app.isPackaged ? "turned-off" : "source" };
   return updater.status();
 }
 
@@ -539,6 +547,7 @@ ipcMain.handle("update-dismiss", (_, version) => {
 });
 /** The notice's button: restart into a ready update, else bring it down here, else the website. */
 ipcMain.handle("update-download", () => {
+  if (STORE) return shell.openExternal(STORE_PAGE);
   if (updater.isReady()) return restartToUpdate();
   if (updatesOn() && updater.status().version) return void updater.download();
   return shell.openExternal(`${SITE_URL}/download/Deskwisp-Setup.exe`);
@@ -560,7 +569,8 @@ ipcMain.handle("app-about", () => ({
 // ---------------------------------------------------------------- Start and quit
 
 app.setName("Deskwisp");
-app.setAppUserModelId("app.deskwisp.windows");
+// The Store's package has its own id from Windows; setting one would part its notifications and taskbar from it.
+if (!STORE) app.setAppUserModelId("app.deskwisp.windows");
 const first = app.requestSingleInstanceLock();
 if (!first) app.quit();
 app.on("second-instance", () => app.isReady() && showMain());

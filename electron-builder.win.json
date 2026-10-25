@@ -64,5 +64,21 @@
     "uninstallerIcon": "build/icon.ico",
     "include": "build/installer.nsh",
     "artifactName": "Deskwisp-Setup-${version}-x64.${ext}"
+  },
+  "appx": {
+    "identityName": "HorafirmLLC.Deskwisp",
+    "publisher": "CN=0472D7ED-2092-4944-9FB1-6C60A776FCC5",
+    "publisherDisplayName": "Horafirm LLC",
+    "applicationId": "Deskwisp",
+    "displayName": "Deskwisp",
+    "backgroundColor": "#7C5CFF",
+    "languages": [
+      "en-US"
+    ],
+    "capabilities": [
+      "internetClient",
+      "microphone"
+    ],
+    "artifactName": "Deskwisp-${version}-x64.${ext}"
   }
 }

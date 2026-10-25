@@ -130,7 +130,7 @@ The installer is per-user (no admin needed) and adds Start menu and desktop shor
 
 ## Roadmap
 
-- **Microsoft Store.** Deskwisp in the Store, beside the download from deskwisp.com. The two are separate apps: the Store keeps its copy up to date, and the download keeps updating itself.
+- **Microsoft Store.** Deskwisp in the Store, beside the download from deskwisp.com. The package is ready (see [The Microsoft Store package](#the-microsoft-store-package)); it's on its way through the Store's review.
 - **Android app.** Your bots, chats and memory on your phone. The app already has a place for it (the Phone tab says Coming soon).
 - **WhatsApp.** Reach your bots where most people already are.
 
@@ -222,6 +222,18 @@ git push
 - Publishing needs SSH to the server, set in `.env.release` (never committed).
 - The installer isn't signed. To sign it, give electron-builder a code-signing certificate (`CSC_LINK`, `CSC_KEY_PASSWORD`).
 
+### The Microsoft Store package
+
+```bash
+bash scripts/release-store.sh       # after release-win.sh, on Windows (Git Bash)
+```
+
+It builds the same version as an MSIX package, `dist-store/Deskwisp-<version>-x64.appx`, to upload in Partner Center (Apps and games → Deskwisp → the submission → Packages). The Store signs it and keeps it up to date.
+
+- It's its own app beside the one from deskwisp.com: its own id (`HorafirmLLC.Deskwisp`, Store ID `9N9QZ5QT9Q2N`) and its own data, so the two never mix. It never runs Deskwisp's updater; About says its updates come from the Store.
+- Its identity is the `appx` part of `electron-builder.win.json`, as Partner Center's Product identity page gives it. Its pictures are in `build/appx/` (`scripts/render-store-assets.mjs` draws them from the logo).
+- Every package the Store gets needs a higher version than the last, so release a new version first.
+
 The servers update with `cd /opt/deskwisp && sudo git pull && sudo bash deploy/vps/install.sh` ([docs/DEPLOY.md](docs/DEPLOY.md)).
 
 The installed app keeps its files in `%APPDATA%\Deskwisp`: `data\` (state and the sealed Vault), `.env.local` (your settings), and `logs\` (`main.log`, `server.log`, `updates.log`).
@@ -235,6 +247,7 @@ The installed app keeps its files in `%APPDATA%\Deskwisp`: `data\` (state and th
 | `lib/server/` | Everything server-side: chat engine, threads, services, state, memory, skills |
 | `lib/plan-includes.ts` | What each plan includes, in the words the app shows |
 | `desktop/` | The Electron shells (`win-main.cjs` for Windows), the updater and the update window |
+| `build/appx/` | The Microsoft Store package's pictures |
 | `build/installer.nsh` | The installer's own steps (updates, logs) |
 | `dcloud/` | Deskwisp accounts and computers |
 | `cloud/` | Deskwisp services |
