@@ -122,7 +122,7 @@ const mode = (p) => statSync(p).mode & 0o777;
 const A = await import(`${root}/lib/crm-access.ts`);
 assert.equal(A.crmOpenTo("maya@deskwisp.com"), true);
 assert.equal(A.crmOpenTo(" Maya@DESKWISP.COM "), true, "case and spaces don't matter");
-for (const email of ["maya@example.com", "maya@nothorafirm.ai", "maya@deskwisp.com.example.com", "maya@sub.deskwisp.com", "", null, undefined])
+for (const email of ["maya@example.com", "maya@notdeskwisp.com", "maya@deskwisp.com.example.com", "maya@sub.deskwisp.com", "", null, undefined])
   assert.equal(A.crmOpenTo(email), false, `not the team: ${email}`);
 const closed = async (who) => {
   assert.equal(K.crmOn(), false, `no CRM ${who}`);

@@ -13,8 +13,8 @@ import { bindSignIn, getState, releaseSignOut, update } from "./store";
 
 export const horafirmOrigin = () => (process.env.DESKWISP_HORAFIRM_ORIGIN || "https://app.deskwisp.com").replace(/\/+$/, "");
 
-/** Whether the computers and accounts are Deskwisp Cloud's (dcloud/): DESKWISP_HORAFIRM_ORIGIN set to anything but deskwisp.com. */
-export const onDeskwispCloud = () => !!process.env.DESKWISP_HORAFIRM_ORIGIN && !/(^|\.)deskwisp\.com$/i.test(new URL(horafirmOrigin()).hostname);
+/** Whether the computers and accounts are Deskwisp Cloud's (dcloud/): DESKWISP_HORAFIRM_ORIGIN is set (the app always sets it). */
+export const onDeskwispCloud = () => !!process.env.DESKWISP_HORAFIRM_ORIGIN;
 
 /**
  * Where the signed-in key is kept: one slot per server. A key from deskwisp.com's sign-in stays in its own

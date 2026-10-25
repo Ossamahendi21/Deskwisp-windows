@@ -6,7 +6,7 @@
 #
 # The version is pinned: keep it at what Horafirm's HORAFIRM_RELAY_VERSION expects (horafirm-web
 # envs/<env>/web-public.env). The repo is private for now, so this needs `gh` signed in to GitHub
-# with access to horafirm/horafirm-relay.
+# with access to horafirmai/horafirm-relay.
 #
 # Usage: scripts/fetch-relay.sh [version] [arch]     e.g. scripts/fetch-relay.sh v0.0.3 arm64
 set -euo pipefail
@@ -25,7 +25,7 @@ dest="$root/vendor/horafirm-relay"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-gh release download "$version" -R horafirm/horafirm-relay -p "$asset" -p SHA256SUMS -D "$tmp"
+gh release download "$version" -R horafirmai/horafirm-relay -p "$asset" -p SHA256SUMS -D "$tmp"
 
 want="$(awk -v f="$asset" '$2 == f || $2 == "*"f { print $1 }' "$tmp/SHA256SUMS")"
 [ -n "$want" ] || { echo "$asset isn't in the release's SHA256SUMS" >&2; exit 1; }
