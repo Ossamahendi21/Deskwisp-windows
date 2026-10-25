@@ -73,9 +73,14 @@ function lineOut(r: LineRow): PhoneLine {
 /**
  * Record a number as one of the user's lines. A number that moved from another user starts over (no
  * owner, no window). `open`: a line with no owner and no window running gets a fresh 15 minutes.
- * `botId` and `workspaceId` are kept when not given.
+ * `botId` and `workspaceId` are kept when not given. `planAgent`: it's the plan's number, on that agent, and
+ * being set up; said in the same transaction, so nobody ever sees it as an ordinary line ready on no agent.
  */
-export async function recordLine(userId: string, n: { id?: string | null; phoneNumber: string }, opts: { open?: boolean; botId?: string; workspaceId?: string } = {}): Promise<PhoneLine | null> {
+export async function recordLine(
+  userId: string,
+  n: { id?: string | null; phoneNumber: string },
+  opts: { open?: boolean; botId?: string; workspaceId?: string; planAgent?: string } = {},
+): Promise<PhoneLine | null> {
   const digits = lineDigits(n.phoneNumber);
   if (!digits) return null;
   return tx(async (c) => {
@@ -100,6 +105,11 @@ export async function recordLine(userId: string, n: { id?: string | null; phoneN
          updated_at = now()`,
       [digits, userId, n.id ?? null, `+1${digits}`, opts.botId ?? null, opts.workspaceId ?? null, !!opts.open, CLAIM_MINUTES],
     );
+    if (opts.planAgent)
+      await c.query(
+        "UPDATE deskwisp.phone_lines SET plan = true, agent_id = $2, status = 'setting_up', paused_at = NULL, problem = NULL, updated_at = now() WHERE digits = $1",
+        [digits, opts.planAgent],
+      );
     if (opts.open)
       await c.query(
         `UPDATE deskwisp.phone_lines SET claim_until = now() + make_interval(mins => $2), updated_at = now()

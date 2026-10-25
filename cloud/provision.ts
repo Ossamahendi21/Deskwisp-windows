@@ -145,8 +145,7 @@ export async function ensurePlanPhone(userId: string, main: MainBot): Promise<{ 
     // No window for a first caller yet: nobody may be watching (the Mac can be closed), and a stranger
     // texting a new number in those 15 minutes would become its owner. The app opens it when it shows
     // the user the number (lib/server/cloud-plan.ts); the user's verified numbers count as them meanwhile.
-    await recordLine(userId, number, { botId: main.bot.id, workspaceId: MAIN_WORKSPACE });
-    await query("UPDATE deskwisp.phone_lines SET plan = true, agent_id = $2, status = 'setting_up', paused_at = NULL, problem = NULL, updated_at = now() WHERE digits = $1", [digits, agentId]);
+    await recordLine(userId, number, { botId: main.bot.id, workspaceId: MAIN_WORKSPACE, planAgent: agentId });
     // Its texts and calls come to the cloud through the agent's webhook, whose secret the cloud keeps.
     // One already there is left as it is: registering it again would change its secret under
     // deliveries on their way.
