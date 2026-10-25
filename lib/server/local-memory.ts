@@ -2,15 +2,21 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { cloudJson } from "./cloud";
 import { openaiClient } from "./openai-client";
 import { ownerName } from "./store";
 import { recordTokens, usageTags } from "./usage";
 
 /**
- * Memory without Honcho: the same memory (the user's card, the facts learned about them, search,
- * questions, tidying up), kept in a file on this PC for each bank (<user folder>/memory/<bank>.json),
- * at no cost beyond a model call now and then. lib/server/memory.ts uses it when Deskwisp Cloud has no
- * Honcho for the user (and there's no HONCHO_API_KEY): the bots remember either way.
+ * Deskwisp's own memory, where Honcho isn't used: the same memory (the user's card, the facts learned
+ * about them, search, questions, tidying up) at no cost beyond a model call now and then.
+ * lib/server/memory.ts uses it when neither Deskwisp Cloud nor this server has Honcho.
+ *
+ * Where it's kept (a store):
+ * - cloudStore: Deskwisp Cloud (cloud/memory.ts, /v1/memory/<bank>), signed in. One memory wherever
+ *   the user's bots answer: this PC, the cloud's own answers while the PC is away, the phone app.
+ * - fileStore: a file on this PC for each bank (<user folder>/memory/<bank>.json), when there's no
+ *   cloud (self-hosting).
  *
  * It answers the part of Honcho's SDK memory.ts uses (a client, its peers and sessions, and their
  * conclusions), so the rest of memory.ts is the same for both:
@@ -18,41 +24,30 @@ import { recordTokens, usageTags } from "./usage";
  *   (rememberMessage), what a bot remembers, what's pinned or copied. Each has its source (the chat or
  *   task it came from, when there's one).
  * - Search is by words, weighed by how rare each word is among the facts (a name counts for more than
- *   "the"), any language, newest first among equals.
+ *   "the"), any language, newest first among equals (the cloud searches the same way).
  * - A question ("what's their shipping address?") is answered by a model from the closest facts and the card.
  * - The card is written from the facts by a model ("dreaming"): when asked, and by itself once a few
- *   new facts came in. Lines the user pinned stay.
- * - What was said isn't kept here (Honcho reads conversations; here only the facts are kept).
+ *   new facts came in. Lines the user put in by hand (pinned) stay.
+ * - What was said isn't kept (Honcho reads conversations; here only the facts are kept).
  */
 
-type Fact = { id: string; content: string; sessionId: string | null; createdAt: string; level: string };
-type Bank = { card: string[]; pinned: string[]; facts: Fact[]; sinceDream: number; dreamedAt?: string };
+export type Fact = { id: string; content: string; sessionId: string | null; createdAt: string; level: string };
+type Card = { lines: string[]; pinned: string[] };
+
+/** Where a bank is kept. */
+export type MemoryStore = {
+  card(): Promise<Card>;
+  putCard(c: Card): Promise<void>;
+  /** Newest first. `sessions`: only what was learned in those chats and tasks. */
+  list(size: number, offset: number, sessions?: string[]): Promise<{ items: Fact[]; total: number }>;
+  search(q: string, k: number): Promise<Fact[]>;
+  create(items: { content: string; sessionId: string | null }[]): Promise<Fact[]>;
+  remove(ids: string[]): Promise<void>;
+  get(ids: string[]): Promise<Fact[]>;
+};
 
 const MAX_FACTS = 5000;
 const MODEL = process.env.DESKWISP_MEMORY_MODEL ?? process.env.DESKWISP_CHAT_MODEL ?? "gpt-6.1-sol";
-
-const g = globalThis as unknown as { deskwispLocalMemory?: { banks: Map<string, Bank>; dreams: Map<string, ReturnType<typeof setTimeout>> } };
-const live = (g.deskwispLocalMemory ??= { banks: new Map(), dreams: new Map() });
-
-const fileOf = (dir: string, bank: string) => join(dir, "memory", `${bank.replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 120)}.json`);
-
-function load(dir: string, bank: string): Bank {
-  const file = fileOf(dir, bank);
-  let b = live.banks.get(file);
-  if (b) return b;
-  b = { card: [], pinned: [], facts: [], sinceDream: 0 };
-  try {
-    if (existsSync(file)) b = { ...b, ...(JSON.parse(readFileSync(/*turbopackIgnore: true*/ file, "utf8")) as Partial<Bank>) };
-  } catch {}
-  live.banks.set(file, b);
-  return b;
-}
-function save(dir: string, bank: string, b: Bank) {
-  const file = fileOf(dir, bank);
-  mkdirSync(join(dir, "memory"), { recursive: true, mode: 0o700 });
-  writeFileSync(/*turbopackIgnore: true*/ `${file}.tmp`, JSON.stringify(b), { mode: 0o600 });
-  renameSync(`${file}.tmp`, file);
-}
 
 /* ---------------- Search by words ---------------- */
 
@@ -61,48 +56,138 @@ const STOP = new Set(
 );
 const words = (t: string) => (t.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").match(/[\p{L}\p{N}]+/gu) ?? []).filter((w) => w.length > 1 && !STOP.has(w));
 
-/** The facts closest to `q`, best first: each word of the question that's in a fact counts, rarer words more. */
+/** The facts closest to `q`, best first: each word of the question that's in a fact counts, rarer words more (cloud/memory.ts search, the same). */
 export function search(facts: Fact[], q: string, k: number) {
   const qw = [...new Set(words(q))];
   if (!qw.length) return [];
-  const df = new Map<string, number>();
   const sets = facts.map((f) => new Set(words(f.content)));
-  for (const s of sets) for (const w of qw) if (s.has(w) || [...s].some((x) => x.length > 3 && w.length > 3 && (x.startsWith(w) || w.startsWith(x)))) df.set(w, (df.get(w) ?? 0) + 1);
+  const near = (s: Set<string>, w: string) => (s.has(w) ? 1 : [...s].some((x) => x.length > 3 && w.length > 3 && (x.startsWith(w) || w.startsWith(x))) ? 0.6 : 0);
+  const df = new Map<string, number>();
+  for (const s of sets) for (const w of qw) if (near(s, w)) df.set(w, (df.get(w) ?? 0) + 1);
   const n = facts.length || 1;
-  const scored = facts.map((f, i) => {
-    let score = 0;
-    for (const w of qw) {
-      const s = sets[i];
-      const hit = s.has(w) ? 1 : [...s].some((x) => x.length > 3 && w.length > 3 && (x.startsWith(w) || w.startsWith(x))) ? 0.6 : 0;
-      if (hit) score += hit * Math.log(1 + n / (df.get(w) ?? 1));
-    }
-    return { f, score: score / Math.sqrt(Math.max(4, sets[i].size)) };
-  });
-  return scored
+  return facts
+    .map((f, i) => ({ f, score: qw.reduce((sum, w) => sum + near(sets[i], w) * Math.log(1 + n / (df.get(w) ?? 1)), 0) / Math.sqrt(Math.max(4, sets[i].size)) }))
     .filter((x) => x.score > 0)
     .sort((a, b) => b.score - a.score || Date.parse(b.f.createdAt) - Date.parse(a.f.createdAt))
     .slice(0, k)
     .map((x) => x.f);
 }
 
-/* ---------------- What the SDK hands back ---------------- */
+/* ---------------- The stores ---------------- */
 
-/** A page of conclusions, as the SDK's: its items, the total, the next page, and every one with for-await. */
-function page(all: Fact[], size: number, at = 0) {
-  const items = all.slice(at, at + size).map(out);
-  const p = {
-    items,
-    total: all.length,
-    hasNextPage: at + size < all.length,
-    getNextPage: async () => (at + size < all.length ? page(all, size, at + size) : null),
-    async *[Symbol.asyncIterator]() {
-      for (let i = at; i < all.length; i++) yield out(all[i]);
+type FileBank = Card & { facts: Fact[] };
+const g = globalThis as unknown as { deskwispLocalMemory?: { files: Map<string, FileBank>; dreams: Map<string, ReturnType<typeof setTimeout>>; since: Map<string, number> } };
+const live = (g.deskwispLocalMemory ??= { files: new Map(), dreams: new Map(), since: new Map() });
+const safe = (bank: string) => bank.replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 120);
+const newest = (facts: Fact[]) => [...facts].sort((x, y) => Date.parse(y.createdAt) - Date.parse(x.createdAt) || (y.id < x.id ? -1 : 1));
+
+/** A bank in a file on this PC. */
+export function fileStore(dir: string, bank: string): MemoryStore {
+  const file = join(dir, "memory", `${safe(bank)}.json`);
+  const load = (): FileBank => {
+    let b = live.files.get(file);
+    if (b) return b;
+    b = { lines: [], pinned: [], facts: [] };
+    try {
+      if (existsSync(file)) {
+        const j = JSON.parse(readFileSync(/*turbopackIgnore: true*/ file, "utf8")) as Partial<FileBank> & { card?: string[] };
+        b = { lines: j.lines ?? j.card ?? [], pinned: j.pinned ?? [], facts: j.facts ?? [] };
+      }
+    } catch {}
+    live.files.set(file, b);
+    return b;
+  };
+  const save = () => {
+    mkdirSync(join(dir, "memory"), { recursive: true, mode: 0o700 });
+    writeFileSync(/*turbopackIgnore: true*/ `${file}.tmp`, JSON.stringify(load()), { mode: 0o600 });
+    renameSync(`${file}.tmp`, file);
+  };
+  return {
+    card: async () => ({ lines: load().lines, pinned: load().pinned }),
+    putCard: async (c) => {
+      const b = load();
+      b.lines = c.lines;
+      b.pinned = c.pinned;
+      save();
+    },
+    list: async (size, offset, sessions) => {
+      const only = sessions ? new Set(sessions) : null;
+      const all = newest(load().facts).filter((f) => !only || (f.sessionId && only.has(f.sessionId)));
+      return { items: all.slice(offset, offset + size), total: all.length };
+    },
+    search: async (q, k) => search(load().facts, q, k),
+    create: async (items) => {
+      const b = load();
+      const made = items.map((i) => ({ id: `lf_${Date.now().toString(36)}${randomBytes(4).toString("hex")}`, content: i.content, sessionId: i.sessionId, createdAt: new Date().toISOString(), level: "explicit" }));
+      b.facts.push(...made);
+      if (b.facts.length > MAX_FACTS) b.facts = newest(b.facts).slice(0, MAX_FACTS);
+      save();
+      return made;
+    },
+    remove: async (ids) => {
+      const gone = new Set(ids);
+      const b = load();
+      b.facts = b.facts.filter((f) => !gone.has(f.id));
+      save();
+    },
+    get: async (ids) => {
+      const want = new Set(ids);
+      return load().facts.filter((f) => want.has(f.id));
     },
   };
-  return p;
 }
+
+/** A bank on Deskwisp Cloud (cloud/memory.ts), the user's own. */
+export function cloudStore(bank: string): MemoryStore {
+  const at = `/v1/memory/${encodeURIComponent(safe(bank))}`;
+  const send = <T,>(path: string, method: string, body: unknown) => cloudJson<T>(`${at}${path}`, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  return {
+    card: async () => {
+      const c = await cloudJson<Card>(at);
+      return { lines: c.lines ?? [], pinned: c.pinned ?? [] };
+    },
+    putCard: async (c) => void (await send("/card", "PUT", c)),
+    list: async (size, offset, sessions) => cloudJson<{ items: Fact[]; total: number }>(`${at}/facts?size=${Math.min(200, size)}&offset=${offset}${sessions ? `&sessions=${encodeURIComponent(sessions.join(","))}` : ""}`),
+    search: async (q, k) => (await cloudJson<{ items: Fact[] }>(`${at}/search?q=${encodeURIComponent(q.slice(0, 1000))}&k=${Math.min(100, k)}`)).items,
+    create: async (items) => {
+      const made: Fact[] = [];
+      for (let i = 0; i < items.length; i += 200) made.push(...(await send<{ items: Fact[] }>("/facts", "POST", { items: items.slice(i, i + 200) })).items);
+      return made;
+    },
+    remove: async (ids) => {
+      for (let i = 0; i < ids.length; i += 500) await send("/facts/delete", "POST", { ids: ids.slice(i, i + 500) });
+    },
+    get: async (ids) => {
+      const got: Fact[] = [];
+      for (let i = 0; i < ids.length; i += 500) got.push(...(await send<{ items: Fact[] }>("/facts/get", "POST", { ids: ids.slice(i, i + 500) })).items);
+      return got;
+    },
+  };
+}
+
+/* ---------------- What the SDK hands back ---------------- */
+
 const out = (f: Fact) => ({ id: f.id, content: f.content, sessionId: f.sessionId, createdAt: f.createdAt, level: f.level });
-const newest = (b: Bank) => [...b.facts].sort((x, y) => Date.parse(y.createdAt) - Date.parse(x.createdAt));
+
+/** A page of conclusions, as the SDK's: its items, the total, the next page, and every one with for-await. */
+async function page(store: MemoryStore, size: number, offset = 0, sessions?: string[]): Promise<Page> {
+  const { items, total } = await store.list(size, offset, sessions);
+  const next = offset + items.length;
+  return {
+    items: items.map(out),
+    total,
+    hasNextPage: items.length > 0 && next < total,
+    getNextPage: async () => (items.length > 0 && next < total ? page(store, size, next, sessions) : null),
+    async *[Symbol.asyncIterator]() {
+      let p: Page | null = await page(store, size, offset, sessions);
+      while (p) {
+        for (const x of p.items) yield x;
+        p = p.hasNextPage ? await p.getNextPage() : null;
+      }
+    },
+  };
+}
+type Page = { items: ReturnType<typeof out>[]; total: number; hasNextPage: boolean; getNextPage: () => Promise<Page | null>; [Symbol.asyncIterator](): AsyncGenerator<ReturnType<typeof out>> };
 
 async function ask(instructions: string, input: string, effort: "low" | "medium" = "low") {
   const res = await openaiClient().responses.create({ model: MODEL, reasoning: { effort }, instructions, input }, usageTags("memory"));
@@ -111,29 +196,24 @@ async function ask(instructions: string, input: string, effort: "low" | "medium"
 }
 
 /**
- * The client memory.ts makes for a bank when it runs without Honcho. `dir` is the user's folder.
- * Only the owner's peer has facts; bots' peers and sessions are there so saving a conversation works.
+ * The client memory.ts makes for a bank when it runs without Honcho, on `store` (`key` names the bank
+ * for its background work). Only the owner's peer has facts; bots' peers and sessions are there so
+ * saving a conversation works.
  */
-export function localMemoryClient(dir: string, bank: string) {
-  const b = () => load(dir, bank);
-  const keep = () => save(dir, bank, b());
-
+export function ownMemoryClient(store: MemoryStore, key: string) {
   /** The card again from the facts, in the background, a little after new facts stop coming. */
   const dreamSoon = () => {
-    const key = fileOf(dir, bank);
     clearTimeout(live.dreams.get(key));
-    live.dreams.set(
-      key,
-      setTimeout(() => {
-        live.dreams.delete(key);
-        void dream().catch((e: Error) => console.warn(`[memory] the card: ${e.message}`));
-      }, 45_000).unref?.() as ReturnType<typeof setTimeout>,
-    );
+    const t = setTimeout(() => {
+      live.dreams.delete(key);
+      void dream().catch((e: Error) => console.warn(`[memory] the card: ${e.message}`));
+    }, 45_000);
+    t.unref?.();
+    live.dreams.set(key, t);
   };
 
   async function dream() {
-    const bk = b();
-    const facts = newest(bk).slice(0, 400);
+    const facts = (await store.list(200, 0)).items.concat((await store.list(200, 200)).items);
     if (!facts.length) return;
     const owner = ownerName();
     const text = await ask(
@@ -146,74 +226,49 @@ export function localMemoryClient(dir: string, bank: string) {
       .filter((l) => l && l.length < 300)
       .slice(0, 25);
     if (!lines.length) return;
-    const now = b();
-    now.card = [...now.pinned, ...lines.filter((l) => !now.pinned.includes(l))].slice(0, 40);
-    now.sinceDream = 0;
-    now.dreamedAt = new Date().toISOString();
-    keep();
+    const { pinned } = await store.card();
+    await store.putCard({ lines: [...pinned, ...lines.filter((l) => !pinned.includes(l))].slice(0, 40), pinned });
+    live.since.set(key, 0);
   }
 
   const conclusions = {
-    list: async ({ size = 100, filters }: { size?: number; filters?: { session_id?: { in?: string[] } } } = {}) => {
-      const only = filters?.session_id?.in ? new Set(filters.session_id.in) : null;
-      return page(
-        newest(b()).filter((f) => !only || (f.sessionId && only.has(f.sessionId))),
-        size,
-      );
-    },
-    query: async (q: string, k = 10) => search(b().facts, q, k).map(out),
+    list: async ({ size = 100, filters }: { size?: number; filters?: { session_id?: { in?: string[] } } } = {}) => page(store, size, 0, filters?.session_id?.in),
+    query: async (q: string, k = 10) => (await store.search(q, k)).map(out),
     create: async (items: { content: string; sessionId?: string | null; session_id?: string | null }[]) => {
-      const bk = b();
-      const made = items
-        .map((i) => String(i.content ?? "").trim().slice(0, 1000))
-        .filter(Boolean)
-        .map((content, n) => ({ id: `lf_${Date.now().toString(36)}${randomBytes(4).toString("hex")}`, content, sessionId: items[n]?.sessionId ?? items[n]?.session_id ?? null, createdAt: new Date().toISOString(), level: "explicit" }));
-      bk.facts.push(...made);
-      if (bk.facts.length > MAX_FACTS) bk.facts = newest(bk).slice(0, MAX_FACTS);
-      bk.sinceDream += made.length;
-      keep();
+      const clean = items.map((i) => ({ content: String(i.content ?? "").trim().slice(0, 1000), sessionId: i.sessionId ?? i.session_id ?? null })).filter((i) => i.content);
+      if (!clean.length) return [];
+      const made = await store.create(clean);
+      const since = (live.since.get(key) ?? 0) + made.length;
+      live.since.set(key, since);
       // The card catches up once a few facts came in (or the first ones, while it's empty).
-      if (bk.sinceDream >= 5 || (!bk.card.length && bk.facts.length >= 2)) dreamSoon();
+      if (since >= 5 || (since >= 2 && !(await store.card()).lines.length)) dreamSoon();
       return made.map(out);
     },
-    delete: async (id: string) => {
-      const bk = b();
-      bk.facts = bk.facts.filter((f) => f.id !== id);
-      keep();
-    },
-    getMany: async (ids: string[]) => {
-      const want = new Set(ids);
-      return b().facts.filter((f) => want.has(f.id)).map(out);
-    },
+    delete: async (id: string) => store.remove([id]),
+    getMany: async (ids: string[]) => (await store.get(ids)).map(out),
   };
 
   const owner = {
-    getCard: async () => b().card,
+    getCard: async () => (await store.card()).lines,
     setCard: async (lines: string[]) => {
-      const bk = b();
-      const before = new Set(bk.card);
-      // A line put in by hand (Pin, a copy) stays when the card is written again.
-      bk.pinned = [...bk.pinned.filter((l) => lines.includes(l)), ...lines.filter((l) => !before.has(l) && !bk.pinned.includes(l))].slice(0, 40);
-      bk.card = lines.slice(0, 40);
-      keep();
+      const before = await store.card();
+      const was = new Set(before.lines);
+      // A line put in by hand (Pin, a fix, a copy) stays when the card is written again.
+      const pinned = [...before.pinned.filter((l) => lines.includes(l)), ...lines.filter((l) => !was.has(l) && !before.pinned.includes(l))].slice(0, 40);
+      await store.putCard({ lines: lines.slice(0, 40), pinned });
     },
-    /** The card's lines and the closest facts, as Honcho's representation reads (one fact a line). */
+    /** The closest facts, as Honcho's representation reads (one fact a line). */
     context: async ({ searchQuery = "", maxConclusions = 12 }: { searchQuery?: string; searchTopK?: number; maxConclusions?: number; includeMostFrequent?: boolean } = {}) => ({
-      representation: search(b().facts, searchQuery, maxConclusions)
-        .map((f) => `- ${f.content}`)
-        .join("\n"),
+      representation: (await store.search(searchQuery, maxConclusions)).map((f) => `- ${f.content}`).join("\n"),
     }),
     /** A question about the user, answered by a model from the closest facts and the card. */
     chat: async (question: string) => {
-      const bk = b();
-      const near = search(bk.facts, question, 40);
-      const recent = newest(bk).slice(0, 20);
-      const facts = [...new Map([...near, ...recent].map((f) => [f.id, f])).values()];
-      if (!facts.length && !bk.card.length) return "Nothing on that yet.";
+      const [c, near, recent] = await Promise.all([store.card(), store.search(question, 40), store.list(20, 0)]);
+      const facts = [...new Map([...near, ...recent.items].map((f) => [f.id, f])).values()];
+      if (!facts.length && !c.lines.length) return "Nothing on that yet.";
       return ask(
         `Answer a question about ${ownerName()} from their long-term memory below, in one or two plain sentences. Use only what's there; if it doesn't say, answer that it isn't known yet. Newer facts win over older ones.`,
-        `Card:\n${bk.card.map((l) => `- ${l}`).join("\n") || "(empty)"}\n\nFacts (newest first, with when they were learned):\n${facts
-          .sort((x, y) => Date.parse(y.createdAt) - Date.parse(x.createdAt))
+        `Card:\n${c.lines.map((l) => `- ${l}`).join("\n") || "(empty)"}\n\nFacts (newest first, with when they were learned):\n${newest(facts)
           .map((f) => `- ${f.createdAt.slice(0, 10)}: ${f.content}`)
           .join("\n")}\n\nQuestion: ${question}`,
         "medium",
@@ -223,10 +278,11 @@ export function localMemoryClient(dir: string, bank: string) {
     message: (content: string, opts: { metadata?: Record<string, unknown> } = {}) => ({ content, metadata: opts.metadata ?? {} }),
   };
   /** A bot's peer: it says things in conversations, and nothing is learned about it. */
-  const other = { ...owner, getCard: async () => [] as string[], setCard: async () => {}, conclusions: { ...conclusions, list: async () => page([], 1), query: async () => [] } };
+  const empty: Page = { items: [], total: 0, hasNextPage: false, getNextPage: async () => null, async *[Symbol.asyncIterator]() {} };
+  const other = { ...owner, getCard: async () => [] as string[], setCard: async () => {}, conclusions: { ...conclusions, list: async () => empty, query: async () => [] } };
 
   return {
-    peer: async (id: string, opts?: unknown) => (opts ? other : owner),
+    peer: async (_id: string, opts?: unknown) => (opts ? other : owner),
     session: async () => ({ addPeers: async () => {}, addMessages: async () => {} }),
     conclusions,
     scheduleDream: async () => {
@@ -234,3 +290,6 @@ export function localMemoryClient(dir: string, bank: string) {
     },
   };
 }
+
+/** For a self-hosted install: a bank in a file in the user's folder. */
+export const localMemoryClient = (dir: string, bank: string) => ownMemoryClient(fileStore(dir, bank), `file:${dir}:${bank}`);

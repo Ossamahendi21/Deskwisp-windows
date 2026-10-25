@@ -52,6 +52,11 @@ export type CloudSession = {
   agentphoneConnect?: boolean;
   /** Honcho goes through /proxy/honcho; every workspace id the user touches must start with this prefix. */
   honcho: { workspacePrefix: string } | null;
+  /**
+   * Deskwisp's own long-term memory at /v1/memory (cloud/memory.ts), which the app uses where there's no
+   * Honcho: the same memory on the PC, in the cloud's own answers and on the phone. Absent from older clouds.
+   */
+  memory?: boolean;
   /** Composio goes through /proxy/composio, as this Composio user id only. */
   composio: { userId: string } | null;
   /** OpenAI goes through /proxy/openai. `executorKey` is the restricted key copied onto bot computers for `codex exec-server`. */

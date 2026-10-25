@@ -16,6 +16,7 @@ import * as notices from "./notices.ts";
 import * as ops from "./ops.ts";
 import * as pages from "./pages.ts";
 import * as phoneKey from "./phone-key.ts";
+import * as memory from "./memory.ts";
 import * as plans from "./plans.ts";
 import * as proxy from "./proxy.ts";
 import * as reconcile from "./reconcile.ts";
@@ -54,6 +55,7 @@ export const routes = (): Route[] => [
   ...verify.routes,
   ...lines.routes,
   ...phoneKey.routes,
+  ...memory.routes,
   ...handles.routes,
   ...plans.routes,
   ...ops.routes,

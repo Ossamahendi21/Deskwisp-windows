@@ -118,6 +118,7 @@ test("the first session makes a pod, one pod key and a sub-account, and no SIP t
     agentphone: { subAccountId: sub.id, hookUrl: "https://deskwisp-api.test/hooks/agentphone" },
     agentphoneConnect: true,
     honcho: { workspacePrefix: honchoPrefix(alice) },
+    memory: true,
     composio: { userId: `deskwisp-${alice}` },
     openai: { executorKey: "sk-test-executor" },
     typesafe: true,
