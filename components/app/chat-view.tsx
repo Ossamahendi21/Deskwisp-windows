@@ -8,7 +8,7 @@ import { OpenLink } from "./panel-tabs";
 import { crmOpen } from "@/lib/crm-access";
 import { CrmNote } from "./crm";
 import { MacIcon } from "./mac-tab";
-import { AttachmentTray, MessageImages, useAttachments } from "./attachments";
+import { AttachmentTray, MessageFiles, MessageImages, useAttachments, type FileRef } from "./attachments";
 import { ComposerInput } from "./composer-input";
 import { CreditBanners } from "./credit-banners";
 import { GroupMembers } from "./group-members";
@@ -277,7 +277,7 @@ export function ChatView({
   }, [c.id, c.readAt, lastAt]);
 
   // What the user just sent shows at once, before the server has it (then the real message takes its place).
-  const [pending, setPending] = useState<{ id: string; chatId: string; text: string; at: number; previews?: string[] }[]>([]);
+  const [pending, setPending] = useState<{ id: string; chatId: string; text: string; at: number; previews?: string[]; files?: FileRef[] }[]>([]);
   // Images about to go with the next message (the + button, pasting, or dropping them on the chat).
   const attach = useAttachments();
   const filePicker = useRef<HTMLInputElement>(null);
@@ -297,16 +297,20 @@ export function ChatView({
     setDraft("");
     setReplying(null);
     attach.clear();
-    const mine = { id: `pending_${Date.now()}`, chatId: c.id, text, at: Date.now(), previews: items.length ? items.map((a) => a.preview) : undefined };
+    const previews = items.map((a) => a.preview).filter((x): x is string => !!x);
+    const named = items.filter((a) => !a.preview).map((a) => ({ id: a.key, name: a.name, type: "", size: a.size }));
+    const mine = { id: `pending_${Date.now()}`, chatId: c.id, text, at: Date.now(), previews: previews.length ? previews : undefined, files: named.length ? named : undefined };
     setPending((p) => [...p, mine]);
-    // Shows at once; goes once its images have finished uploading (usually they already have).
-    const images = (await Promise.all(items.map((a) => a.done))).filter((x) => !!x);
-    if (!text && !images.length) return setPending((p) => p.filter((x) => x.id !== mine.id));
-    await post(`/api/chats/${encodeURIComponent(c.id)}/messages`, { text, replyTo: replying?.id, images: images.length ? images : undefined }).finally(() =>
+    // Shows at once; goes once its images and files have finished uploading (usually they already have).
+    const done = (await Promise.all(items.map((a) => a.done))).filter((x) => !!x);
+    const images = done.map((d) => d.pic).filter((x) => !!x);
+    const files = done.map((d) => d.file).filter((x) => !!x);
+    if (!text && !images.length && !files.length) return setPending((p) => p.filter((x) => x.id !== mine.id));
+    await post(`/api/chats/${encodeURIComponent(c.id)}/messages`, { text, replyTo: replying?.id, images: images.length ? images : undefined, files: files.length ? files.map((f) => ({ id: f.id })) : undefined }).finally(() =>
       setPending((p) => p.filter((x) => x.id !== mine.id)),
     );
   };
-  const filesOf = (d: DataTransfer | null) => [...(d?.files ?? [])].filter((f) => f.type.startsWith("image/"));
+  const filesOf = (d: DataTransfer | null) => [...(d?.files ?? [])];
   // Sent messages the server's state doesn't have yet.
   const waiting = pending.filter((p) => p.chatId === c.id && !messages.some((m) => m.role === "user" && m.text === p.text && m.at >= p.at - 5000));
 
@@ -344,7 +348,7 @@ export function ChatView({
     >
       {dropping && (
         <div className="pointer-events-none absolute inset-3 z-[40] flex items-center justify-center rounded-[20px] border-2 border-dashed border-[#16132B]/25 bg-white/85 backdrop-blur-[2px]">
-          <span className="text-[14px] font-medium text-[#3A3A38]">Drop images to send {solo ? `to ${solo.name}` : "to the group"}</span>
+          <span className="text-[14px] font-medium text-[#3A3A38]">Drop files or images to send {solo ? `to ${solo.name}` : "to the group"}</span>
         </div>
       )}
       {pair && <PairSheet state={state} pairId={pair.id} focusId={pair.focus} onClose={() => setPair(null)} />}
@@ -450,6 +454,7 @@ export function ChatView({
           {waiting.map((p) => (
             <div key={p.id} className="flex max-w-[86%] flex-col items-end gap-1 self-end">
               {p.previews && <MessageImages previews={p.previews} />}
+              {p.files && <MessageFiles files={p.files} />}
               {p.text && <div className="whitespace-pre-wrap rounded-[18px] bg-[#16132B] px-3.5 py-2 text-[14px] leading-5 text-white [overflow-wrap:anywhere]">{p.text}</div>}
             </div>
           ))}
@@ -521,8 +526,8 @@ export function ChatView({
             <button
               type="button"
               onClick={() => filePicker.current?.click()}
-              aria-label="Attach images"
-              data-tip="Attach images · or paste / drop them"
+              aria-label="Add files"
+              data-tip="Add files or images · or paste / drop them · or type /"
               className="flex size-[30px] shrink-0 items-center justify-center rounded-full text-[#6B6B6B] hover:bg-[#F2F2F0] hover:text-ink"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
@@ -532,7 +537,6 @@ export function ChatView({
             <input
               ref={filePicker}
               type="file"
-              accept="image/*"
               multiple
               hidden
               onChange={(e) => {
@@ -553,7 +557,8 @@ export function ChatView({
               }}
               onKeyDown={(e) => e.key === "Escape" && replying && (e.stopPropagation(), setReplying(null))}
               mentions={c.kind === "group" ? members : undefined}
-              placeholder={replying ? "Reply" : solo ? `Text ${solo.name}` : "Message the group · @ to mention"}
+              slash={{ onAddFiles: () => filePicker.current?.click() }}
+              placeholder={replying ? "Reply" : solo ? `Text ${solo.name} · / for skills` : "Message the group · @ to mention · / for skills"}
               className="min-w-0 flex-1 bg-transparent py-[6px] text-[14px] leading-[18px] outline-none placeholder:text-[#9A9A98]"
             />
             <MicButton
@@ -1019,6 +1024,7 @@ function MessageRow({ m, state, showSender, continued, sessionById, chipIds, onO
             {balloons}
             <div className="flex flex-col items-end gap-1">
               {!!m.images?.length && <MessageImages images={m.images} />}
+              {!!m.files?.length && <MessageFiles files={m.files} />}
               {m.text && <div className="select-text whitespace-pre-wrap rounded-[18px] bg-ink px-3.5 py-2 text-[14px] leading-5 text-white [overflow-wrap:anywhere]">{m.text}</div>}
             </div>
           </div>

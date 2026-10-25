@@ -4,7 +4,7 @@ import type { DeskwispEventProps } from "@/cloud/analytics-rules";
 import { openaiClient } from "./openai-client";
 import type { ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { AI_CREDIT_EMPTY, AI_CREDIT_LOW } from "@/cloud/protocol";
 import { BLOCKER_LABEL, botChatId, botSlots, DISPLAYS, screenCount, live, MAIN_WORKSPACE, MAX_SCREENS, workBot, workspaceOf, type Bot, type Effort, type Session, type ThreadReply } from "@/lib/types";
@@ -41,6 +41,8 @@ import { recordTokens, usageTags } from "./usage";
 import { computerToolOn, computerTurn } from "./computer-task";
 import { freeHoursUsed, sayInUse, START_SAY_MS, wakeForUser } from "./free-hours";
 import { vmFile } from "./vm-file";
+import { taskSkills } from "./skill-library";
+import { fileOf } from "./uploads";
 
 /**
  * Session runner. A session is one long-running task on one screen of the computer its bot works on
@@ -1736,6 +1738,9 @@ async function run(sessionId: string) {
         throw new Error(`my computer isn't ready (${why})`);
       }
     }
+    // Files the user attached in this chat lately (Add files): in the task's files folder.
+    // (On the PC, once its task folder is made fresh: after startExecutor, below.)
+    if (!mac && !resumedBefore(sessionId)) await putTaskFiles(s.chatId, null, computerId).catch((e: Error) => console.warn(`[sessions] files for ${sessionId}: ${e.message}`));
     // A screen of the bot's computer is watched for what only the user can get past (a PC task's Chrome isn't one).
     const endpoint = onMac ? null : screenEndpoint(b, display);
     if (endpoint) unwatch = watchScreen(b.id, display, endpoint, sessionId);
@@ -1848,6 +1853,7 @@ async function run(sessionId: string) {
 
       if (folder) {
         executor = await startExecutor(sessionId, env.id, env.remoteUrl, port, folder, full);
+        await putTaskFiles(s.chatId, join(workspace, "files"), null).catch((e: Error) => console.warn(`[sessions] files for ${sessionId}: ${e.message}`));
         // After the executor made the task's folders fresh; it calls on its first app tool.
         if (env.apps || env.data) closeApps = serveApps(sessionId, appsSocket(folder));
       }
@@ -1975,9 +1981,17 @@ function freshStart(sessionId: string, moved = "") {
   const s = session(sessionId)!;
   const passedOn = unsent(sessionId).some((r) => r.from);
   const replies = takeReplies(sessionId);
-  if (!s.answer && !replies && !moved) return s.goal;
+  // The user's skills (skill-library.ts): listed, and in full the ones the task names.
+  const skills = taskSkills(s.goal);
+  // The files the user attached in this chat lately, put in the task's files folder (putTaskFiles).
+  const files = taskFiles(s.chatId);
+  const where = s.runsOn === "mac" || s.host === "mac" ? "files" : "/workspace/files";
+  const filesNote = files.length ? `Files ${ownerName()} attached in the chat, in ${where === "files" ? "the files folder of your workspace" : where}: ${files.map((f) => `${where}/${f.name}`).join(", ")}.` : "";
+  if (!s.answer && !replies && !moved) return [s.goal, skills, filesNote].filter(Boolean).join("\n\n");
   return [
     s.goal,
+    skills,
+    filesNote,
     moved,
     s.answer ? `You worked on this before, in an earlier session you can't see now. Your last answer was:\n${s.answer}` : "",
     replies ? `Since then ${ownerName()} said${passedOn ? " (what's marked as passed on from outside Deskwisp is someone else's)" : ""}:\n${replies}` : "",
@@ -2460,3 +2474,58 @@ export const screenLabel = (display: number) => `screen ${DISPLAYS.indexOf(displ
 /** Screens are numbered 1-4 for agents and the user (displays :100, :101, :102, :99). */
 const screenNo = (display: number) => DISPLAYS.indexOf(display) + 1;
 export { screenId };
+
+/* ---------------- Files the user attached (Add files) ---------------- */
+
+/** How far back a task looks for files the user attached in its chat. */
+const FILES_WITHIN_MS = 3 * 60 * 60_000;
+/** A file goes to a cloud computer through its shell, a piece at a time: up to this size. */
+const CLOUD_FILE_BYTES = 8 * 1024 * 1024;
+
+/** The files the user attached in a chat lately (the last ten, newest last), each with a name unique among them. */
+function taskFiles(chatId: string) {
+  const since = Date.now() - FILES_WITHIN_MS;
+  const files = getState()
+    .messages.filter((m) => m.chatId === chatId && m.role === "user" && m.files?.length && m.at >= since)
+    .flatMap((m) => m.files!)
+    .slice(-10)
+    .map((f) => fileOf(f.id))
+    .filter((f) => !!f);
+  const taken = new Set<string>();
+  return files.map((f) => {
+    let name = f.name;
+    for (let n = 2; taken.has(name.toLowerCase()); n++) name = f.name.replace(/(\.[^.]*)?$/, (ext) => ` (${n})${ext}`);
+    taken.add(name.toLowerCase());
+    return { ...f, name };
+  });
+}
+
+/** Whether a thread ran before (its files went then). */
+const resumedBefore = (sessionId: string) => !!session(sessionId)?.answer;
+
+/** The chat's recent files into a task: copied into its folder on this PC, or sent to its cloud computer (/workspace/files). */
+async function putTaskFiles(chatId: string, folder: string | null, computerId: string | null) {
+  const files = taskFiles(chatId);
+  if (!files.length) return;
+  if (folder) {
+    mkdirSync(folder, { recursive: true });
+    for (const f of files) copyFileSync(f.path, join(folder, f.name));
+    return;
+  }
+  if (!computerId) return;
+  await horafirm.bash(computerId, "mkdir -p /workspace/files", 20);
+  for (const f of files) {
+    if (f.size > CLOUD_FILE_BYTES) continue;
+    const data = readFileSync(f.path);
+    const to = `/workspace/files/${f.name.replace(/'/g, "'\\''")}`;
+    const part = `${to}.part`;
+    await horafirm.bash(computerId, `rm -f '${part}'`, 20);
+    for (let at = 0; at < data.length; at += 768 * 1024) {
+      const piece = data.subarray(at, at + 768 * 1024).toString("base64");
+      const r = await horafirm.bash(computerId, `echo '${piece}' | base64 -d >> '${part}'`, 60);
+      if (r.exit_code !== 0) throw new Error(`couldn't send ${f.name}`);
+    }
+    await horafirm.bash(computerId, `mv -f '${part}' '${to}'`, 20);
+  }
+}
+

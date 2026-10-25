@@ -173,6 +173,7 @@ export function OwnerPhone({
   collapseWhenSaved,
   bannerFor,
   onNotNow,
+  noCodes,
 }: {
   info: PhoneCodeInfo;
   phone: OwnerPhoneState;
@@ -182,6 +183,8 @@ export function OwnerPhone({
   /** The saved number the banner above offers a code for: its row doesn't offer one too. */
   bannerFor?: string;
   onNotNow?: () => void;
+  /** Where codes can't be texted here: how to add a number instead (calling or texting a bot's number). */
+  noCodes?: React.ReactNode;
 }) {
   // Removing the last number that counts as you asks first.
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -288,7 +291,9 @@ export function OwnerPhone({
         <span className="text-[13px] font-medium leading-4">Your mobile</span>
         {recommended && <span className={`${chip} bg-[#F2F2F0] font-medium text-[#3A3A38]`}>Recommended</span>}
       </span>
-      <span className="text-[12px] leading-4 text-[#6B6B6B]">Text and call your bots from it, and get texts from them. We text you a code to make sure it&apos;s yours.</span>
+      <span className="text-[12px] leading-4 text-[#6B6B6B]">
+        Text and call your bots from it, and get texts from them.{canVerify ? " We text you a code to make sure it's yours." : ""}
+      </span>
 
       {owners.map((o) => (
         <div key={o.number} className="flex flex-col gap-1.5">
@@ -359,7 +364,7 @@ export function OwnerPhone({
       {waiting ? (
         codeEntry
       ) : !canVerify ? (
-        <span className="text-[12px] leading-4 text-[#6B6B6B]">Adding or changing a number isn&apos;t available on this server yet.</span>
+        (noCodes ?? <span className="text-[12px] leading-4 text-[#6B6B6B]">Adding or changing a number isn&apos;t available on this server yet.</span>)
       ) : collapsible && !phone.adding ? (
         <button onClick={() => phone.setAdding(true)} className="self-start pt-0.5 text-[12px] font-medium text-ink underline-offset-2 hover:underline">
           Add another number

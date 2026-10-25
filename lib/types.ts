@@ -243,6 +243,8 @@ export type Message = {
   emailed?: string;
   /** Images attached to it (shown from /api/uploads/<id>; bots see them too). */
   images?: { id: string; type: string; w?: number; h?: number }[];
+  /** Other files attached to it (Add files): downloaded from /api/uploads/<id>; bots read what they can, and a task gets them. */
+  files?: { id: string; name: string; type: string; size: number }[];
   /** A picture the bot made (make_image): what it was asked to show, so it knows what it sent. */
   picture?: { prompt: string };
   /**

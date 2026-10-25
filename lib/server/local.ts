@@ -10,6 +10,7 @@ import { codexPath, findCodex } from "./codex-cli";
 import { codexInSandbox, installDir, remotePort, SANDBOX_EXEC, sandboxArgs } from "./executor-sandbox";
 import { closeMirrors, mirroredTarget } from "./mirror";
 import { userChrome, userHome } from "./store";
+import { copySkillsTo } from "./skill-library";
 import { deskwispHome, chromeRoot } from "./user-paths";
 import { ON_WINDOWS } from "./platform";
 
@@ -337,6 +338,8 @@ export function prepareTaskDir(sessionId: string, dir = taskDir(sessionId)) {
   rmSync(taskSockets(dir), { recursive: true, force: true });
   for (const sub of ["workspace/capabilities/skills", "codex", "tmp"]) mkdirSync(join(/*turbopackIgnore: true*/ dir, sub), { recursive: true, mode: 0o700 });
   mkdirSync(taskSockets(dir), { recursive: true, mode: 0o700 });
+  // The user's skills that are on (Skills, skill-library.ts): the agent finds them in its skills folder.
+  copySkillsTo(join(/*turbopackIgnore: true*/ dir, "workspace/capabilities/skills"));
 }
 
 /**
