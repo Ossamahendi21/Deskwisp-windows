@@ -272,6 +272,47 @@ function createWindow() {
   void openApp(win);
 }
 
+/**
+ * Right-click, as anywhere else on Windows (Electron has no menu of its own): in a text box Cut, Copy,
+ * Paste and Select all (with spelling fixes for a word underlined in red), on selected text Copy, on a
+ * link Copy link, on a picture Copy image. In the app's window and in the pages it shows.
+ */
+function contextMenu(contents, p) {
+  const items = [];
+  if (p.isEditable && p.misspelledWord) {
+    for (const word of (p.dictionarySuggestions ?? []).slice(0, 5)) items.push({ label: word, click: () => contents.replaceMisspelling(word) });
+    items.push({ label: "Add to dictionary", click: () => contents.session.addWordToSpellCheckerDictionary(p.misspelledWord) }, { type: "separator" });
+  }
+  if (p.isEditable) {
+    const f = p.editFlags ?? {};
+    items.push(
+      { label: "Undo", role: "undo", enabled: !!f.canUndo },
+      { label: "Redo", role: "redo", enabled: !!f.canRedo },
+      { type: "separator" },
+      { label: "Cut", role: "cut", enabled: !!f.canCut },
+      { label: "Copy", role: "copy", enabled: !!f.canCopy },
+      { label: "Paste", role: "paste", enabled: f.canPaste !== false },
+      { label: "Paste as plain text", role: "pasteAndMatchStyle", enabled: f.canPaste !== false },
+      { type: "separator" },
+      { label: "Select all", role: "selectAll", enabled: f.canSelectAll !== false },
+    );
+  } else if (p.selectionText?.trim()) items.push({ label: "Copy", role: "copy" });
+  if (p.linkURL && /^(https?|mailto):/i.test(p.linkURL)) {
+    if (items.length) items.push({ type: "separator" });
+    items.push({ label: "Copy link", click: () => require("electron").clipboard.writeText(p.linkURL) });
+  }
+  if (p.mediaType === "image" && p.hasImageContents !== false) {
+    if (items.length) items.push({ type: "separator" });
+    items.push({ label: "Copy image", click: () => contents.copyImageAt(p.x, p.y) });
+  }
+  if (!items.length) return;
+  const host = contents.hostWebContents ?? contents;
+  Menu.buildFromTemplate(items).popup({ window: BrowserWindow.fromWebContents(host) ?? undefined });
+}
+app.on("web-contents-created", (_, contents) => {
+  contents.on("context-menu", (_e, p) => contextMenu(contents, p));
+});
+
 app.on("web-contents-created", (_, contents) => {
   if (contents.getType() !== "webview") return;
   contents.setWindowOpenHandler(({ url }) => {

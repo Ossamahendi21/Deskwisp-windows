@@ -1,5 +1,5 @@
 import { handleMessage } from "@/lib/server/chat";
-import { uploadPath } from "@/lib/server/uploads";
+import { fileOf, uploadPath } from "@/lib/server/uploads";
 import { deleteMessage } from "@/lib/server/remove";
 import { chat, react } from "@/lib/server/store";
 import type { Tapback } from "@/lib/types";
@@ -10,11 +10,17 @@ export async function POST(request: Request, ctx: RouteContext<"/api/chats/[chat
   const unready = notReady();
   if (unready) return unready;
   const { chatId } = await ctx.params;
-  const { text, replyTo, images } = (await request.json()) as { text?: string; replyTo?: string; images?: { id: string; type: string; w?: number; h?: number }[] };
+  const { text, replyTo, images, files } = (await request.json()) as { text?: string; replyTo?: string; images?: { id: string; type: string; w?: number; h?: number }[]; files?: { id: string }[] };
   if (!chat(chatId)) return Response.json({ error: "no such chat" }, { status: 404 });
   const pics = (images ?? []).filter((i) => uploadPath(i.id)).slice(0, 10);
-  if (!text?.trim() && !pics.length) return Response.json({ error: "empty message" }, { status: 400 });
-  void handleMessage(chatId, text?.trim() ?? "", replyTo, pics);
+  // Other files, by id: what they are is read here, never taken from the page.
+  const attached = (files ?? [])
+    .map((f) => fileOf(String(f?.id ?? "")))
+    .filter((f) => !!f)
+    .slice(0, 10)
+    .map((f) => ({ id: f.id, name: f.name, type: f.type, size: f.size }));
+  if (!text?.trim() && !pics.length && !attached.length) return Response.json({ error: "empty message" }, { status: 400 });
+  void handleMessage(chatId, text?.trim() ?? "", replyTo, pics, undefined, undefined, undefined, undefined, attached);
   return Response.json({ ok: true });
 }
 

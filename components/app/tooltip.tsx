@@ -69,7 +69,9 @@ export function TooltipLayer() {
       const show = () => {
         if (current !== el || !el.isConnected) return;
         const r = el.getBoundingClientRect();
-        const below = r.top < 44;
+        // Above, unless that runs into the title bar (44px, with Windows' own buttons drawn over its
+        // right end, which would cover a tip there): then under the element.
+        const below = r.top < 44 + 36;
         setTip({ text, x: Math.min(Math.max(r.left + r.width / 2, 12), window.innerWidth - 12), y: below ? r.bottom + 6 : r.top - 6, below });
       };
       if (Date.now() < warmUntil) show();

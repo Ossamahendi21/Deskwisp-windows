@@ -1,12 +1,15 @@
 import { config } from "./config.ts";
 import { honchoPrefix } from "./session.ts";
+import { card as ownCard, searchFacts } from "./memory.ts";
 import { recordUsage } from "./usage.ts";
 
 /**
  * Long-term memory for a turn the cloud answers itself (cloud/agent.ts), from Honcho over its REST API
  * with the cloud's own key: the same bank the user's bots use on their Mac for that bot's workspace
  * (lib/server/memory.ts bindingOf), always under the user's own prefix (`u-<user>-deskwisp`), so a turn
- * can only ever reach the user's own memory.
+ * can only ever reach the user's own memory. Where this cloud has no Honcho, memoryBlock reads
+ * Deskwisp's own memory instead (memory.ts: the user's card and the facts closest to what they said),
+ * the same the PC app keeps there, and saveChat saves nothing (the PC app learns from what's said).
  *
  * - Before the turn (memoryBlock): what's known about the user, their card and what Honcho learned that
  *   matters for what they just said, in one read within 2.5 s, or nothing. Lines that look private
@@ -84,18 +87,33 @@ export const keptFromOthers = (text: string) => SECRET.test(text.replace(/[â€˜â€
  */
 export async function memoryBlock(userId: string, b: Binding, about: string, owner: string, ms = 2500): Promise<string> {
   const ws = workspaceOf(userId, b);
-  if (!config.honchoKey() || !ws) return "";
+  // Without Honcho, Deskwisp's own memory (memory.ts), the same the PC app keeps.
+  const own = !config.honchoKey();
+  if (!own && !ws) return "";
   try {
-    const ctx = (await honcho("GET", `${base(ws)}/peers/${enc(b.peer)}/context`, {
-      query: { search_query: (about.trim() || owner).slice(0, 400), search_top_k: "10", max_conclusions: "12", include_most_frequent: "false" },
-      timeoutMs: ms,
-    })) as { representation?: unknown; peer_card?: unknown } | null;
-    const card = (Array.isArray(ctx?.peer_card) ? ctx.peer_card : []).filter((l): l is string => typeof l === "string").map((l) => l.trim()).filter(Boolean);
-    const learned = String(ctx?.representation ?? "")
-      .split("\n")
-      .map((l) => l.replace(/^\[[^\]]+\]\s*/, "").trim())
-      .filter((l) => l && !l.startsWith("#"))
-      .slice(0, 16);
+    const read = own
+      ? (async () => {
+          if (!/^[A-Za-z0-9_-]{1,120}$/.test(b.bank)) return null;
+          const [c, near] = await Promise.all([ownCard(userId, b.bank), searchFacts(userId, b.bank, about.trim() || owner, 12)]);
+          return { card: c.lines, learned: near.map((f) => f.content) };
+        })()
+      : (async () => {
+          const ctx = (await honcho("GET", `${base(ws!)}/peers/${enc(b.peer)}/context`, {
+            query: { search_query: (about.trim() || owner).slice(0, 400), search_top_k: "10", max_conclusions: "12", include_most_frequent: "false" },
+            timeoutMs: ms,
+          })) as { representation?: unknown; peer_card?: unknown } | null;
+          return {
+            card: (Array.isArray(ctx?.peer_card) ? ctx.peer_card : []).filter((l): l is string => typeof l === "string").map((l) => l.trim()).filter(Boolean),
+            learned: String(ctx?.representation ?? "")
+              .split("\n")
+              .map((l) => l.replace(/^\[[^\]]+\]\s*/, "").trim())
+              .filter((l) => l && !l.startsWith("#"))
+              .slice(0, 16),
+          };
+        })();
+    const got = await Promise.race([read, new Promise<null>((r) => setTimeout(() => r(null), ms))]);
+    if (!got) return "";
+    const { card, learned } = got;
     const lines = card.filter(shareable);
     const recent = learned.filter(shareable).slice(0, 12);
     if (!lines.length && !recent.length) return "";

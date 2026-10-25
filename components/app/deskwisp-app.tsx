@@ -35,6 +35,8 @@ import { trackEvent } from "@/lib/analytics";
 import { OwnerEmail, useOwnerEmailInfo } from "./owner-email";
 import { OwnerPhone, useOwnerPhone, usePhoneInfo, type OwnerNumber, type PendingCode } from "./owner-phone";
 import { LineLink } from "./line-link";
+import { ConnectAgentPhone } from "./agentphone-connect";
+import { LibraryDialog, useLibraryOpen } from "./library";
 import { EmailAddresses, MailAddressStep } from "./mail-address";
 import { bannerNumber, ReachBanner } from "./reach-banner";
 
@@ -140,6 +142,8 @@ function Deskwisp({ state }: { state: AppState | null }) {
   // Screens you picked yourself stay put; otherwise the panel follows the action (see ComputerView).
   const [pinned, setPinned] = useState<Record<string, boolean>>({});
   const [settings, setSettings] = useState(false);
+  // Skills or Plugins, opened from the You menu or "/" in a chat (library.tsx openLibrary).
+  const [library, setLibrary] = useLibraryOpen();
   const [account, setAccount] = useState(false);
   const [setup, setSetup] = useState(false);
   // The People sheet (members.tsx): who can see the bots' computers.
@@ -784,6 +788,7 @@ function Deskwisp({ state }: { state: AppState | null }) {
           />
         )}
         {settings && <Settings state={state} onClose={() => setSettings(false)} />}
+        {library && <LibraryDialog key={`${library.kind}:${library.tab}`} kind={library.kind} tab={library.tab} onClose={() => setLibrary(null)} />}
         {account && (
           <Account
             state={state}
@@ -936,6 +941,8 @@ type PhoneInfo = {
   verify?: boolean;
   workspaces?: { id: string; name: string; main: string | null; line: { phone: string; type: string } | null; call: string | null }[];
   lines?: { bot: string; phone: string }[];
+  /** Phones off, and the user can connect their own AgentPhone account here (Deskwisp Cloud). */
+  connect?: boolean;
 };
 
 /**
@@ -966,10 +973,22 @@ function ReachNote({ label, line, retry }: { label: string; line: string; retry?
 function MobileRows({ info, onInfo }: { info: PhoneInfo; onInfo: (p: PhoneInfo) => void }) {
   const phone = useOwnerPhone(info, onInfo);
   const reach = (info.workspaces ?? []).filter((w) => w.line || w.call);
+  const botLine = info.lines?.[0];
+  // No texted codes here (Deskwisp Cloud has no texting service set up): a mobile becomes the user's by
+  // calling or texting one of the bots' numbers, the first phone to do so in its 15 minutes (LineLink).
+  const noCodes = (
+    <span className="max-w-[560px] text-[12px] leading-[17px] text-[#6B6B6B]">
+      {reach.length
+        ? "To add your mobile, call or text your bot's number below from it, while it waits for your phone: the first phone to do so becomes yours, and texts and calls from it count as you."
+        : botLine
+          ? `To add your mobile, call or text ${botLine.bot}'s number, ${botLine.phone}, from it while it waits for your phone (start that in ${botLine.bot}'s details, Phone): the first phone to do so becomes yours.`
+          : "First get a number for a bot (open the bot, then Phone in its details). Then call or text that number from your mobile: the first phone to do so becomes yours, and texts and calls from it count as you."}
+    </span>
+  );
   return (
     <>
       <ReachBanner info={info} phone={phone} />
-      <OwnerPhone info={info} phone={phone} recommended collapseWhenSaved bannerFor={bannerNumber(info, phone)?.number} />
+      <OwnerPhone info={info} phone={phone} recommended collapseWhenSaved bannerFor={bannerNumber(info, phone)?.number} noCodes={noCodes} />
       {!!reach.length && (
         <div className="flex flex-col gap-1 border-t border-[#F0F0EE] pt-2.5 text-[12.5px] leading-[18px] text-[#3A3A38]">
           {reach.map((w) => {
@@ -1000,9 +1019,9 @@ function MobileRows({ info, onInfo }: { info: PhoneInfo; onInfo: (p: PhoneInfo) 
 function ReachSettings() {
   const [phone, setPhone, phoneRead] = usePhoneInfo<PhoneInfo>();
   const [email, setEmail, emailRead] = useOwnerEmailInfo();
-  if (!phone?.on && !email?.on) return null;
+  if (!phone?.on && !phone?.connect && !email?.on) return null;
   // Not known yet (or not read) counts as on: the rows below say how each stands.
-  const texting = phone?.on !== false;
+  const texting = phone?.on !== false || !!phone?.connect;
   const mailing = email?.on !== false;
   const intro =
     texting && mailing
@@ -1020,6 +1039,8 @@ function ReachSettings() {
       <div className="flex flex-col gap-3 rounded-[14px] p-3.5 shadow-[0_0_0_1px_#E6E6E3]">
         {!phone ? (
           <ReachNote label="Your mobile" {...(phoneRead.failed ? { line: unreachable, retry: phoneRead.retry } : { line: "Checking" })} />
+        ) : !phone.on && phone.connect ? (
+          <MobileConnect onDone={phoneRead.retry} />
         ) : !phone.on ? (
           <ReachNote label="Your mobile" line="Texting your bots isn't set up on this server." />
         ) : (
@@ -1035,6 +1056,26 @@ function ReachSettings() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Your mobile, before the bots have numbers: they get them from AgentPhone, on the user's own account
+ * (ConnectAgentPhone). Once it's connected, a bot gets a number (its details, Phone), and calling or
+ * texting that number from the mobile makes it the user's (MobileRows).
+ */
+function MobileConnect({ onDone }: { onDone: () => void }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="flex items-center gap-2">
+        <span className="text-[13px] font-medium leading-4">Your mobile</span>
+        <span className="rounded-full bg-[#F2F2F0] px-2 py-0.5 text-[11.5px] font-medium text-[#3A3A38]">Recommended</span>
+      </span>
+      <span className="max-w-[560px] text-[12px] leading-[17px] text-[#6B6B6B]">
+        Text and call your bots from your mobile, and get texts from them. They text and call from their own numbers, on your AgentPhone account: connect it, get a number for a bot, then call or text that number from your mobile to make it yours.
+      </span>
+      <ConnectAgentPhone what="mobile" onDone={onDone} className="pt-1" />
     </div>
   );
 }

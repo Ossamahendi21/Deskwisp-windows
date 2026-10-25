@@ -9,7 +9,19 @@ import type { Bot } from "@/lib/types";
  * it with AgentPhone and keeps it sealed: cloud/phone-key.ts). Then "Get a number" (a bot's details) or
  * the iMessage setup (Where to find, lib channels.tsx) appears in its place. `what` says which it's for.
  */
-export function ConnectAgentPhone({ bot: b, onDone, what = "number", className = "px-4 pb-[11px]" }: { bot: Bot; onDone: () => void; what?: "number" | "imessage"; className?: string }) {
+export function ConnectAgentPhone({
+  bot: b,
+  onDone,
+  what = "number",
+  className = "px-4 pb-[11px]",
+}: {
+  /** The bot it's for; Settings' "Your mobile" (`what` "mobile") is for every bot. */
+  bot?: Bot;
+  onDone: () => void;
+  what?: "number" | "imessage" | "mobile";
+  className?: string;
+}) {
+  const name = b?.name ?? "your bots";
   const [open, setOpen] = useState(false);
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
@@ -36,7 +48,7 @@ export function ConnectAgentPhone({ bot: b, onDone, what = "number", className =
     return (
       <div className={`flex items-center gap-2 ${className}`}>
         <button onClick={() => setOpen(true)} data-tip="Numbers come from AgentPhone, on your own account." className="rounded-full bg-ink px-3 py-1.5 text-[12.5px] font-medium leading-4 text-white">
-          {what === "imessage" ? "Connect AgentPhone" : `Get ${b.name} a number`}
+          {what === "number" && b ? `Get ${b.name} a number` : "Connect AgentPhone"}
         </button>
       </div>
     );
@@ -44,8 +56,10 @@ export function ConnectAgentPhone({ bot: b, onDone, what = "number", className =
     <div className={`flex flex-col gap-2 text-[12px] leading-4 ${className}`}>
       <span className="text-[#3A3A38]">
         {what === "imessage"
-          ? `iMessage comes from AgentPhone, on your own account: you pay AgentPhone for the iMessage line, and ${b.name} answers on it here.`
-          : `${b.name}'s numbers come from AgentPhone, on your own account: you pay AgentPhone for each number, its calls and its texts, and ${b.name} uses them here. US and Canadian numbers.`}
+          ? `iMessage comes from AgentPhone, on your own account: you pay AgentPhone for the iMessage line, and ${name} answers on it here.`
+          : what === "mobile"
+            ? "Your bots' numbers come from AgentPhone, on your own account: you pay AgentPhone for each number, its calls and its texts. US and Canadian numbers."
+            : `${name}'s numbers come from AgentPhone, on your own account: you pay AgentPhone for each number, its calls and its texts, and ${name} uses them here. US and Canadian numbers.`}
       </span>
       <ol className="flex list-decimal flex-col gap-1 pl-4 text-[#3A3A38]">
         <li>

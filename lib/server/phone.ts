@@ -674,7 +674,7 @@ const START_WORDS = new Set(["start", "unstop"]);
 const HELP_WORDS = new Set(["help", "info"]);
 /** The HELP reply carriers require; the contact is DESKWISP_SUPPORT_EMAIL. */
 const helpText = () =>
-  `Deskwisp by Horafirm: texts from your Deskwisp assistants. Msg & data rates may apply. Reply STOP to opt out.${process.env.DESKWISP_SUPPORT_EMAIL ? ` Help: ${process.env.DESKWISP_SUPPORT_EMAIL}` : ""}`;
+  `Deskwisp: texts from your Deskwisp bots. Msg & data rates may apply. Reply STOP to opt out.${process.env.DESKWISP_SUPPORT_EMAIL ? ` Help: ${process.env.DESKWISP_SUPPORT_EMAIL}` : ""}`;
 
 /** STOP: no more texts to that number (one confirmation); START: texts again; HELP: what this is and how to stop. */
 async function keywordIn(b: Bot, from: string, keyword: string) {
@@ -683,11 +683,11 @@ async function keywordIn(b: Bot, from: string, keyword: string) {
   let reply: string;
   if (STOP_WORDS.has(keyword)) {
     update((s) => void (s.smsOptOut = [...new Set([...(s.smsOptOut ?? []), n])]));
-    reply = "Deskwisp by Horafirm: you're unsubscribed and won't get more texts. Reply START to resubscribe.";
+    reply = "Deskwisp: you're unsubscribed and won't get more texts. Reply START to resubscribe.";
     addMessage({ chatId, role: "system", text: `${prettyPhone(from)} texted STOP: no more texts to that number until they text START` });
   } else if (START_WORDS.has(keyword)) {
     update((s) => void (s.smsOptOut = (s.smsOptOut ?? []).filter((x) => x !== n)));
-    reply = "Deskwisp by Horafirm: you're subscribed again. Reply STOP to opt out, HELP for help.";
+    reply = "Deskwisp: you're subscribed again. Reply STOP to opt out, HELP for help.";
     addMessage({ chatId, role: "system", text: `${prettyPhone(from)} texted START: texts to that number are back on` });
   } else reply = helpText();
   await sendText(b.id, from, reply, { evenIfStopped: true }).catch(() => {});

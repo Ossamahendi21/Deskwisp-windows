@@ -376,6 +376,8 @@ async function setUp(user: CloudUser): Promise<CloudSession> {
     // Without phones here, whether the app can offer to connect the user's own AgentPhone account.
     agentphoneConnect: true,
     honcho: config.honchoKey() ? { workspacePrefix: honchoPrefix(user.id) } : null,
+    // Deskwisp's own memory (memory.ts): always here, for wherever there's no Honcho.
+    memory: true,
     composio: config.composioKey() ? { userId: composioUserId(user.id) } : null,
     openai: config.openaiKey() ? { executorKey: executorKey() } : null,
     typesafe: !!config.typesafeKey(),

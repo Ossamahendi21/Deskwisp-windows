@@ -4,6 +4,7 @@ import { fullAccessOn } from "./full-access";
 import { isSecret, learn, memoryBlock, memoryOn, recall, rememberMessage, saveToMemory, wsOf } from "./memory";
 import { APP_TOOLS, findAppActions, runAppAction } from "./composio";
 import { appsNote, placesNote } from "./skills";
+import { enabledSkills, invokedNote, skillsNote, skillText } from "./skill-library";
 import { DATA_TOOL_NAMES, DATA_TOOLS, dataNote, runDataTool } from "./treg";
 import { CRM_TOOL_NAMES, CRM_TOOLS, crmNote, crmNowLine, runCrmTool } from "./crm";
 import { ORBIT_TOOL_NAMES, ORBIT_TOOLS, orbitNote, orbitNowLine, runOrbitTool } from "./orbit";
@@ -20,7 +21,7 @@ import { chose, decide, yes, type Answer } from "./decide";
 import { moveToMac, offerMove, replyToSession, startSession } from "./sessions";
 import { asksForMac, mentionsMac } from "./where";
 import { needsMemory } from "./judgment";
-import { dataUrlOf, uploadPath } from "./uploads";
+import { dataUrlOf, fileForModel, sizeWords, uploadPath } from "./uploads";
 import { makeImage, SHAPES, type Shape } from "./images";
 import { stopWatch, watchesNote, watchFromChat, watchInstead } from "./watches";
 import { addMessage, bot, chat, getState, ownerLine, ownerName, patchSession, react, sameState, setAsking, setTyping, stateEpoch, update } from "./store";
@@ -186,6 +187,8 @@ function history(chatId: string, selfId: string | undefined) {
   const all = getState().messages.filter((m) => m.chatId === chatId);
   // Pictures the bots made aren't sent back to the model, so they don't take a place from the user's.
   const withImages = new Set(all.filter((m) => m.images?.length && !m.picture).slice(-IMAGES_SHOWN).map((m) => m.id));
+  // The files of the last few messages that have any are read in full; older ones are named.
+  const withFiles = new Set(all.filter((m) => m.files?.length).slice(-3).map((m) => m.id));
   const owner = ownerName();
   const name = (by: string | undefined) => (by === "owner" || !by ? owner : (bot(by)?.name ?? "Bot"));
   const brief = (t: string) => (t.length > 80 ? `${t.slice(0, 80)}…` : t);
@@ -239,6 +242,20 @@ function history(chatId: string, selfId: string | undefined) {
       // something and makes up a reason.
       const did = m.role === "bot" ? deeds(m) : "";
       const text = `${m.via === "sms" ? "[by text message] " : m.via ? `[in ${m.via[0].toUpperCase()}${m.via.slice(1)}] ` : ""}${quote}${m.text}${reacted}${did}`;
+      // The user's files (Add files): text as its words and a PDF as a PDF (recent ones), anything else by name.
+      if (m.role === "user" && m.files?.length) {
+        const recent = withFiles.has(m.id);
+        const parts: ({ type: "input_text"; text: string } | { type: "input_file"; filename: string; file_data: string } | { type: "input_image"; image_url: string; detail: "auto" })[] = [{ type: "input_text", text: text || "(files)" }];
+        for (const f of m.files) {
+          const read = recent ? fileForModel(f.id) : null;
+          if (read?.kind === "text") parts.push({ type: "input_text", text: `[Attached file ${f.name}${read.cut ? ", its start" : ""}:]\n${read.text}` });
+          else if (read?.kind === "pdf") parts.push({ type: "input_text", text: `[Attached file ${f.name}:]` }, { type: "input_file", filename: read.name, file_data: read.dataUrl });
+          else parts.push({ type: "input_text", text: `[Attached file ${f.name} (${sizeWords(f.size)})${recent ? ": you can't read this kind here; a task gets the file itself in its files folder" : ", earlier"}]` });
+        }
+        const pics = m.images?.length && withImages.has(m.id) ? (m.images.map((i) => dataUrlOf(i.id)).filter(Boolean) as string[]) : [];
+        for (const url of pics) parts.push({ type: "input_image", image_url: url, detail: "auto" });
+        return { role: "user" as const, content: parts };
+      }
       // The user's images, as images the model can look at (recent ones; older ones are just mentioned).
       if (m.role === "user" && m.images?.length) {
         const pics = withImages.has(m.id) ? m.images.map((i) => dataUrlOf(i.id)).filter(Boolean) as string[] : [];
@@ -269,6 +286,8 @@ export async function handleMessage(
   channel?: Message["channel"],
   /** For usage events only: asked aloud on a phone call (call.ts), not typed in the app. */
   onCall?: boolean,
+  /** Files that aren't images (Add files): bots read what they can; a task gets them (sessions.ts). */
+  files?: Message["files"],
 ) {
   const c = chat(chatId);
   if (!c) return null;
@@ -276,13 +295,14 @@ export async function handleMessage(
   // A reply to a reply joins the conversation it started from, like iMessage.
   const target = replyTo ? getState().messages.find((m) => m.id === replyTo && m.chatId === chatId) : undefined;
   const root = target ? (target.replyTo ?? target.id) : undefined;
-  const mine = addMessage({ chatId, role: "user", text, replyTo: root, images: images?.length ? images : undefined, via, phone, channel });
+  const mine = addMessage({ chatId, role: "user", text, replyTo: root, images: images?.length ? images : undefined, files: files?.length ? files : undefined, via, phone, channel });
   trackServerEvent("deskwisp_message_sent", { chat_kind: c.kind, via: onCall ? "call" : (via ?? "app"), image_count: images?.length ?? 0, is_reply: !!root });
   // Into the shared memory (unless the user wants it kept from someone), and remembered if it's a lasting fact.
-  rememberMessage(wsOf(c.botIds[0]), chatId, mine.id, images?.length ? `${text} [attached ${images.length} image${images.length === 1 ? "" : "s"}]`.trim() : text, { chat: chatName(chatId) });
+  const extras = [images?.length ? `${images.length} image${images.length === 1 ? "" : "s"}` : "", ...(files ?? []).map((f) => f.name)].filter(Boolean);
+  rememberMessage(wsOf(c.botIds[0]), chatId, mine.id, extras.length ? `${text} [attached ${extras.join(", ")}]`.trim() : text, { chat: chatName(chatId) });
   // A follow-up to work already under way goes into that thread instead of starting another (not one
-  // with images: a thread only takes words, and the bot here can see them).
-  if (!images?.length && (await continueThread(chatId, text, root))) return mine;
+  // with images or files: a thread only takes words, and the bot here can see them).
+  if (!images?.length && !files?.length && (await continueThread(chatId, text, root))) return mine;
   if (!ours()) return mine;
   if (c.kind === "group") {
     await groupTurn(chatId, mine);
@@ -379,7 +399,7 @@ async function acknowledge(b: Bot | undefined, request: string, task: string, pa
 const saidNo = (result: string) => /\bsaid no\. Don't\b/.test(result);
 
 /** Tools whose answers go back to the model before it replies (app lookups, memory). */
-const LOOKUPS = new Set(["find_app_actions", "use_app", "remember", "recall", "watch", "stop_watch", "ask_teammate", "check_email", "read_email", "send_email", "reply_email", "text_me", ...DATA_TOOL_NAMES, ...CRM_TOOL_NAMES, ...ORBIT_TOOL_NAMES]);
+const LOOKUPS = new Set(["read_skill", "find_app_actions", "use_app", "remember", "recall", "watch", "stop_watch", "ask_teammate", "check_email", "read_email", "send_email", "reply_email", "text_me", ...DATA_TOOL_NAMES, ...CRM_TOOL_NAMES, ...ORBIT_TOOL_NAMES]);
 
 /** The user's latest message in a chat: what memory is searched for. */
 function lastWords(chatId: string) {
@@ -670,6 +690,14 @@ async function botTurn(botId: string, chatId: string, opts: TurnOptions = {}): P
             ),
           ]
         : []),
+      // The user's skills (skill-library.ts): their instructions, read when a job fits one.
+      ...(enabledSkills().length
+        ? [
+            fn("read_skill", `Read one of your skills in full (its instructions) before doing a job it fits, or when ${owner} names one with "/".`, {
+              skill_id: { type: "string", enum: enabledSkills().map((x) => x.id) },
+            }),
+          ]
+        : []),
       ...APP_TOOLS(b),
       ...(opts.outside ? [] : DATA_TOOLS(b)),
       // The user's own CRM (crm.ts): not for a turn someone else started, like business data.
@@ -754,6 +782,7 @@ async function botTurn(botId: string, chatId: string, opts: TurnOptions = {}): P
       "If a tapback says it all (thanks, ok, sounds good), react instead of replying.",
       "When you start, hand off or tell a task something, or make a picture, its `say` is your reply: write no other text, and don't answer the request yourself; the task will.",
       appsNote(b, "chat"),
+      opts.outside ? "" : skillsNote("chat"),
       opts.outside ? "" : dataNote(b, "chat"),
       opts.outside ? "" : crmNote(b, "chat"),
       opts.outside ? "" : orbitNote(b),
@@ -781,6 +810,8 @@ async function botTurn(botId: string, chatId: string, opts: TurnOptions = {}): P
       opts.outside ? "" : crmNowLine(b),
       // What's pressing in Orbit (coming up, open tasks), so "what's on my plate?" needs no lookup.
       opts.outside ? "" : orbitNowLine(b),
+      // A skill or a plugin's command the user named with "/" in the message being answered: its instructions.
+      !opts.outside && answering?.role === "user" ? invokedNote(answering.text).note : "",
       // What's known about the user (Honcho), for what they just said.
       // Searched only when knowing the user helps with this message (Jev); small talk and plain commands skip it.
       await memoryBlock(workspaceOf(b), lastWords(chatId), 2500, { search: await needsMemory(lastWords(chatId)) }),
@@ -841,6 +872,8 @@ async function botTurn(botId: string, chatId: string, opts: TurnOptions = {}): P
                     notes.push(`Stopped watching ${w.site}`);
                     return "Stopped.";
                   })().catch((e: Error) => `Failed: ${e.message}`)
+                : c.name === "read_skill"
+                ? (skillText((a as { skill_id?: string }).skill_id ?? "") ?? "No such skill, or it's turned off.")
                 : c.name === "text_me"
                 ? await textOwner(botId, (a as { text?: string }).text ?? "").catch((e: Error) => `Failed: ${e.message}`)
                 : c.name === "check_email"

@@ -10,6 +10,7 @@ import { MembersButton } from "./members";
 import { Mascot } from "./mascot";
 import { MemorySections, type MemoryOpen } from "./memory-categories";
 import { AboutDialog, AboutIcon } from "./about";
+import { openLibrary } from "./library";
 import { RestartConfirm, RestartIcon, useCanRestart } from "./restart";
 import { useSetupNeedsYou } from "./setup";
 import { UpdateNotice } from "./update-notice";
@@ -314,6 +315,19 @@ function YouMenu({ state, onAccount, onSettings, onSetup }: { state: AppState; o
               <circle cx="5" cy="11.5" r="1.6" fill="#fff" stroke="#16132B" strokeWidth="1.3" />
             </svg>
             Settings
+          </button>
+          <button onClick={pick(() => openLibrary("skills"))} className={item}>
+            <svg width="15" height="15" viewBox="0 0 16 16" className="shrink-0">
+              <path d="M4 1.8h5.2L12.4 5v9.2H4z" fill="none" stroke="#16132B" strokeWidth="1.4" strokeLinejoin="round" />
+              <path d="M9 2v3.2h3.2M6 8.4h4.2M6 10.9h3" fill="none" stroke="#16132B" strokeWidth="1.3" strokeLinecap="round" />
+            </svg>
+            Skills
+          </button>
+          <button onClick={pick(() => openLibrary("plugins"))} className={item}>
+            <svg width="15" height="15" viewBox="0 0 16 16" className="shrink-0">
+              <path d="M6 1.8v3M10 1.8v3M3.8 4.8h8.4v3.4a4.2 4.2 0 0 1-8.4 0zM8 12.4v1.8" fill="none" stroke="#16132B" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Plugins
           </button>
           <button onClick={pick(onSetup)} className={item}>
             <svg width="15" height="15" viewBox="0 0 16 16" className="shrink-0">

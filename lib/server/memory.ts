@@ -9,6 +9,8 @@ import { cloudOn, cloudProxy, cloudSessionNow } from "./cloud";
 import { chose, decide, yes, type Question } from "./decide";
 import { addMessage, bot, getState, ownerName, sameState, stateEpoch, update, userDir } from "./store";
 import { recordTokens, usageTags } from "./usage";
+import { cloudStore, localMemoryClient, ownMemoryClient } from "./local-memory";
+import { onPostgres } from "./persist";
 
 /**
  * Long-term memory, through Honcho (honcho.dev). Each workspace has a memory bank (a Honcho
@@ -24,10 +26,21 @@ import { recordTokens, usageTags } from "./usage";
  * personal facts from work ones when they copy memory between workspaces.
  *
  * Signed in with Horafirm, Honcho is reached through Deskwisp Cloud (lib/server/cloud.ts), and every bank
- * there carries the user's own prefix (bankFor).
+ * there carries the user's own prefix (bankFor). When neither the cloud nor this server has Honcho,
+ * it's Deskwisp's own memory instead (local-memory.ts, answering the same calls), kept on Deskwisp
+ * Cloud (or, self-hosting, in a file on this PC): free, so every user's bots remember, and the same
+ * memory wherever they answer.
  */
 
-const on = () => (cloudOn() ? !!cloudSessionNow()?.honcho : !!process.env.HONCHO_API_KEY);
+/** Honcho, through Deskwisp Cloud or on this server's own key. */
+const honchoOn = () => (cloudOn() ? !!cloudSessionNow()?.honcho : !!process.env.HONCHO_API_KEY);
+/**
+ * Without it, Deskwisp's own memory (local-memory.ts): on Deskwisp Cloud when it keeps it (cloud/memory.ts,
+ * one memory for the PC, the cloud's own answers and the phone), else in a file on this PC. Free.
+ */
+const cloudMemory = () => cloudOn() && !!cloudSessionNow()?.memory;
+const localOn = () => !honchoOn() && (cloudMemory() || (!cloudOn() && !onPostgres() && userDir() !== null));
+const on = () => honchoOn() || localOn();
 const MODEL = process.env.DESKWISP_CHAT_MODEL ?? process.env.DESKWISP_SAM_MODEL ?? "gpt-6.1-sol";
 
 /** Which Honcho workspace (bank) a Deskwisp workspace's memory lives in, and the user's peer in it. */
@@ -78,6 +91,23 @@ const live: Live = (g.deskwispMemory2 ??= { banks: new Map(), privacy: new Map()
  * so the cloud's /proxy/honcho is put in front of each.
  */
 function bankFor(b: Binding) {
+  if (localOn()) {
+    const cloud = cloudMemory();
+    const dir = userDir() ?? "";
+    // Another sign-in (or the cloud's memory coming or going) makes new clients.
+    const key = cloud ? `cloud:${getState().account?.user.id ?? ""}` : `local:${dir}`;
+    if (live.banksKey !== key) {
+      live.banks.clear();
+      live.banksKey = key;
+    }
+    let x = live.banks.get(b.bank);
+    if (!x) {
+      const client = cloud ? ownMemoryClient(cloudStore(b.bank), `${key}:${b.bank}`) : localMemoryClient(dir, b.bank);
+      x = { client: client as unknown as Honcho, peers: new Map(), sessions: new Map(), recent: [], queue: Promise.resolve() };
+      live.banks.set(b.bank, x);
+    }
+    return x;
+  }
   const via = cloudProxy("honcho");
   const prefix = via ? cloudSessionNow()?.honcho?.workspacePrefix : undefined;
   if (via && !prefix) throw new Error("Memory isn't available right now.");
