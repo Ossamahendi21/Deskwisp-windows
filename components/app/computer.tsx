@@ -970,6 +970,7 @@ export function ComputerView({
       {mode === "panel" && !mac && hasComputer && !takeover && (
         <div className="-mt-1 flex items-center justify-end gap-2">
           {stopping.error && <span className="truncate text-[11.5px] leading-4 text-[#B42318]">{stopping.error}</span>}
+          <NewComputerButton host={c} className="min-w-0" />
           {!asleep && (
             <button
               onClick={() => void stopComputer()}
@@ -1105,17 +1106,20 @@ async function startOver(host: Bot): Promise<string | null> {
   return null;
 }
 
-/** Under "Setting up…": after a minute, a way out when it doesn't finish ("Start over", clicked twice). */
-function StartOverWhileSetting({ host }: { host: Bot }) {
-  const [shown, setShown] = useState(false);
+/**
+ * "New computer", always there for a bot's computer: when it's stuck setting up, broken, gone from the
+ * cloud, or just in a bad way, the computer is deleted with everything on it and a new one is set up
+ * (startOver). Clicked twice, since it can't be undone. `host`: the bot whose computer it is.
+ */
+function NewComputerButton({ host, className = "" }: { host: Bot; className?: string }) {
   const [sure, setSure] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    const t = setTimeout(() => setShown(true), 60_000);
+    if (!sure) return;
+    const t = setTimeout(() => setSure(false), 5000);
     return () => clearTimeout(t);
-  }, []);
-  if (!shown) return null;
+  }, [sure]);
   const go = async () => {
     if (!sure) return setSure(true);
     setBusy(true);
@@ -1124,12 +1128,20 @@ function StartOverWhileSetting({ host }: { host: Bot }) {
     setSure(false);
   };
   return (
-    <div className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-1">
-      <button onClick={() => void go()} disabled={busy} className={`rounded-full px-3.5 py-1.5 text-[12.5px] font-medium leading-4 shadow-[0_0_0_1px_#E6E6E3] disabled:opacity-50 ${sure ? "bg-[#FBEAEA] text-[#B42318]" : "bg-white/80 text-[#3A3A38] hover:bg-white"}`}>
-        {busy ? "Starting over…" : sure ? "Start over with a new computer? Click again" : "Taking too long? Start over"}
+    <span className={`flex items-center gap-2 ${className}`}>
+      {error && <span className="truncate text-[11.5px] leading-4 text-[#B42318]">{error}</span>}
+      <button
+        onClick={() => void go()}
+        disabled={busy}
+        title="Delete this computer and everything on it, and set up a new one"
+        className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-medium leading-4 shadow-[0_0_0_1px_#E2E2DF] disabled:opacity-50 ${sure ? "bg-[#FBEAEA] text-[#B42318]" : "bg-white/80 text-[#3A3A38] hover:bg-[#F7F7F6]"}`}
+      >
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M2.8 8a5.2 5.2 0 109.2-3.3M12.6 1.8v3.2H9.4" />
+        </svg>
+        {busy ? "Starting over…" : sure ? "Delete it and start over? Click again" : "New computer"}
       </button>
-      {error && <span className="rounded-full bg-white/80 px-2.5 py-0.5 text-[12px] text-[#B42318]">{error}</span>}
-    </div>
+    </span>
   );
 }
 
@@ -1563,7 +1575,9 @@ function NoComputer({ state, bot: b, host }: { state: AppState; bot: Bot; /** Th
     return (
       <div className="relative aspect-[16/10] w-full overflow-hidden rounded-[20px]" style={{ backgroundImage: botWash(b) }}>
         <Waking thumbnail={false} bot={b} text={`Setting up ${b.name}'s computer… about a minute`} />
-        <StartOverWhileSetting host={host} />
+        <div className="absolute inset-x-0 bottom-4 flex justify-center">
+          <NewComputerButton host={host} />
+        </div>
       </div>
     );
   return (
@@ -1596,6 +1610,8 @@ function NoComputer({ state, bot: b, host }: { state: AppState; bot: Bot; /** Th
           {`Set up ${b.name}'s computer`}
         </button>
       )}
+      {/* One it had that didn't come up: Set up tries it again, this starts over with a new one. */}
+      {host.computerId && <NewComputerButton host={host} />}
     </div>
   );
 }
