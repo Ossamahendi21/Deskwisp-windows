@@ -159,16 +159,16 @@
     saving: "Saving your bots and chats…",
     closing: "Closing Deskwisp…",
     installing: version ? `Installing Deskwisp ${version}…` : "Installing the new version…",
-    opening: "Deskwisp opens again in a few seconds.",
+    opening: "The installer shows its progress, then opens Deskwisp.",
   };
 
   // The update didn't finish last time: the installer opens with its window this time.
   const RETRY = {
     title: "Finish the update",
-    line: "Last time it didn't finish. This time the installer opens: follow it to the end.",
+    line: "Last time it didn't finish. Try again: the installer shows its progress.",
     go: "Install update",
     installing: "Opening the installer…",
-    opening: "Follow the installer to finish.",
+    opening: "The installer shows its progress, then opens Deskwisp.",
   };
   let retry = false;
   let target = 0.04;

@@ -98,7 +98,7 @@ test("a newer release: checking, downloading with progress, ready, then run sile
   assert.equal(s.hits.filter((h) => h.endsWith(".json")).length, 1);
 
   assert.equal(u.install({ reopen: true }), true);
-  assert.deepEqual(runs[0].args, ["--updated", "/S", "--force-run"]);
+  assert.deepEqual(runs[0].args, ["--updated"], "with its window: only the progress shows");
   assert.equal(runs[0].file, path.join(dir, "Deskwisp-Setup-0.2.0-x64.exe"));
   assert.equal(runs[0].opts.detached, true);
   assert.equal(u.install({ reopen: false }), false, "once is enough");
@@ -115,7 +115,7 @@ test("the installer is started straight, in its own folder; one that didn't fini
   assert.equal(first.u.install({ reopen: true }), true);
   const installer = path.join(dir, "Deskwisp-Setup-0.2.0-x64.exe");
   assert.equal(first.runs[0].file, installer, "no script in between");
-  assert.deepEqual(first.runs[0].args, ["--updated", "/S", "--force-run"]);
+  assert.deepEqual(first.runs[0].args, ["--updated"]);
   assert.equal(first.runs[0].opts.cwd, dir, "never in Deskwisp's folder");
   assert.equal(first.runs[0].opts.detached, true);
   assert.equal(JSON.parse(fs.readFileSync(`${installer}.json`, "utf8")).tried.from, "0.1.0");
@@ -128,7 +128,7 @@ test("the installer is started straight, in its own folder; one that didn't fini
   assert.equal(again.u.status().retry, true);
   assert.match(again.log(), /didn't finish installing/);
   assert.equal(again.u.install({ reopen: true }), true);
-  assert.deepEqual(again.runs[0].args, [], "the installer as you'd run it yourself");
+  assert.deepEqual(again.runs[0].args, ["--updated"]);
   assert.equal(again.runs[0].opts.windowsHide, false);
 
   // Updated after all: nothing to offer.
