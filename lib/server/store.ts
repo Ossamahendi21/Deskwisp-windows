@@ -60,7 +60,8 @@ function migrate(raw: Record<string, unknown>): AppState {
     old.sentVia ??= old.botId === "sam" ? "you" : "sam";
     old.replies ??= [];
     old.title ??= old.goal.slice(0, 48);
-    old.host ??= "horafirm";
+    // Cloud computers are "horafirm" (an older name for them, in states saved before, reads the same).
+    old.host = old.host === "mac" ? "mac" : "horafirm";
     // Sessions mid-flight when the server stopped can't resume their stream.
     if (old.status === "queued" || old.status === "starting" || old.status === "running") {
       old.status = "failed";
@@ -70,7 +71,7 @@ function migrate(raw: Record<string, unknown>): AppState {
   }
   state.sessions ??= [];
   state.routines ??= [];
-  state.host ??= "horafirm";
+  state.host = state.host === "mac" ? "mac" : "horafirm";
   state.owner ??= { name: "" };
   state.takeover = undefined;
   delete state.samThinking;

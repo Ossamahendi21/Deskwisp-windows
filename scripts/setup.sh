@@ -35,7 +35,7 @@ install_hook() {
 # deskwisp-public-history-guard, installed by scripts/setup.sh: refuses to push history that isn't Ossamahendi21/Deskwisp-windows's
 # to it. Everything in that repo descends from its first commit, $public_root.
 shopt -s nocasematch
-[[ "\$2" =~ github\\.com[:/](horafirm/deskwisp|horafirm/deskwisp-oss|nickvasilescu/deskwisp)(\\.git)?/?\$ ]] || exit 0
+[[ "\$2" =~ github\\.com[:/](horafirmai/deskwisp|horafirmai/deskwisp-oss|nickvasilescu/deskwisp)(\\.git)?/?\$ ]] || exit 0
 # A shallow clone can't see that far back; it can only be a clone of the public repo.
 [ "\$(git rev-parse --is-shallow-repository)" = true ] && exit 0
 while read -r local_ref local_sha _ _; do
@@ -78,7 +78,7 @@ fi
 # 3. The relay agent, when this GitHub login can read Horafirm's relay releases.
 if [ -x vendor/horafirm-relay/horafirm-relay ]; then
   echo "  - relay agent: $(cat vendor/horafirm-relay/VERSION 2>/dev/null || echo there)."
-elif command -v gh >/dev/null && gh release view -R horafirm/horafirm-relay >/dev/null 2>&1; then
+elif command -v gh >/dev/null && gh release view -R horafirmai/horafirm-relay >/dev/null 2>&1; then
   scripts/fetch-relay.sh >/dev/null && echo "  - relay agent fetched ($(cat vendor/horafirm-relay/VERSION))."
 else
   echo "  - relay agent skipped (Horafirm's relay releases are private): everything works but \"Route through this Mac\"."

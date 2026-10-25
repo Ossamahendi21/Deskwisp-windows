@@ -39,7 +39,7 @@ fi
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-gh release download "$HORAFIRM_RELAY_VERSION" -R horafirm/horafirm-relay -p horafirm-relay-linux-amd64 -p SHA256SUMS -D "$tmp" >/dev/null
+gh release download "$HORAFIRM_RELAY_VERSION" -R horafirmai/horafirm-relay -p horafirm-relay-linux-amd64 -p SHA256SUMS -D "$tmp" >/dev/null
 (cd "$tmp" && grep ' horafirm-relay-linux-amd64$' SHA256SUMS | shasum -a 256 -c - >/dev/null)
 rsync -az -e "ssh ${ssh_opts[*]}" "$tmp/horafirm-relay-linux-amd64" "$DESKWISP_CLOUD_BOX:/usr/local/bin/horafirm-relay.new"
 box 'chmod 0755 /usr/local/bin/horafirm-relay.new && mv /usr/local/bin/horafirm-relay.new /usr/local/bin/horafirm-relay'

@@ -68,7 +68,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "Horafirm",
+        "owner": "Ossamahendi21",
         "repo": "deskwisp"
       }
     ],

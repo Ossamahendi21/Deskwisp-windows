@@ -9,8 +9,8 @@
  * About) into %LOCALAPPDATA%\deskwisp-updater, and it's kept only if its size and SHA-512 are what
  * latest.json says. Then "Restart to update" (the sidebar's notice, About, or the update screen,
  * desktop/update.html): Deskwisp starts the installer and closes, the installer waits for it to be
- * gone (build/installer.nsh), installs silently over the same install (/S --updated, as
- * electron-builder's own updater runs it) and opens Deskwisp again (--force-run). Quitting with an
+ * gone (build/installer.nsh), installs over the same install with only its progress showing
+ * (--updated), and opens Deskwisp again as its window closes. Quitting with an
  * update ready installs it too, without opening it again. If Deskwisp was closed some other way
  * (Windows shut down, say), the next launch finds the installer and offers it first; if it was started
  * and this is still the old version, the update didn't finish, so the next try runs the installer with
@@ -287,8 +287,8 @@ function createUpdater({
 
   /**
    * Starts the ready installer and lets it be: it waits for Deskwisp to close (build/installer.nsh, the
-   * first few seconds), installs over it and, with `reopen`, opens it again. Silently, unless the last
-   * start of it didn't finish the update (`retry`): then with its window, so whatever stops it is seen.
+   * first few seconds), installs over it and, with `reopen`, opens it again. With `reopen` (or when the
+   * last start of it didn't finish the update, `retry`) its window shows the progress; on quit it's silent.
    * Started straight from here, not through a script: nothing between Deskwisp and its installer. Its
    * folder is the installer's, never Deskwisp's (a folder something runs in can't be removed). Who it is,
    * next to it, notes that it was started from this version, which is how the next launch knows it didn't
@@ -296,9 +296,10 @@ function createUpdater({
    */
   function install({ reopen }) {
     if (!ready || !fs.existsSync(ready)) return false;
-    const visible = retry;
-    const args = visible ? [] : ["--updated", "/S", ...(reopen ? ["--force-run"] : [])];
-    note(`installing Deskwisp ${newer?.version} (${visible ? "with the installer's window" : reopen ? "then opening it" : "on quit"})`);
+    // Restart to update: with the installer's window (only its progress: build/installer.nsh skips the
+    // rest for --updated, and opens Deskwisp as it closes), so it's plain that it's updating. On quit: silently.
+    const args = reopen || retry ? ["--updated"] : ["--updated", "/S"];
+    note(`installing Deskwisp ${newer?.version} (${reopen || retry ? "with the installer's window, then opening it" : "on quit"})`);
     try {
       const sidecar = `${ready}.json`;
       const kept = JSON.parse(fs.readFileSync(sidecar, "utf8"));

@@ -52,6 +52,14 @@
   ${GetParameters} $R9
   !insertmacro deskwispLog "started ($R9)"
   Pop $R9
+  ; "Restart to update" from an app that still starts its update silently (/S --updated --force-run,
+  ; 0.1.9 and before): shown anyway, with only its progress (customInstallMode, customFinishPage), so
+  ; it's plain that Deskwisp is updating. Installing on quit (no --force-run) stays silent.
+  ${if} ${isUpdated}
+  ${andIf} ${isForceRun}
+  ${andIf} ${Silent}
+    SetSilent normal
+  ${endIf}
 !macroend
 
 ; Before files are replaced (installing, updating, uninstalling): close everything of Deskwisp's that
@@ -102,3 +110,42 @@
 !macro customInstall
   !insertmacro deskwispLog "installed in $INSTDIR"
 !macroend
+
+; An update ("Restart to update" in the app starts this installer with --updated) shows only the
+; installing page: no choice of who it's for (the one already installed), no folder, and no last page
+; to click: when it's done Deskwisp opens and this window closes, at the same moment. A fresh install
+; from the website keeps every page, and the last one's "Run Deskwisp".
+!macro customInstallMode
+  ${if} ${isUpdated}
+    ${if} $hasPerMachineInstallation == "1"
+      StrCpy $isForceMachineInstall "1"
+    ${else}
+      StrCpy $isForceCurrentInstall "1"
+    ${endif}
+  ${endif}
+!macroend
+
+!macro customFinishPage
+  Function StartApp
+    ${if} ${isUpdated}
+      StrCpy $1 "--updated"
+    ${else}
+      StrCpy $1 ""
+    ${endif}
+    ${StdUtils.ExecShellAsUser} $0 "$launchLink" "open" "$1"
+  FunctionEnd
+
+  Function deskwispFinishPre
+    ${if} ${isUpdated}
+      !insertmacro deskwispLog "opening the new version"
+      Call StartApp
+      Abort
+    ${endif}
+  FunctionEnd
+
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE deskwispFinishPre
+  !define MUI_FINISHPAGE_RUN
+  !define MUI_FINISHPAGE_RUN_FUNCTION "StartApp"
+  !insertmacro MUI_PAGE_FINISH
+!macroend
+
