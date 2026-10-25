@@ -236,7 +236,7 @@ export const browserMcp = (port: number, dir: string) => {
  * call to its daemon. mac-windows.ts uses it for the window previews too.
  */
 export const CUA_DRIVER = process.env.CUA_DRIVER_PATH ?? join(homedir(), ".local/bin/cua-driver");
-export const cuaDriverHere = () => existsSync(CUA_DRIVER);
+export const cuaDriverHere = () => existsSync(/*turbopackIgnore: true*/ CUA_DRIVER);
 /**
  * Seeing and using windows (a browser's too: its pages are in the accessibility tree), and `page` to read a
  * tab's text. Not what moves the user's pointer, fronts or quits apps, touches the clipboard or changes

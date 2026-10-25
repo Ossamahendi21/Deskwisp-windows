@@ -238,7 +238,7 @@ export function installSkillFiles(name: string, files: ArchiveFile[], source: Sk
   if (!s) throw new Error("That skill has no SKILL.md with a description.");
   const { skills } = roots();
   const slug = freeSlug(skills, slugOf(s.name) || slugOf(name), replace);
-  const dir = join(skills, slug);
+  const dir = join(/*turbopackIgnore: true*/ skills, slug);
   writeFolder(dir, files);
   writeMeta(dir, { source, enabled: true, addedAt: Date.now() });
   return slug;

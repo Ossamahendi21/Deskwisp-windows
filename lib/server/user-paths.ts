@@ -67,7 +67,7 @@ const stamp = () => new Date().toISOString().replace(/[:.]/g, "-");
 function moveBundle(dir: string, name: string) {
   mkdirSync(dir, { recursive: true });
   for (const f of BESIDE) {
-    const from = join(dataRoot(), f);
+    const from = join(/*turbopackIgnore: true*/ dataRoot(), f);
     const to = join(/*turbopackIgnore: true*/ dir, f);
     if (existsSync(/*turbopackIgnore: true*/ from) && !existsSync(/*turbopackIgnore: true*/ to)) renameSync(/*turbopackIgnore: true*/ from, to);
   }

@@ -23,11 +23,12 @@ version="$(node -p 'require("./package.json").version')"
 pkg="dist-store/Deskwisp-$version-x64.appx"
 echo "Deskwisp $version for the Microsoft Store"
 
-# 1. The server and its smoke test, as for the installer (nothing is published).
+# 1. The server and its smoke test, as for the installer (nothing is published). The last package's folder
+#    goes first: it holds a copy of the server's sources, which the build would read as its own.
+rm -rf dist-store
 bash scripts/release-win.sh --no-publish
 
 # 2. The MSIX package, from the same build.
-rm -rf dist-store
 npx electron-builder --win appx --x64 --config electron-builder.win.json --publish never -c.directories.output=dist-store
 [ -f "$pkg" ] || { echo "No $pkg" >&2; exit 1; }
 ls -la "$pkg"
