@@ -27,6 +27,15 @@ export type Checkout = {
   currency: string | null;
 };
 
+/** Polar's refusal, with its HTTP status (404: no such thing in this Polar). */
+export class PolarError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function call<T>(p: PolarSettings, method: "GET" | "POST" | "PATCH", path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${p.api}/v1${path}`, {
     method,
@@ -51,7 +60,7 @@ async function call<T>(p: PolarSettings, method: "GET" | "POST" | "PATCH", path:
         said += need ? ` (the token needs ${need})` : " (make the token again with checkouts:read and checkouts:write)";
       }
     } catch {}
-    throw new Error(`Polar answered ${res.status}${said ? `: ${said}` : ""}`);
+    throw new PolarError(res.status, `Polar answered ${res.status}${said ? `: ${said}` : ""}`);
   }
   return JSON.parse(text) as T;
 }

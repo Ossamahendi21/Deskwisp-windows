@@ -4,7 +4,7 @@ import type { Computers } from "./computers.ts";
 import { HttpError } from "./computers.ts";
 import type { Config } from "./config.ts";
 import { PLANS, type Tier } from "./plans.ts";
-import { changeSubscription, creditCheckout, planCheckout, portalLink, readCheckout, readSubscription, RecurringProduct, subscriptionsOf, subscriptionsOfCheckout, webhookIsPolars, type PolarSubscription } from "./polar.ts";
+import { changeSubscription, creditCheckout, planCheckout, PolarError, portalLink, readCheckout, readSubscription, RecurringProduct, subscriptionsOf, subscriptionsOfCheckout, webhookIsPolars, type PolarSubscription } from "./polar.ts";
 import type { Store, Subscription } from "./store.ts";
 
 /**
@@ -174,6 +174,16 @@ export class Billing {
     try {
       s = await readSubscription(polar, subscriptionId);
     } catch (e) {
+      // Not in this Polar at all (made in Polar's sandbox, before payments went live): it's marked so
+      // and never asked about again. The plan stays as it is: the owner decides (scripts/set-plan).
+      if (e instanceof PolarError && e.status === 404) {
+        const was = await this.store.subscriptionOf(subscriptionId).catch(() => null);
+        if (was && was.status !== MISSING) {
+          await this.store.setSubscription({ ...was, status: MISSING, syncedAt: Date.now() });
+          console.warn(`[billing] subscription ${subscriptionId} isn't in this Polar (one from its sandbox?): not asked about again. ${was.userId} stays on ${PLANS[was.tier].name} until their plan changes.`);
+        }
+        return null;
+      }
       throw new Error(`reading subscription ${subscriptionId}: ${(e as Error).message}`);
     }
     const tier = (Object.keys(plans) as ("pro_deskwisp" | "max_deskwisp")[]).find((t) => plans[t] === s.productId);
@@ -399,7 +409,7 @@ export class Billing {
     // The subscription read again from Polar when its period is over or it's been a while (a renewal, a
     // cancel or a card that failed, with no webhook to say so: a PC). Never in the way of the answer.
     let sub = user ? await this.store.subscription(user.id).catch(() => null) : null;
-    if (sub && this.cfg.polar?.plans && (Date.now() - sub.syncedAt > RESYNC_MS || (sub.periodEnd !== null && sub.periodEnd < Date.now() && Date.now() - sub.syncedAt > 60_000))) {
+    if (sub && sub.status !== MISSING && this.cfg.polar?.plans && (Date.now() - sub.syncedAt > RESYNC_MS || (sub.periodEnd !== null && sub.periodEnd < Date.now() && Date.now() - sub.syncedAt > 60_000))) {
       await Promise.race([this.syncSubscription(sub.subscriptionId).catch((e: Error) => console.warn(`[billing] ${e.message}`)), new Promise((r) => setTimeout(r, 4000))]);
       sub = await this.store.subscription(sub.userId).catch(() => sub);
     }
@@ -478,6 +488,8 @@ export class Billing {
 
 /** Polar's subscription statuses while it's paid for (past_due: a card failed, and Polar is trying it again). */
 const PAYING = new Set(["active", "trialing", "past_due"]);
+/** A subscription this Polar doesn't have (syncSubscription): ours, not one of Polar's statuses. */
+const MISSING = "missing_in_polar";
 /** Polar's subscription statuses once it's over. */
 const ENDED = new Set(["canceled", "unpaid", "incomplete_expired"]);
 const paying = (s: Subscription) => PAYING.has(s.status) && (s.periodEnd === null || s.periodEnd > Date.now() - 3 * 86_400_000);

@@ -47,6 +47,8 @@ type Sub = { id: string; status: string; product_id: string; external_id: string
 const checkouts = new Map<string, Co>();
 const subs = new Map<string, Sub>();
 const portals: string[] = [];
+/** Each subscription Polar was asked to read, by id. */
+const subReads: string[] = [];
 /** A checkout's order, and the subscription it names (Polar's /v1/orders). */
 const orderSubs = new Map<string, string>();
 let n = 0;
@@ -92,6 +94,7 @@ const polar = createServer((req, res) => {
     let m = /^\/v1\/checkouts\/([^/]+)$/.exec(req.url ?? "");
     if (req.method === "GET" && m && checkouts.has(m[1])) return send(200, checkouts.get(m[1]));
     m = /^\/v1\/subscriptions\/([^/]+)$/.exec(req.url ?? "");
+    if (req.method === "GET" && m) subReads.push(m[1]);
     const s = m && subs.get(m[1]);
     if (req.method === "GET" && s) return send(200, subView(s));
     send(404, { detail: "not found" });
@@ -311,4 +314,17 @@ test("without Pro's and Max's products, upgrades open soon", () => {
   const off = loadConfig({ DESKWISP_PROVIDER: "local", DESKWISP_DATA_DIR: dir, POLAR_ACCESS_TOKEN: "t", POLAR_CREDIT_PRODUCT_ID: "c" });
   assert.equal(off.polar?.plans, undefined);
   assert.equal(off.polar?.creditProduct, "c");
+});
+
+test("a subscription Polar doesn't have (one from its sandbox) is read once, marked, and the plan left as it is", async () => {
+  const kept = (await app.store.subscription(ana))!;
+  const tier = (await plan()).tier;
+  // Kept from Polar's sandbox, before payments went live: the live Polar answers 404 for it.
+  await app.store.setSubscription({ ...kept, subscriptionId: "sub_sandbox", syncedAt: Date.now() - 2 * 60 * 60_000, periodEnd: Date.now() - DAY });
+  const before = subReads.filter((x) => x === "sub_sandbox").length;
+  assert.equal((await plan()).tier, tier);
+  assert.equal((await plan()).tier, tier);
+  assert.equal((await plan()).tier, tier);
+  assert.equal(subReads.filter((x) => x === "sub_sandbox").length - before, 1, "asked once, not on every look");
+  assert.equal((await app.store.subscriptionOf("sub_sandbox"))?.status, "missing_in_polar");
 });
