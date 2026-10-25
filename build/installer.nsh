@@ -52,6 +52,14 @@
   ${GetParameters} $R9
   !insertmacro deskwispLog "started ($R9)"
   Pop $R9
+  ; "Restart to update" from an app that still starts its update silently (/S --updated --force-run,
+  ; 0.1.9 and before): shown anyway, with only its progress (customInstallMode, customFinishPage), so
+  ; it's plain that Deskwisp is updating. Installing on quit (no --force-run) stays silent.
+  ${if} ${isUpdated}
+  ${andIf} ${isForceRun}
+  ${andIf} ${Silent}
+    SetSilent normal
+  ${endIf}
 !macroend
 
 ; Before files are replaced (installing, updating, uninstalling): close everything of Deskwisp's that
