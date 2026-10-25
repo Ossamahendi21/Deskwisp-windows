@@ -8,11 +8,14 @@
  * When it's newer than this app, its installer comes down (by itself, unless you turned that off in
  * About) into %LOCALAPPDATA%\deskwisp-updater, and it's kept only if its size and SHA-512 are what
  * latest.json says. Then "Restart to update" (the sidebar's notice, About, or the update screen,
- * desktop/update.html): Deskwisp closes, the installer runs silently over the same install (/S
- * --updated, as electron-builder's own updater runs it) and opens Deskwisp again (--force-run).
- * Quitting with an update ready installs it too, without opening it again. If Deskwisp was closed
- * some other way (Windows shut down, say), the next launch finds the installer and offers it first.
- * Your data (%APPDATA%\Deskwisp) isn't touched by an update.
+ * desktop/update.html): Deskwisp starts the installer and closes, the installer waits for it to be
+ * gone (build/installer.nsh), installs silently over the same install (/S --updated, as
+ * electron-builder's own updater runs it) and opens Deskwisp again (--force-run). Quitting with an
+ * update ready installs it too, without opening it again. If Deskwisp was closed some other way
+ * (Windows shut down, say), the next launch finds the installer and offers it first; if it was started
+ * and this is still the old version, the update didn't finish, so the next try runs the installer with
+ * its window (`retry` in the status), where whatever stops it says so. The installer writes what it did
+ * into the same logs\updates.log. Your data (%APPDATA%\Deskwisp) isn't touched by an update.
  *
  * Where it's at is `status()`, one of these `state`s, sent on every change (the download's progress at
  * most every quarter second):
@@ -23,6 +26,7 @@
  *   downloading  coming down: `progress` 0…1
  *   ready        here and checked: it can be installed
  *   error        the check or the download didn't work (`error` says which, in words for people)
+ * and, with `ready`, `retry` when that installer was started before and this is still the old version.
  * Nothing here throws. What happens is logged once per change, in logs\updates.log.
  */
 const crypto = require("node:crypto");
@@ -94,10 +98,6 @@ function createUpdater({
   fetchImpl = (...a) => fetch(...a),
   spawnImpl = spawn,
   now = () => Date.now(),
-  // Where Deskwisp runs from and its process: on Windows the installer waits for both to be gone (waitThenRun).
-  platform = process.platform,
-  appDir = path.dirname(process.execPath),
-  pid = process.pid,
 }) {
   let lastNote = "";
   let state = "idle";
@@ -105,6 +105,7 @@ function createUpdater({
   let ready; // its checked installer's path
   let progress = 0;
   let error;
+  let retry = false; // the ready installer was started before, and this is still the old version
   let checkedAt;
   // What this version's own release says is new in it, once deskwisp.com has said this is the newest.
   let currentNotes;
@@ -130,6 +131,7 @@ function createUpdater({
       ...(newer && ["available", "downloading", "ready", "error"].includes(state) ? { version: newer.version, notes: newer.notes } : {}),
       ...(state === "downloading" ? { progress } : {}),
       ...(state === "error" && error ? { error } : {}),
+      ...(state === "ready" && retry ? { retry: true } : {}),
     };
   }
   let sentAt = 0;
@@ -273,7 +275,8 @@ function createUpdater({
         if (fs.statSync(file).size !== kept.size || (await sha512Of(file)) !== kept.sha512) continue;
         newer = { version: String(kept.version), notes: releaseNotes(kept.notes), file: name, sha512: kept.sha512, size: kept.size };
         ready = file;
-        note(`Deskwisp ${newer.version} was downloaded before: ready to install`);
+        retry = kept.tried?.from === currentVersion;
+        note(retry ? `Deskwisp ${newer.version} was started before and didn't finish installing (this is still ${currentVersion}): next time with its window` : `Deskwisp ${newer.version} was downloaded before: ready to install`);
         set({ state: "ready", progress: 1 });
         return true;
       }
@@ -283,45 +286,35 @@ function createUpdater({
   }
 
   /**
-   * Runs the ready installer, on its own: it waits for Deskwisp to close, installs over it silently and,
-   * with `reopen`, opens it again. False when there's nothing to install.
+   * Starts the ready installer and lets it be: it waits for Deskwisp to close (build/installer.nsh, the
+   * first few seconds), installs over it and, with `reopen`, opens it again. Silently, unless the last
+   * start of it didn't finish the update (`retry`): then with its window, so whatever stops it is seen.
+   * Started straight from here, not through a script: nothing between Deskwisp and its installer. Its
+   * folder is the installer's, never Deskwisp's (a folder something runs in can't be removed). Who it is,
+   * next to it, notes that it was started from this version, which is how the next launch knows it didn't
+   * finish. False when there's nothing to install.
    */
   function install({ reopen }) {
     if (!ready || !fs.existsSync(ready)) return false;
-    const args = ["--updated", "/S", ...(reopen ? ["--force-run"] : [])];
-    note(`installing Deskwisp ${newer?.version} (${reopen ? "then opening it" : "on quit"})`);
+    const visible = retry;
+    const args = visible ? [] : ["--updated", "/S", ...(reopen ? ["--force-run"] : [])];
+    note(`installing Deskwisp ${newer?.version} (${visible ? "with the installer's window" : reopen ? "then opening it" : "on quit"})`);
     try {
-      if (platform === "win32") spawnImpl("powershell.exe", waitThenRun(ready, args), { detached: true, stdio: "ignore", windowsHide: true }).unref();
-      else spawnImpl(ready, args, { detached: true, stdio: "ignore", windowsHide: true }).unref();
+      const sidecar = `${ready}.json`;
+      const kept = JSON.parse(fs.readFileSync(sidecar, "utf8"));
+      fs.writeFileSync(sidecar, JSON.stringify({ ...kept, tried: { from: currentVersion, at: new Date(now()).toISOString() } }));
+    } catch {}
+    try {
+      const child = spawnImpl(ready, args, { cwd: path.dirname(ready), detached: true, stdio: "ignore", windowsHide: false });
+      child.on?.("error", (e) => note(`the installer didn't start: ${e?.message ?? e}`));
+      child.unref();
+      note(`started the installer${child.pid ? ` (pid ${child.pid})` : ""}`);
     } catch (e) {
       note(`couldn't run the installer: ${e?.message ?? e}`);
       return false;
     }
     ready = undefined;
     return true;
-  }
-
-  /**
-   * PowerShell's arguments to run the installer only once Deskwisp has let go of its files: this process
-   * gone, then every other one still running from its folder (its windows' helpers, the server it ran),
-   * up to 30 seconds each, the last stopped if they're still there. Run straight away, the installer
-   * finds them still holding their files and stops ("Failed to uninstall old application files").
-   */
-  function waitThenRun(installer, args) {
-    const q = (x) => `'${String(x).replace(/'/g, "''")}'`;
-    const folder = appDir.endsWith("\\") ? appDir : `${appDir}\\`;
-    const script = [
-      "$ErrorActionPreference = 'SilentlyContinue'",
-      `$dir = ${q(folder)}`,
-      "$mine = { Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($dir, [System.StringComparison]::OrdinalIgnoreCase) } }",
-      `Wait-Process -Id ${Number(pid)} -Timeout 30`,
-      "$until = (Get-Date).AddSeconds(30)",
-      "while ((Get-Date) -lt $until -and (& $mine)) { Start-Sleep -Milliseconds 500 }",
-      "& $mine | Stop-Process -Force",
-      "Start-Sleep -Milliseconds 800",
-      `Start-Process -FilePath ${q(installer)} -ArgumentList @(${args.map(q).join(", ")})`,
-    ].join("\n");
-    return ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")];
   }
 
   return { check, download, restore, install, status, isReady: () => !!ready };

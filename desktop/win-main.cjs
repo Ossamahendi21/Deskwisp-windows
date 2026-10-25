@@ -359,9 +359,10 @@ ipcMain.handle("mac-show-main", () => showMain());
  * A release build asks deskwisp.com for a newer version at launch, every hour, and when you press
  * "Check for updates" in About (components/app/about.tsx). A newer one comes down by itself (unless
  * you turned that off in About), then the sidebar's notice and About offer "Restart to update", which
- * shows the update screen (desktop/update.html) while Deskwisp saves, closes and hands over to the
- * installer, which opens the new version. Quitting installs it too. A build from the source folder
- * never updates: it's as new as the source.
+ * shows the update screen (desktop/update.html) while Deskwisp saves, starts the installer and closes;
+ * the installer opens the new version. Quitting installs it too. An update that didn't finish is
+ * offered again at the next launch, with the installer's window this time. A build from the source
+ * folder never updates: it's as new as the source.
  */
 const SITE_URL = "https://deskwisp.com";
 const UPDATE_PAGE = path.join(__dirname, "update.html");
@@ -436,11 +437,11 @@ let installing;
 function restartToUpdate() {
   if (!updater.isReady()) return Promise.resolve(false);
   installing ??= (async () => {
-    const { version, notes } = updater.status();
-    mainLog(`Restart to update to ${version}`);
+    const { version, notes, retry } = updater.status();
+    mainLog(`Restart to update to ${version}${retry ? " (again, with the installer's window)" : ""}`);
     leaving = true;
     const step = (name, progress) => {
-      installStatus = { current: VERSION, state: "installing", version, notes, step: name, progress };
+      installStatus = { current: VERSION, state: "installing", version, notes, step: name, progress, ...(retry ? { retry: true } : {}) };
       tellUpdate();
     };
     step("saving", 0.06);
@@ -452,9 +453,10 @@ function restartToUpdate() {
     for (let i = 0; i < 28 && (await portTaken()); i++) await sleep(250);
     step("installing", 0.74);
     await sleep(500);
+    // The installer waits a few seconds for Deskwisp to close by itself (build/installer.nsh): it does.
     if (updater.install({ reopen: true })) {
       step("opening", 1);
-      await sleep(1200);
+      await sleep(700);
       app.exit(0);
       return true;
     }

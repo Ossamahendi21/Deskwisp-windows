@@ -1,7 +1,7 @@
 // The Windows app's updater (desktop/win-update.cjs) against a local stand-in for deskwisp.com/download/win:
 // its states, as About and the update screen see them; it only keeps an installer whose size and SHA-512
-// are latest.json's; it offers one left from before at launch; and it runs it as electron-builder's
-// updater does. node --test scripts/test-win-update.mjs
+// are latest.json's; it offers one left from before at launch; it runs it as electron-builder's updater
+// does, and with its window when that didn't finish the update. node --test scripts/test-win-update.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
@@ -105,24 +105,36 @@ test("a newer release: checking, downloading with progress, ready, then run sile
   await s.close();
 });
 
-test("on Windows the installer waits for Deskwisp and everything running from its folder to be gone", async () => {
+test("the installer is started straight, in its own folder; one that didn't finish runs with its window next time", async () => {
   const s = await site({ "/download/win/latest.json": latest(), "/download/win/Deskwisp-Setup-0.2.0-x64.exe": exe });
   const dir = tmp();
-  const { u, runs } = updater(s, dir, { platform: "win32", appDir: "C:\\Users\\O'Neil\\AppData\\Local\\Programs\\Deskwisp", pid: 4242 });
-  await u.check();
-  await until(() => u.status().state === "ready", "ready");
-  assert.equal(u.install({ reopen: true }), true);
-  assert.equal(runs[0].file, "powershell.exe");
-  assert.equal(runs[0].opts.detached, true);
-  const at = runs[0].args.indexOf("-EncodedCommand");
-  assert.ok(at > 0 && runs[0].args.includes("Hidden"));
-  const script = Buffer.from(runs[0].args[at + 1], "base64").toString("utf16le");
-  assert.match(script, /Wait-Process -Id 4242 -Timeout 30/);
-  assert.match(script, /\$dir = 'C:\\Users\\O''Neil\\AppData\\Local\\Programs\\Deskwisp\\'/, "its folder, quoted, with a closing backslash");
-  assert.match(script, /Stop-Process -Force/);
-  const installer = path.join(dir, "Deskwisp-Setup-0.2.0-x64.exe").replace(/'/g, "''");
-  assert.ok(script.includes(`Start-Process -FilePath '${installer}' -ArgumentList @('--updated', '/S', '--force-run')`), script);
+  const first = updater(s, dir);
+  await first.u.check();
+  await until(() => first.u.status().state === "ready", "ready");
+  assert.equal(first.u.status().retry, undefined);
+  assert.equal(first.u.install({ reopen: true }), true);
+  const installer = path.join(dir, "Deskwisp-Setup-0.2.0-x64.exe");
+  assert.equal(first.runs[0].file, installer, "no script in between");
+  assert.deepEqual(first.runs[0].args, ["--updated", "/S", "--force-run"]);
+  assert.equal(first.runs[0].opts.cwd, dir, "never in Deskwisp's folder");
+  assert.equal(first.runs[0].opts.detached, true);
+  assert.equal(JSON.parse(fs.readFileSync(`${installer}.json`, "utf8")).tried.from, "0.1.0");
+  assert.match(first.log(), /started the installer/);
   await s.close();
+
+  // The next launch is still 0.1.0: it didn't finish. Offered again, and this time with its window.
+  const again = updater(s, dir);
+  assert.equal(await again.u.restore(), true);
+  assert.equal(again.u.status().retry, true);
+  assert.match(again.log(), /didn't finish installing/);
+  assert.equal(again.u.install({ reopen: true }), true);
+  assert.deepEqual(again.runs[0].args, [], "the installer as you'd run it yourself");
+  assert.equal(again.runs[0].opts.windowsHide, false);
+
+  // Updated after all: nothing to offer.
+  const after = updater(s, dir, { currentVersion: "0.2.0" });
+  assert.equal(await after.u.restore(), false);
+  assert.equal(after.u.status().retry, undefined);
 });
 
 test("with automatic downloads off, it waits for Download", async () => {

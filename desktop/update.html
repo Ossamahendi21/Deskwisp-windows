@@ -3,7 +3,8 @@
   The update screen (desktop/win-main.cjs, desktop/win-update.cjs), in the Deskwisp window:
   - ?phase=ready: a newer version, downloaded before Deskwisp was last closed, offered at launch:
     "Update ready", Restart to update, or Later (the app, on this version). Wispy hops for joy, sparks
-    popping out each time it lands.
+    popping out each time it lands. When that update was started before and didn't finish (`retry` in
+    the status), it says so, and this time the installer opens with its window.
   - ?phase=updating: Restart to update under way. Wispy (lib/mascot.ts), happy, hops while sparks circle it,
     and the bar follows the steps the PC app sends (saving, closing, installing, opening), easing
     forward between them so it never sits still. Then Deskwisp closes, the installer runs, and it opens
@@ -161,6 +162,15 @@
     opening: "Deskwisp opens again in a few seconds.",
   };
 
+  // The update didn't finish last time: the installer opens with its window this time.
+  const RETRY = {
+    title: "Finish the update",
+    line: "Last time it didn't finish. This time the installer opens: follow it to the end.",
+    go: "Install update",
+    installing: "Opening the installer…",
+    opening: "Follow the installer to finish.",
+  };
+  let retry = false;
   let target = 0.04;
   let shown = 0;
   let timer;
@@ -187,9 +197,10 @@
       timer = setInterval(draw, 100);
       draw();
     } else {
-      document.title = "Update ready";
-      $("title").textContent = "Update ready";
-      $("line").textContent = "Restart to finish. It takes a few seconds.";
+      document.title = retry ? RETRY.title : "Update ready";
+      $("title").textContent = retry ? RETRY.title : "Update ready";
+      $("line").textContent = retry ? RETRY.line : "Restart to finish. It takes a few seconds.";
+      $("go").textContent = retry ? RETRY.go : "Restart to update";
       $("under").textContent = version ? `Deskwisp ${version}` : "";
       $("bar").setAttribute("aria-valuenow", "100");
     }
@@ -197,6 +208,12 @@
 
   function heard(s) {
     if (!s) return;
+    if (s.retry && !retry) {
+      retry = true;
+      LINES.installing = RETRY.installing;
+      LINES.opening = RETRY.opening;
+      if (document.body.className === "ready") phase("ready");
+    }
     if (s.state === "installing") {
       if (document.body.className !== "updating") phase("updating");
       if (typeof s.progress === "number") target = Math.max(target, Math.min(1, s.progress));
