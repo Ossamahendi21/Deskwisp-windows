@@ -297,7 +297,7 @@ function YouMenu({ state, onAccount, onSettings, onSetup }: { state: AppState; o
                 </button>
               )}
             </span>
-            <span className="truncate text-[12px] leading-4 text-[#9A9A98]">{user ? (user.email ?? "Signed in with Horafirm") : "Not signed in"}</span>
+            <span className="truncate text-[12px] leading-4 text-[#9A9A98]">{user ? (user.email ?? "Signed in to Deskwisp") : "Not signed in"}</span>
           </div>
           <div className="mx-2 mb-1 h-px bg-[#ECECEA]" />
           <button onClick={pick(onAccount)} className={item}>

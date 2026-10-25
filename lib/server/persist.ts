@@ -177,7 +177,7 @@ export function fileStore({ get, replace }: StateAccess): Persistence {
       // A file from before that names one user goes to that user's folder (a file that names none, or
       // several, stays: it's what this install runs on while nobody is signed in).
       const moved = moveLegacyState("state.json", false);
-      if (moved) console.info(`[store] the state from before is ${moved.owner ? `Horafirm user ${moved.owner}'s now` : "kept aside"}: ${moved.to}`);
+      if (moved) console.info(`[store] the state from before is ${moved.owner ? `user ${moved.owner}'s now` : "kept aside"}: ${moved.to}`);
       return read(legacyStateFile());
     },
     changed: persist,

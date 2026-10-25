@@ -13,7 +13,7 @@ export async function POST() {
   const unready = notReady();
   if (unready) return unready;
   const key = await loadHorafirmKey();
-  if (!key) return Response.json({ error: "Sign in with Horafirm first." }, { status: 401 });
+  if (!key) return Response.json({ error: "Sign in to Deskwisp first." }, { status: 401 });
   const link = await deskwispBillingLink(key, "manage");
   if ("url" in link) trackServerEvent("deskwisp_billing_portal_opened", {});
   return "url" in link ? Response.json(link) : Response.json({ error: link.error, ...(link.soon ? { soon: true } : {}) }, { status: link.status });

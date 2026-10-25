@@ -570,7 +570,7 @@ async function askTeammate(asker: Bot, toId: string, question: string, chatId: s
 /** Thrown when another account's Deskwisp came in (a sign-out, a sign-in) while a turn waited: it stops, writing nothing. */
 class Swapped extends Error {}
 function stillOurs(ours: () => boolean) {
-  if (!ours()) throw new Swapped("Another Horafirm account's Deskwisp came in meanwhile");
+  if (!ours()) throw new Swapped("Another account's Deskwisp came in meanwhile");
 }
 
 type TurnOptions = {
@@ -805,7 +805,7 @@ async function botTurn(botId: string, chatId: string, opts: TurnOptions = {}): P
       // Asked by text, in a channel or by email (it changes from turn to turn, so it's here, not in the instructions).
       relayed ? `Pictures show only in the Deskwisp app's chat, so you can't make one from here: if ${owner} asks for one, say they can ask for it in Deskwisp.` : "",
       followUps.length ? `This chat's tasks you can send a message on to (tell_task): ${followUps.map((s) => `"${s.title}" (${s.id}), ${live(s) ? "running" : "finished"} ${s.runsOn === "mac" ? `on ${owner}'s PC` : "in the cloud"}`).join("; ")}.` : "",
-      noOwnRoom ? `${owner}'s Horafirm plan has no room for a new bot's own computer right now (${noOwnRoom}), so a bot you create works on yours.` : "",
+      noOwnRoom ? `${owner}'s plan has no room for a new bot's own computer right now (${noOwnRoom}), so a bot you create works on yours.` : "",
       // The CRM's files right now (they change; the tools' words don't).
       opts.outside ? "" : crmNowLine(b),
       // What's pressing in Orbit (coming up, open tasks), so "what's on my plate?" needs no lookup.

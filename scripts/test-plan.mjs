@@ -193,39 +193,39 @@ assert.equal(P.planShort(startupGb(4, 32), 1, 8), "count", "the count first");
 
 const texts = [
   // The example: the bots' one computer is the Hacker plan's one.
-  [P.planShortText("count", hacker(1), { deskwisp: 1 }), "Your Horafirm Hacker plan includes 1 computer, and it's in use. Horafirm Startup includes 4."],
-  [P.planShortText("count", hacker(1), { deskwisp: 0 }), "Your Horafirm Hacker plan includes 1 computer, and it's in use outside Deskwisp. Horafirm Startup includes 4."],
-  [P.planShortText("count", hacker(2), { deskwisp: 1 }), "Your Horafirm Hacker plan includes 1 computer, and 2 are in use, 1 of them outside Deskwisp. Horafirm Startup includes 4."],
-  [P.planShortText("count", startup(4), { deskwisp: 1 }), "Your Horafirm Startup plan includes 4 computers, and all 4 are in use, 3 of them outside Deskwisp. Horafirm Scale includes 16."],
-  [P.planShortText("count", startup(4), { deskwisp: 4 }), "Your Horafirm Startup plan includes 4 computers, and all 4 are in use. Horafirm Scale includes 16."],
-  [P.planShortText("count", { tier: "scale_v2", name: "Scale", computers: 16, inUse: 16 }, { deskwisp: 16 }), "Your Horafirm Scale plan includes 16 computers, and all 16 are in use. Delete one, or add computers on Horafirm."],
+  [P.planShortText("count", hacker(1), { deskwisp: 1 }), "Your Deskwisp Cloud Hacker plan includes 1 computer, and it's in use. Deskwisp Cloud Startup includes 4."],
+  [P.planShortText("count", hacker(1), { deskwisp: 0 }), "Your Deskwisp Cloud Hacker plan includes 1 computer, and it's in use outside Deskwisp. Deskwisp Cloud Startup includes 4."],
+  [P.planShortText("count", hacker(2), { deskwisp: 1 }), "Your Deskwisp Cloud Hacker plan includes 1 computer, and 2 are in use, 1 of them outside Deskwisp. Deskwisp Cloud Startup includes 4."],
+  [P.planShortText("count", startup(4), { deskwisp: 1 }), "Your Deskwisp Cloud Startup plan includes 4 computers, and all 4 are in use, 3 of them outside Deskwisp. Deskwisp Cloud Scale includes 16."],
+  [P.planShortText("count", startup(4), { deskwisp: 4 }), "Your Deskwisp Cloud Startup plan includes 4 computers, and all 4 are in use. Deskwisp Cloud Scale includes 16."],
+  [P.planShortText("count", { tier: "scale_v2", name: "Scale", computers: 16, inUse: 16 }, { deskwisp: 16 }), "Your Deskwisp Cloud Scale plan includes 16 computers, and all 16 are in use. Delete one, or add computers in Account and usage."],
   // Older plans: the next plan up is the one with more computers than they have, not the next name.
-  [P.planShortText("count", { tier: "hacker", name: "Hacker", computers: 5, inUse: 5 }, { deskwisp: 5 }), "Your Horafirm Hacker plan includes 5 computers, and all 5 are in use. Horafirm Scale includes 16."],
-  [P.planShortText("count", { tier: "team", name: "Team", computers: 10, inUse: 10 }, { deskwisp: 2 }), "Your Horafirm Team plan includes 10 computers, and all 10 are in use, 8 of them outside Deskwisp. Horafirm Scale includes 16."],
+  [P.planShortText("count", { tier: "hacker", name: "Hacker", computers: 5, inUse: 5 }, { deskwisp: 5 }), "Your Deskwisp Cloud Hacker plan includes 5 computers, and all 5 are in use. Deskwisp Cloud Scale includes 16."],
+  [P.planShortText("count", { tier: "team", name: "Team", computers: 10, inUse: 10 }, { deskwisp: 2 }), "Your Deskwisp Cloud Team plan includes 10 computers, and all 10 are in use, 8 of them outside Deskwisp. Deskwisp Cloud Scale includes 16."],
   // Enterprise is a deal of its own: no plan Horafirm sells is the next one up.
-  [P.planShortText("count", { tier: "enterprise", name: "Enterprise", computers: 2, inUse: 2 }), "Your Horafirm Enterprise plan includes 2 computers, and both are in use. Delete one, or add computers on Horafirm."],
+  [P.planShortText("count", { tier: "enterprise", name: "Enterprise", computers: 2, inUse: 2 }), "Your Deskwisp Cloud Enterprise plan includes 2 computers, and both are in use. Delete one, or add computers in Account and usage."],
   // Computers bought on top of Hacker: Startup has more.
-  [P.planShortText("count", { tier: "hacker_v2", name: "Hacker", computers: 2, inUse: 2 }, { deskwisp: 1 }), "Your Horafirm Hacker plan includes 2 computers, and both are in use, 1 of them outside Deskwisp. Horafirm Startup includes 4."],
+  [P.planShortText("count", { tier: "hacker_v2", name: "Hacker", computers: 2, inUse: 2 }, { deskwisp: 1 }), "Your Deskwisp Cloud Hacker plan includes 2 computers, and both are in use, 1 of them outside Deskwisp. Deskwisp Cloud Startup includes 4."],
   // A custom deal on Hacker: moving up doesn't change it, so Horafirm is asked.
-  [P.planShortText("count", { tier: "hacker_v2", name: "Hacker", computers: 2, inUse: 2, deal: true }, { deskwisp: 1 }), "Your Horafirm Hacker plan includes 2 computers, and both are in use, 1 of them outside Deskwisp. Delete one, or ask Horafirm to change your plan."],
-  [P.planShortText("memory", { tier: "hacker_v2", name: "Hacker", computers: 2, inUse: 1, deal: true }), "Your Horafirm Hacker plan doesn't have the memory left for another computer. Delete a computer, or ask Horafirm to change your plan."],
-  [P.planShortText("count", null), "Every computer your Horafirm plan includes is in use. Delete one, or add computers on Horafirm."],
-  [P.planShortText("none", { tier: "free", name: "Free", computers: 0, inUse: 0 }), "Your Horafirm Free plan doesn't include cloud computers. Horafirm Hacker includes 1."],
-  [P.planShortText("none", null), "Your Horafirm plan doesn't include cloud computers. Horafirm Hacker includes 1."],
-  [P.planShortText("memory", startup(2)), "Your Horafirm Startup plan doesn't have the memory left for another computer. Horafirm Scale has more."],
-  [P.planShortText("size", hacker(1), { main: "Wispy" }), "Your Horafirm Hacker plan doesn't allow another computer as big as Wispy's."],
-  [P.planShortText("disk", startup(1), { main: "Wispy" }), "Your Horafirm Startup plan doesn't allow a computer with as much disk as Wispy's."],
+  [P.planShortText("count", { tier: "hacker_v2", name: "Hacker", computers: 2, inUse: 2, deal: true }, { deskwisp: 1 }), "Your Deskwisp Cloud Hacker plan includes 2 computers, and both are in use, 1 of them outside Deskwisp. Delete one, or ask us to change your plan."],
+  [P.planShortText("memory", { tier: "hacker_v2", name: "Hacker", computers: 2, inUse: 1, deal: true }), "Your Deskwisp Cloud Hacker plan doesn't have the memory left for another computer. Delete a computer, or ask us to change your plan."],
+  [P.planShortText("count", null), "Every computer your Deskwisp Cloud plan includes is in use. Delete one, or add computers in Account and usage."],
+  [P.planShortText("none", { tier: "free", name: "Free", computers: 0, inUse: 0 }), "Your Deskwisp Cloud Free plan doesn't include cloud computers. Deskwisp Cloud Hacker includes 1."],
+  [P.planShortText("none", null), "Your Deskwisp Cloud plan doesn't include cloud computers. Deskwisp Cloud Hacker includes 1."],
+  [P.planShortText("memory", startup(2)), "Your Deskwisp Cloud Startup plan doesn't have the memory left for another computer. Deskwisp Cloud Scale has more."],
+  [P.planShortText("size", hacker(1), { main: "Wispy" }), "Your Deskwisp Cloud Hacker plan doesn't allow another computer as big as Wispy's."],
+  [P.planShortText("disk", startup(1), { main: "Wispy" }), "Your Deskwisp Cloud Startup plan doesn't allow a computer with as much disk as Wispy's."],
 ];
 for (const [got, want] of texts) {
   assert.equal(got, want);
   noDashes(got);
 }
-assert.deepEqual(P.planFix("count", hacker(1)), { label: "Upgrade to Horafirm Startup", tab: "plan" });
-assert.deepEqual(P.planFix("none", { name: "Free", computers: 0, inUse: 0 }), { label: "Upgrade to Horafirm Hacker", tab: "plan" });
-assert.deepEqual(P.planFix("count", { name: "Scale", computers: 16, inUse: 16 }), { label: "Add capacity on Horafirm", tab: "usage" });
-assert.deepEqual(P.planFix("count", { ...hacker(1), deal: true }), { label: "See your plan on Horafirm", tab: "usage" });
-assert.deepEqual(P.planFix("size", hacker(1)), { label: "See Horafirm's plans", tab: "plan" });
-assert.deepEqual(P.planFix("disk", startup(1)), { label: "Add capacity on Horafirm", tab: "usage" });
+assert.deepEqual(P.planFix("count", hacker(1)), { label: "Upgrade to Startup", tab: "plan" });
+assert.deepEqual(P.planFix("none", { name: "Free", computers: 0, inUse: 0 }), { label: "Upgrade to Hacker", tab: "plan" });
+assert.deepEqual(P.planFix("count", { name: "Scale", computers: 16, inUse: 16 }), { label: "Add capacity", tab: "usage" });
+assert.deepEqual(P.planFix("count", { ...hacker(1), deal: true }), { label: "See your plan", tab: "usage" });
+assert.deepEqual(P.planFix("size", hacker(1)), { label: "See the plans", tab: "plan" });
+assert.deepEqual(P.planFix("disk", startup(1)), { label: "Add capacity", tab: "usage" });
 assert.deepEqual([0, 1, 4, 5, 10, 16, 25].map((c) => P.planUp({ computers: c })?.name), ["Hacker", "Startup", "Scale", "Scale", "Scale", undefined, undefined]);
 assert.equal(P.planUp({ tier: "enterprise", computers: 2 }), undefined);
 assert.equal(P.planUp({ tier: "hacker_v2", computers: 2, deal: true }), undefined, "a deal sets the count, whatever the plan");
@@ -235,13 +235,13 @@ const team = (mainComputer, main = {}) => [
   { id: "wispy", name: "Wispy", isMain: true, computerStatus: "none", ...(mainComputer ? { computerId: "c-main" } : {}), ...main },
   { id: "nova", name: "Nova", isMain: false, computerStatus: "none", computer: "shared" },
 ];
-assert.equal(P.ownComputerShort(hacker(0), team(false), "ws_main").text, "Your Horafirm Hacker plan includes 1 computer, and Wispy's computer needs it. Horafirm Startup includes 4.");
-assert.equal(P.ownComputerShort(hacker(1), team(true), "ws_main").text, "Your Horafirm Hacker plan includes 1 computer, and it's in use. Horafirm Startup includes 4.");
+assert.equal(P.ownComputerShort(hacker(0), team(false), "ws_main").text, "Your Deskwisp Cloud Hacker plan includes 1 computer, and Wispy's computer needs it. Deskwisp Cloud Startup includes 4.");
+assert.equal(P.ownComputerShort(hacker(1), team(true), "ws_main").text, "Your Deskwisp Cloud Hacker plan includes 1 computer, and it's in use. Deskwisp Cloud Startup includes 4.");
 assert.equal(P.ownComputerShort(startup(1), team(true), "ws_main"), null, "room for a copy");
-assert.equal(P.ownComputerShort(startup(3), team(false), "ws_main").text, "Your Horafirm Startup plan includes 4 computers, and 3 are in use outside Deskwisp, so Wispy's computer needs the last one. Horafirm Scale includes 16.");
+assert.equal(P.ownComputerShort(startup(3), team(false), "ws_main").text, "Your Deskwisp Cloud Startup plan includes 4 computers, and 3 are in use outside Deskwisp, so Wispy's computer needs the last one. Deskwisp Cloud Scale includes 16.");
 assert.equal(P.ownComputerShort({ computers: 1 }, team(false), "ws_main"), null, "in use unknown: Horafirm decides");
 // A copy is as big as the main bot's computer: a 16 GB one (made before Deskwisp sized them) needs 16 GB left.
-assert.equal(P.ownComputerShort(startupGb(2, 24), team(true, { computerRam: 16 }), "ws_main").text, "Your Horafirm Startup plan doesn't have the memory left for another computer. Horafirm Scale has more.");
+assert.equal(P.ownComputerShort(startupGb(2, 24), team(true, { computerRam: 16 }), "ws_main").text, "Your Deskwisp Cloud Startup plan doesn't have the memory left for another computer. Deskwisp Cloud Scale has more.");
 assert.equal(P.ownComputerShort(startupGb(2, 16), team(true, { computerRam: 16 }), "ws_main"), null, "16 GB left: it fits");
 assert.equal(P.ownComputerShort(startupGb(2, 24), team(true, { computerRam: 8 }), "ws_main"), null, "an 8 GB one fits");
 assert.equal(P.mainComputerShort(hacker(0), team(false), "ws_main"), null);
@@ -284,7 +284,7 @@ assert.equal(P.mainComputerShort({ ...startup(3), memory: { total: 32, used: 30,
 
 /* ---------------- Horafirm's refusals ---------------- */
 
-const refused = (status, code, error = "x") => new O.HorafirmError(`Horafirm POST /computers → ${status}: ${error}`, status, code, error);
+const refused = (status, code, error = "x") => new O.HorafirmError(`Deskwisp Cloud POST /computers → ${status}: ${error}`, status, code, error);
 for (const [e, want] of [
   [refused(403, "UPGRADE_REQUIRED", "Creating a computer requires a paid plan. Upgrade to launch your first computer."), "none"],
   [refused(403, "VM_SLOT_ADDON", "Computer limit reached. Add a slot or delete a computer."), "count"],
@@ -322,8 +322,8 @@ const URL_PLAN = "https://horafirm.test/account?tab=plan";
 onPlan("free", 0, 0);
 await assert.rejects(L.makeMainComputer(main(), "wispy-a"), (e) => {
   assert.ok(e instanceof L.PlanLimit);
-  assert.equal(e.message, "Your Horafirm Free plan doesn't include cloud computers. Horafirm Hacker includes 1.");
-  assert.deepEqual(e.link, { label: "Upgrade to Horafirm Hacker", url: URL_PLAN });
+  assert.equal(e.message, "Your Deskwisp Cloud Free plan doesn't include cloud computers. Deskwisp Cloud Hacker includes 1.");
+  assert.deepEqual(e.link, { label: "Upgrade to Hacker", url: URL_PLAN });
   return true;
 });
 assert.equal(asked("POST", "/api/computers"), 0);
@@ -340,7 +340,7 @@ for (const [tier, max] of [["startup_v2", 4], ["scale_v2", 16]]) {
 // The one computer is in use elsewhere in the account: said with the numbers, no POST.
 onPlan("hacker_v2", 1, 1);
 n = asked("POST", "/api/computers");
-await assert.rejects(L.makeMainComputer(main(), "wispy-c"), { message: "Your Horafirm Hacker plan includes 1 computer, and it's in use outside Deskwisp. Horafirm Startup includes 4." });
+await assert.rejects(L.makeMainComputer(main(), "wispy-c"), { message: "Your Deskwisp Cloud Hacker plan includes 1 computer, and it's in use outside Deskwisp. Deskwisp Cloud Startup includes 4." });
 assert.equal(asked("POST", "/api/computers"), n);
 // A "no room" read within the minute is checked with Horafirm before it's said: the computer that filled the
 // plan was deleted on Horafirm's site since.
@@ -356,7 +356,7 @@ onPlan("hacker_v2", 1, 0, {
     "POST /api/computers": () => json(403, { error: "Computer limit reached. Add a slot or delete a computer.", code: "VM_SLOT_ADDON", canManageCapacity: true }),
   },
 });
-await assert.rejects(L.makeMainComputer(main(), "wispy-d"), (e) => e instanceof L.PlanLimit && e.message === "Your Horafirm Hacker plan includes 1 computer, and it's in use outside Deskwisp. Horafirm Startup includes 4.");
+await assert.rejects(L.makeMainComputer(main(), "wispy-d"), (e) => e instanceof L.PlanLimit && e.message === "Your Deskwisp Cloud Hacker plan includes 1 computer, and it's in use outside Deskwisp. Deskwisp Cloud Startup includes 4.");
 assert.equal(limitsRead, 2, "read again after the refusal");
 // Anything else goes up as it was.
 onPlan("hacker_v2", 1, 0, { replies: { "POST /api/computers": () => json(500, { error: "boom" }) } });
@@ -379,7 +379,7 @@ const ownAgain = () => S.update(() => Object.assign(nova(), { computer: "own", c
 const FORK = { "GET /api/computers/c-main": () => json(200, { id: "c-main", instance_details: { id: "inst-main" } }) };
 const copies = () => asked("POST", "/api/computers/inst-main/fork") + asked("POST", "/api/computers/c-main/clone");
 /** What a bot says when it works on Wispy's computer after all: why, the link, and how to give it its own again. */
-const sharing = (why, link) => `I'll work on Wispy's computer instead of one of my own. ${why} ${link} Once your Horafirm plan has room, you can switch me to Its own under Computer in my Details.`;
+const sharing = (why, link) => `I'll work on Wispy's computer instead of one of my own. ${why} ${link} Once your plan has room, you can switch me to Its own under Computer in my Details.`;
 
 // No room by the plan's numbers: no copy is asked for, Nova works on Wispy's computer, its chat says why
 // with the link, and its task waits there, still queued, for a screen on Wispy's computer.
@@ -388,7 +388,7 @@ assert.equal(await L.makeOwnComputer(nova(), main(), "nova-a"), null);
 assert.equal(copies(), 0);
 assert.deepEqual({ computer: nova().computer, status: nova().computerStatus }, { computer: "shared", status: "none" });
 assert.deepEqual({ role: lastNote().role, botId: lastNote().botId }, { role: "bot", botId: "nova" });
-assert.equal(lastNote().text, sharing("Your Horafirm Hacker plan includes 1 computer, and it's in use. Horafirm Startup includes 4.", `[Upgrade to Horafirm Startup](${URL_PLAN})`));
+assert.equal(lastNote().text, sharing("Your Deskwisp Cloud Hacker plan includes 1 computer, and it's in use. Deskwisp Cloud Startup includes 4.", `[Upgrade to Startup](${URL_PLAN})`));
 noDashes(lastNote().text);
 assert.equal(S.session("ses_1").status, "queued", "the task still runs, on Wispy's computer");
 
@@ -408,14 +408,14 @@ assert.equal(await L.makeOwnComputer(nova(), main(), "nova-b"), null);
 assert.equal(copies() - n, 1, "one fork, no clone");
 assert.equal(limitsRead, 2);
 assert.equal(nova().computer, "shared");
-assert.equal(lastNote().text, sharing("Your Horafirm Startup plan includes 4 computers, and all 4 are in use, 3 of them outside Deskwisp. Horafirm Scale includes 16.", `[Upgrade to Horafirm Scale](${URL_PLAN})`));
+assert.equal(lastNote().text, sharing("Your Deskwisp Cloud Startup plan includes 4 computers, and all 4 are in use, 3 of them outside Deskwisp. Deskwisp Cloud Scale includes 16.", `[Upgrade to Scale](${URL_PLAN})`));
 assert.equal(S.session("ses_1").status, "queued");
 
 // The plan's memory is used up (Horafirm's RAM_ADDON for the pool): the same, in those words.
 ownAgain();
 onPlan("startup_v2", 4, 2, { replies: { ...FORK, "POST /api/computers/inst-main/fork": () => json(403, { error: "Not enough account RAM: your 2 computers already use 32GB of your 32GB pool.", code: "RAM_ADDON" }) } });
 assert.equal(await L.makeOwnComputer(nova(), main(), "nova-c"), null);
-assert.equal(lastNote().text, sharing("Your Horafirm Startup plan doesn't have the memory left for another computer. Horafirm Scale has more.", `[Upgrade to Horafirm Scale](${URL_PLAN})`));
+assert.equal(lastNote().text, sharing("Your Deskwisp Cloud Startup plan doesn't have the memory left for another computer. Deskwisp Cloud Scale has more.", `[Upgrade to Scale](${URL_PLAN})`));
 
 // The main bot's computer is 16 GB (made before Deskwisp sized them) and the plan has 8 GB left: Deskwisp says so
 // without asking Horafirm for a copy it would turn down, and keeps the size for the app to check by.
@@ -431,7 +431,7 @@ assert.equal(await L.makeOwnComputer(nova(), main(), "nova-m"), null);
 assert.equal(copies(), n, "no copy asked for");
 assert.equal(main().computerRam, 16);
 assert.equal(nova().computer, "shared");
-assert.equal(lastNote().text, sharing("Your Horafirm Startup plan doesn't have the memory left for another computer. Horafirm Scale has more.", `[Upgrade to Horafirm Scale](${URL_PLAN})`));
+assert.equal(lastNote().text, sharing("Your Deskwisp Cloud Startup plan doesn't have the memory left for another computer. Deskwisp Cloud Scale has more.", `[Upgrade to Scale](${URL_PLAN})`));
 
 // A custom deal's limit the numbers don't show (its Linux computers): Horafirm's own words, and no plan to move up to.
 ownAgain();
@@ -440,7 +440,7 @@ onPlan("enterprise", 10, 2, {
   replies: { ...FORK, "POST /api/computers/inst-main/fork": () => json(403, { error: "Your plan allows 2 Linux computers, and you have 2. Delete one, or contact us to change your plan.", code: "PLAN_LIMIT", upgradeTier: "enterprise" }) },
 });
 assert.equal(await L.makeOwnComputer(nova(), main(), "nova-os"), null);
-assert.equal(lastNote().text, sharing("Your plan allows 2 Linux computers, and you have 2. Delete one, or ask Horafirm to change your plan.", "[See your plan on Horafirm](https://horafirm.test/account?tab=usage)"));
+assert.equal(lastNote().text, sharing("Your plan allows 2 Linux computers, and you have 2. Delete one, or contact us to change your plan.", "[See your plan](https://horafirm.test/account?tab=usage)"));
 noDashes(lastNote().text);
 
 // A fork that can't happen for another reason falls back to a clone, as before; a clone turned down for the plan shares too.
@@ -493,10 +493,10 @@ S.patchSession("ses_1", { status: "done" });
 S.update(() => Object.assign(nova(), { computer: "shared", computerStatus: "none", computerId: undefined }));
 S.update(() => (main().computerRam = undefined));
 onPlan("hacker_v2", 1, 1);
-assert.deepEqual(await B.setComputer("nova", "own"), { error: "Your Horafirm Hacker plan includes 1 computer, and it's in use. Horafirm Startup includes 4." });
+assert.deepEqual(await B.setComputer("nova", "own"), { error: "Your Deskwisp Cloud Hacker plan includes 1 computer, and it's in use. Deskwisp Cloud Startup includes 4." });
 assert.equal(nova().computer, "shared", "stays on the shared computer");
 let made = await B.createBot("Iris", "Inbox", undefined, true);
-assert.equal(made.note, "Iris works on Wispy's computer. Your Horafirm Hacker plan includes 1 computer, and it's in use. Horafirm Startup includes 4.");
+assert.equal(made.note, "Iris works on Wispy's computer. Your Deskwisp Cloud Hacker plan includes 1 computer, and it's in use. Deskwisp Cloud Startup includes 4.");
 assert.equal(S.bot(made.botId).computer, "shared");
 onPlan("startup_v2", 4, 1);
 made = await B.createBot("Rook", "Recruiting", undefined, true);
@@ -621,7 +621,7 @@ n = calls.length;
 assert.equal(await L.makeOwnComputer(ownBot("dee"), main(), "dee-1"), null, "a fifth: no room");
 assert.equal(posts(n), 0, "not asked of Horafirm");
 assert.equal(S.bot("dee").computer, "shared");
-assert.match(S.getState().messages.filter((m) => m.chatId === "bot:dee").at(-1)?.text ?? "", /Your Horafirm Startup plan includes 4 computers, and all 4 are in use\. Horafirm Scale includes 16\./);
+assert.match(S.getState().messages.filter((m) => m.chatId === "bot:dee").at(-1)?.text ?? "", /Your Deskwisp Cloud Startup plan includes 4 computers, and all 4 are in use\. Deskwisp Cloud Scale includes 16\./);
 const template = account("startup_v2", 4, 32);
 replies = template.replies;
 for (const name of ["t1", "t2", "t3"]) await fetch("https://horafirm.test/api/computers", { method: "POST", body: JSON.stringify({ name }) });
@@ -697,7 +697,7 @@ assert.deepEqual({ id: main().computerId, status: main().computerStatus }, { id:
 assert.equal(calls.filter((c) => c.method === "POST" && c.path === "/api/computers").at(-1).body.ram, 8);
 assert.equal(asked("DELETE", "/api/computers/c-up-1"), 0);
 assert.equal(S.session("ses_up1").status, "failed");
-assert.equal(said("ses_up1"), "I couldn't start Task ses_up1: Wispy's computer couldn't be set up (Horafirm POST /computers/c-up-1/resume → 402: No computer hours left this month). The next task tries again.");
+assert.equal(said("ses_up1"), "I couldn't start Task ses_up1: Wispy's computer couldn't be set up (Deskwisp Cloud POST /computers/c-up-1/resume → 402: No computer hours left this month). The next task tries again.");
 assert.equal(main().computerNeverReady, "c-up-1", "made by Deskwisp and never ready: nothing has run on it");
 // Its one more try fails too: deleted, so it stops using up the plan, and the next task makes a new one.
 task("ses_up2");
@@ -706,7 +706,7 @@ await X.ensureComputer("wispy");
 assert.equal(asked("POST", "/api/computers"), n, "the same computer tried again, none made");
 assert.equal(asked("DELETE", "/api/computers/c-up-1"), 1);
 assert.deepEqual({ id: main().computerId, status: main().computerStatus }, { id: undefined, status: "error" });
-assert.match(said("ses_up2"), /\(Horafirm POST \/computers\/c-up-1\/resume → 402: No computer hours left this month\)\. Deskwisp deleted it, and the next task makes a new one\.$/);
+assert.match(said("ses_up2"), /\(Deskwisp Cloud POST \/computers\/c-up-1\/resume → 402: No computer hours left this month\)\. Deskwisp deleted it, and the next task makes a new one\.$/);
 // The next one comes up.
 status = "running";
 wakes = true;
@@ -732,7 +732,7 @@ await X.ensureComputer("wispy");
 assert.ok(Date.now() - t0 < 2500, "no wait");
 assert.equal(asked("DELETE", "/api/computers/c-up-3"), 1);
 assert.equal(main().computerId, undefined);
-assert.equal(said("ses_up3"), "I couldn't start Task ses_up3: Wispy's computer couldn't be set up (Horafirm says it's stopped). Deskwisp deleted it, and the next task makes a new one.");
+assert.equal(said("ses_up3"), "I couldn't start Task ses_up3: Wispy's computer couldn't be set up (Deskwisp Cloud says it's stopped). Deskwisp deleted it, and the next task makes a new one.");
 status = "running";
 // Deleted on Horafirm's site after its setup failed, with the plan read while it was there: Horafirm is asked
 // again and a new one made, rather than the user told their plan is full.
@@ -746,7 +746,7 @@ assert.deepEqual({ id: main().computerId, status: main().computerStatus }, { id:
 
 // A computer the bot already had, or one Deskwisp didn't make here (the user's free one taken up again, one
 // from another Mac), is never deleted for a failed setup, whatever Horafirm says: it may hold the user's work.
-// Horafirm says it's stopped, twice: kept both times, and the task says so.
+// Deskwisp Cloud says it's stopped, twice: kept both times, and the task says so.
 upComputers.set("c-had-1", 8);
 S.update(() => Object.assign(main(), { computerId: "c-had-1", computerStatus: "error", computerNeverReady: undefined }));
 status = "stopped";
@@ -754,7 +754,7 @@ task("ses_had1");
 await X.ensureComputer("wispy");
 assert.equal(asked("DELETE", "/api/computers/c-had-1"), 0, "kept");
 assert.deepEqual({ id: main().computerId, status: main().computerStatus }, { id: "c-had-1", status: "error" });
-assert.equal(said("ses_had1"), "I couldn't start Task ses_had1: Wispy's computer couldn't be set up (Horafirm says it's stopped). Deskwisp kept it, so nothing on it is lost. The next task tries again.");
+assert.equal(said("ses_had1"), "I couldn't start Task ses_had1: Wispy's computer couldn't be set up (Deskwisp Cloud says it's stopped). Deskwisp kept it, so nothing on it is lost. The next task tries again.");
 task("ses_had2");
 await X.ensureComputer("wispy");
 assert.equal(asked("DELETE", "/api/computers/c-had-1"), 0, "its one more try fails too: still kept");
@@ -915,13 +915,13 @@ assert.deepEqual(plain(await L.horafirmPlan({ fresh: true })), { tier: "free", n
 
 // The words: on Free with a free Deskwisp computer, "none" is about any more than that one. Nothing stands in
 // the main bot's way, and a bot's own copy of it takes one computer, not two.
-assert.equal(P.planShortText("none", freePlan()), "Your Horafirm Free plan doesn't include computers besides your free Deskwisp one. Horafirm Hacker includes 1.");
+assert.equal(P.planShortText("none", freePlan()), "Your Deskwisp Cloud Free plan doesn't include computers besides your free Deskwisp one. Deskwisp Cloud Hacker includes 1.");
 noDashes(P.planShortText("none", freePlan()));
 assert.equal(P.mainComputerShort(freePlan(), team(false), "ws_main"), null, "Free: the main bot gets the free one");
 assert.equal(P.setupShort(freePlan(), team(false), team(false)[0]), null);
-assert.equal(P.ownComputerShort(freePlan(), team(false), "ws_main").text, "Your Horafirm Free plan doesn't include computers besides your free Deskwisp one. Horafirm Hacker includes 1.");
+assert.equal(P.ownComputerShort(freePlan(), team(false), "ws_main").text, "Your Deskwisp Cloud Free plan doesn't include computers besides your free Deskwisp one. Deskwisp Cloud Hacker includes 1.");
 assert.equal(P.ownComputerShort({ ...hacker(0), freeComputerId: null }, team(false), "ws_main"), null, "Hacker: the main bot's is free, so a copy fits its one computer");
-assert.equal(P.ownComputerShort({ ...hacker(0), freeComputerId: "c-f", memory: { total: 8, used: 0, newMax: 8 } }, team(true, { freeComputer: true }), "ws_main").text, "Your Horafirm Hacker plan doesn't have the memory left for another computer. Horafirm Startup has more.", "a copy of the free one is 16 GB");
+assert.equal(P.ownComputerShort({ ...hacker(0), freeComputerId: "c-f", memory: { total: 8, used: 0, newMax: 8 } }, team(true, { freeComputer: true }), "ws_main").text, "Your Deskwisp Cloud Hacker plan doesn't have the memory left for another computer. Deskwisp Cloud Startup has more.", "a copy of the free one is 16 GB");
 assert.equal(P.deskwispComputers([{ computerId: "c-f", freeComputer: true }, { computerId: "c-own" }]), 1, "the free one isn't on the plan");
 
 // Free: the main bot's computer is the free Deskwisp computer, from Horafirm's template, at the template's size.
@@ -939,11 +939,11 @@ assert.deepEqual({ computer: kai().computer, status: kai().computerStatus, share
 assert.equal(workBotOf(kai()).id, "wispy");
 assert.equal(workBotOf(S.bot("lu")).id, "wispy", "its team with it");
 const kaiNote = S.getState().messages.filter((m) => m.chatId === "bot:kai").at(-1).text;
-assert.equal(kaiNote, `I'll work on your free Deskwisp computer, which Wispy has, instead of one of my own. Your Horafirm Free plan doesn't include computers besides your free Deskwisp one. Horafirm Hacker includes 1. [Upgrade to Horafirm Hacker](${URL_PLAN}) Once your Horafirm plan has room, you can switch me to Its own under Computer in my Details.`);
+assert.equal(kaiNote, `I'll work on your free Deskwisp computer, which Wispy has, instead of one of my own. Your Deskwisp Cloud Free plan doesn't include computers besides your free Deskwisp one. Deskwisp Cloud Hacker includes 1. [Upgrade to Hacker](${URL_PLAN}) Once your plan has room, you can switch me to Its own under Computer in my Details.`);
 noDashes(kaiNote);
 assert.equal(P.deskwispComputers(S.getState().bots), 0);
 // Its own, offered once the plan has room: refused on Free, and on Hacker it goes (its team with it).
-assert.deepEqual(await B.setComputer("kai", "own"), { error: "Your Horafirm Free plan doesn't include computers besides your free Deskwisp one. Horafirm Hacker includes 1." });
+assert.deepEqual(await B.setComputer("kai", "own"), { error: "Your Deskwisp Cloud Free plan doesn't include computers besides your free Deskwisp one. Deskwisp Cloud Hacker includes 1." });
 assert.deepEqual(await B.setComputer("wispy", "shared"), { error: "Wispy runs the team, so the computer is its own" });
 fo = freeHorafirm("hacker_v2", 1, { free: "c-free-1" });
 assert.deepEqual(await B.setComputer("kai", "own"), { ok: true });
@@ -1021,7 +1021,7 @@ onComputer("c-gone-1", { tailnet: { ip: "100.64.0.9", name: "deskwisp-wispy" } }
 n = asked("POST", "/api/computers");
 let res = await view("wispy");
 assert.equal(res.status, 502);
-assert.match((await res.json()).error, /Horafirm GET \/computers\/c-gone-1 → 404/);
+assert.match((await res.json()).error, /Deskwisp Cloud GET \/computers\/c-gone-1 → 404/);
 await until(() => healedSays("wispy").length === 1);
 assert.deepEqual(
   { id: main().computerId, status: main().computerStatus, free: main().freeComputer, tailnet: main().tailnet, ram: main().computerRam },

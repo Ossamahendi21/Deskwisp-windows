@@ -1613,7 +1613,7 @@ await R.reconcile();
 await R.reconcile();
 rs = await statusNow();
 assert.deepEqual([rs.available, rs.on, S.getState().relay.on], [false, false, false]);
-assert.match(rs.reason, /isn't available on your Horafirm account yet/);
+assert.match(rs.reason, /isn't available on your account yet/);
 assert.equal(horafirm.calls.length, asked, "asked again only after 10 minutes");
 // A Mac paired and turned off by an older build (no "off" on record yet) stays off; starting over keeps that.
 S.update((s) => (s.relay = { on: false, deviceId: "dev_9" }));

@@ -310,7 +310,7 @@ async function adoptComputers(userId: string) {
       }
     if (sure) s.computersOf = userId;
   });
-  if (gone.length) console.info(`[sign-in] ${gone.length} bot computer(s) belong to another Horafirm account; each bot gets a new one on its next task`);
+  if (gone.length) console.info(`[sign-in] ${gone.length} bot computer(s) belong to another account; each bot gets a new one on its next task`);
 }
 
 /** First sign-in: the bots call the user by their Horafirm name until they set one in Settings → You. */
@@ -360,7 +360,7 @@ function loadForKey(key: string, now: boolean): Promise<void> {
     const user = await whoIs(key);
     // Horafirm turned the key down (revoked): it's a sign-in.
     if (user === "denied") return;
-    if (!user) throw new Error("Horafirm didn't say who's signed in");
+    if (!user) throw new Error("Deskwisp Cloud didn't say who's signed in");
     if (signingIn() || horafirmKey() !== key) return;
     await bindSignIn(user.id, key);
     // Signed out, or someone else signed in meanwhile: their state is the one in memory (or coming in), not this one's.

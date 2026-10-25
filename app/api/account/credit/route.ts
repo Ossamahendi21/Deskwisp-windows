@@ -23,7 +23,7 @@ const IDEMPOTENCY_KEY = /^[\x21-\x7e]{8,255}$/;
  */
 export async function GET() {
   const key = await loadHorafirmKey();
-  if (!key) return Response.json({ error: "Sign in with Horafirm first." }, { status: 401 });
+  if (!key) return Response.json({ error: "Sign in to Deskwisp first." }, { status: 401 });
   if (!cloudOn()) return Response.json({ off: true });
   const read = await readCreditCard(key);
   return "error" in read ? Response.json({ error: read.error }, { status: read.status }) : Response.json(read);
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   if (onCard && (typeof idempotencyKey !== "string" || !IDEMPOTENCY_KEY.test(idempotencyKey)))
     return Response.json({ error: "Send an idempotency_key, one per purchase.", code: "idempotency_key_required" }, { status: 400 });
   const key = await loadHorafirmKey();
-  if (!key) return Response.json({ error: "Sign in with Horafirm first." }, { status: 401 });
+  if (!key) return Response.json({ error: "Sign in to Deskwisp first." }, { status: 401 });
   if (!cloudOn()) return Response.json(CREDIT_OFF, { status: 503 });
   if (!onCard) {
     const link = await creditCheckoutLink(key, amount);

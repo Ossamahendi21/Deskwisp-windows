@@ -130,7 +130,7 @@ async function savedPairing(userId: string): Promise<{ deviceId: string; code: s
  */
 async function ensurePaired(): Promise<{ deviceId: string; name: string; code: string; rendezvous?: string | null }> {
   const user = signedInUser();
-  if (!user) throw new Error("Sign in to Horafirm first.");
+  if (!user) throw new Error("Sign in to Deskwisp first.");
   // Signed out, or another account in, while Horafirm answered: this PC's device is the last user's, not theirs.
   const epoch = stateEpoch();
   const stillTheirs = () => {
@@ -259,8 +259,8 @@ async function availability(fresh = false) {
     sup.avail = { until: Date.now() + 30_000, ok: true, online: devices.find((d) => d.id === deviceId)?.online ?? null, rendezvous };
   } catch (e) {
     sup.avail = horafirmUnavailable(e)
-      ? { until: Date.now() + 10 * 60_000, ok: false, reason: "Routing through your PC isn't available on your Horafirm account yet." }
-      : { until: Date.now() + 5_000, ok: false, reason: "Couldn't reach Horafirm just now. Try again in a moment." };
+      ? { until: Date.now() + 10 * 60_000, ok: false, reason: "Routing through your PC isn't available on your account yet." }
+      : { until: Date.now() + 5_000, ok: false, reason: "Couldn't reach Deskwisp Cloud just now. Try again in a moment." };
   }
   return sup.avail;
 }
@@ -275,7 +275,7 @@ export async function relayStatus(fresh = false): Promise<RelayStatus> {
   const relay = getState().relay;
   const base = { on: !!relay?.on, running: running(), routedComputers: routed(), ...(relay?.deviceId ? { device: { id: relay.deviceId, name: relay.deviceName ?? "This PC" } } : {}) };
   if (onPostgres()) return { ...base, available: false, reason: "Routing through your PC works in the Deskwisp app on your PC." };
-  if (!(await loadHorafirmKey())) return { ...base, available: false, reason: "Sign in to Horafirm first." };
+  if (!(await loadHorafirmKey())) return { ...base, available: false, reason: "Sign in to Deskwisp first." };
   if (!relayBin()) return { ...base, available: false, reason: "This copy of Deskwisp doesn't include the relay yet." };
   const a = await availability(fresh);
   if (!a.ok) return { ...base, available: false, reason: a.reason };

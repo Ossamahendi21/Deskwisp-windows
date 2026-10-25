@@ -708,7 +708,7 @@ export function cloudStore({ get, replace, touch }: StateAccess): Persistence {
       const moved = moveLegacyState("legacy-state.json", true);
       if (moved)
         console.info(
-          moved.owner ? `[store] the state from before is Horafirm user ${moved.owner}'s: it goes to Deskwisp Cloud at their sign-in (${moved.to})` : `[store] the state from before isn't surely anyone's: kept aside, not uploaded (${moved.to})`,
+          moved.owner ? `[store] the state from before is user ${moved.owner}'s: it goes to Deskwisp Cloud at their sign-in (${moved.to})` : `[store] the state from before isn't surely anyone's: kept aside, not uploaded (${moved.to})`,
         );
       return null;
     },
@@ -729,7 +729,7 @@ export function cloudStore({ get, replace, touch }: StateAccess): Persistence {
           if (key) box.sync.key = key;
           return;
         }
-        if (!key) throw new StateLoadError("signing in needs the user's Horafirm key to load their state");
+        if (!key) throw new StateLoadError("signing in needs the user's Deskwisp key to load their state");
         // Whoever's state was here goes first (their unsent changes aside): nobody works on another's.
         unload();
         await load(userId, key);

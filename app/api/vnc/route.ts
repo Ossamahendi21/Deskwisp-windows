@@ -68,10 +68,10 @@ export async function POST(request: Request) {
   if (!local(request)) return Response.json({ error: "local only" }, { status: 403 });
   const b = bot(new URL(request.url).searchParams.get("bot") ?? "");
   const c = b && workComputer(b);
-  if (!c?.computerId || getState().host !== "horafirm") return Response.json({ error: "no Horafirm computer for this bot" }, { status: 409 });
+  if (!c?.computerId || getState().host !== "horafirm") return Response.json({ error: "no cloud computer for this bot" }, { status: 409 });
   try {
     await horafirm.screenShrunk(c.computerId);
-    console.warn(`[webrtc] ${c.id}: Horafirm's WebRTC shrank the screen; put back to ${DESKWISP_SCREEN.width}x${DESKWISP_SCREEN.height}, VNC for a day`);
+    console.warn(`[webrtc] ${c.id}: the computer's WebRTC shrank the screen; put back to ${DESKWISP_SCREEN.width}x${DESKWISP_SCREEN.height}, VNC for a day`);
     return Response.json({ ok: true });
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 502 });

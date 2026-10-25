@@ -1194,11 +1194,11 @@ function SelfHosting({ state }: { state: AppState }) {
         <div className="flex gap-2.5">
           <div className={`flex flex-1 flex-col gap-1.5 rounded-[14px] p-3.5 ${option(!tailnet)}`}>
             <span className="flex items-center justify-between">
-              <span className="text-[14px] font-semibold">{state.host === "mac" ? "Direct on this PC" : "Through Horafirm"}</span>
+              <span className="text-[14px] font-semibold">{state.host === "mac" ? "Direct on this PC" : "Through Deskwisp Cloud"}</span>
               {radio(!tailnet)}
             </span>
             <span className="text-[12.5px] leading-[18px] text-[#3A3A38]">
-              {state.host === "mac" ? "Screens are mirrored as live pages straight from the browsers here." : "Screenshots and input go through Horafirm's API. Works everywhere."}
+              {state.host === "mac" ? "Screens are mirrored as live pages straight from the browsers here." : "Screenshots and input go through Deskwisp Cloud. Works everywhere."}
             </span>
           </div>
           <div className={`flex flex-1 flex-col gap-1.5 rounded-[14px] p-3.5 ${option(tailnet)}`}>
@@ -1208,7 +1208,7 @@ function SelfHosting({ state }: { state: AppState }) {
             </span>
             <span className="text-[12.5px] leading-[18px] text-[#3A3A38]">
               {joined.length
-                ? `${joined.length} computer${joined.length === 1 ? "" : "s"} on your tailnet. Horafirm screens are mirrored as live pages, directly and privately.`
+                ? `${joined.length} computer${joined.length === 1 ? "" : "s"} on your tailnet. Their screens are mirrored as live pages, directly and privately.`
                 : "Computers join your tailnet when they start a task, for a direct, private mirror."}
             </span>
           </div>
@@ -1219,7 +1219,7 @@ function SelfHosting({ state }: { state: AppState }) {
       <PhoneService />
 
       <div className="flex flex-col px-[22px] pt-4">
-        <span className="pb-1 text-[13px] font-semibold">Computers (Horafirm)</span>
+        <span className="pb-1 text-[13px] font-semibold">Computers (Deskwisp Cloud)</span>
         {state.bots.map((b) => (
           <div key={b.id} className="flex items-center border-b border-[#F0F0EE] py-2 last:border-0">
             <span className="w-[200px] text-[13px] font-medium">{b.name}</span>

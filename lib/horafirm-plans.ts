@@ -169,20 +169,20 @@ const upFor = (short: PlanShort, plan: HorafirmPlan | null | undefined) => (shor
 export function planShortText(short: PlanShort, plan: HorafirmPlan | null | undefined, opts: { deskwisp?: number; main?: string } = {}) {
   // The Deskwisp plan's own words, when it decides.
   if (short === "deskwisp") return deskwispComputerShort(plan, 1)?.text ?? `Max includes up to ${DESKWISP_TIERS.max_deskwisp.computers} Deskwisp computers.`;
-  // Always "Horafirm" by name: an Horafirm plan is never the user's Deskwisp plan (Free, Pro or Max).
-  const name = plan?.name ? `Horafirm ${plan.name}` : "Horafirm";
+  // Always "Deskwisp Cloud" by name: a computers plan is never the user's Deskwisp plan (Free, Pro or Max).
+  const name = plan?.name ? `Deskwisp Cloud ${plan.name}` : "Deskwisp Cloud";
   const main = opts.main ?? "the main bot";
   const up = upFor(short, plan);
-  // A custom deal is changed by asking Horafirm, not on its own.
-  const ask = plan?.deal ? "ask Horafirm to change your plan" : undefined;
+  // A custom deal is changed by asking us, not on its own.
+  const ask = plan?.deal ? "ask us to change your plan" : undefined;
   // With the free Deskwisp computer, "none" is about any more than that one.
   if (short === "none")
-    return `Your ${name} plan doesn't include ${plan?.freeComputerId !== undefined ? "computers besides your free Deskwisp one" : "cloud computers"}.${up ? ` Horafirm ${up.name} includes ${up.computers}.` : ""}`;
-  if (short === "memory") return `Your ${name} plan doesn't have the memory left for another computer.${up ? ` Horafirm ${up.name} has more.` : ` Delete a computer, or ${ask ?? "add memory on Horafirm"}.`}`;
+    return `Your ${name} plan doesn't include ${plan?.freeComputerId !== undefined ? "computers besides your free Deskwisp one" : "cloud computers"}.${up ? ` Deskwisp Cloud ${up.name} includes ${up.computers}.` : ""}`;
+  if (short === "memory") return `Your ${name} plan doesn't have the memory left for another computer.${up ? ` Deskwisp Cloud ${up.name} has more.` : ` Delete a computer, or ${ask ?? "add memory in Account and usage"}.`}`;
   // Only a copy can be too big: the main bot's computer is made to fit the plan (computerRam). Not its disk, though.
   if (short === "size") return `Your ${name} plan doesn't allow another computer as big as ${main}'s.`;
   if (short === "disk") return `Your ${name} plan doesn't allow a computer with as much disk as ${main}'s.`;
-  const then = up ? ` Horafirm ${up.name} includes ${up.computers}.` : ` Delete one, or ${ask ?? "add computers on Horafirm"}.`;
+  const then = up ? ` Deskwisp Cloud ${up.name} includes ${up.computers}.` : ` Delete one, or ${ask ?? "add computers in Account and usage"}.`;
   if (!plan || plan.inUse === undefined) return `Every computer your ${name} plan includes is in use.${then}`;
   const n = plan.computers;
   const u = plan.inUse;
@@ -207,9 +207,9 @@ export function planFix(short: PlanShort, plan: HorafirmPlan | null | undefined)
   // Deskwisp's own plans are changed in the app (Settings), never on Horafirm's pages: the app shows its own button.
   if (short === "deskwisp") return { label: "Upgrade to Max", tab: "plan" };
   const up = upFor(short, plan);
-  if (up) return { label: `Upgrade to Horafirm ${up.name}`, tab: "plan" };
-  if (plan?.deal) return { label: "See your plan on Horafirm", tab: "usage" };
-  return short === "size" ? { label: "See Horafirm's plans", tab: "plan" } : { label: "Add capacity on Horafirm", tab: "usage" };
+  if (up) return { label: `Upgrade to ${up.name}`, tab: "plan" };
+  if (plan?.deal) return { label: "See your plan", tab: "usage" };
+  return short === "size" ? { label: "See the plans", tab: "plan" } : { label: "Add capacity", tab: "usage" };
 }
 
 /**
