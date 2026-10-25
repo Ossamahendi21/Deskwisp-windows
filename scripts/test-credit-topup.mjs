@@ -157,7 +157,7 @@ assert.deepEqual(C.mergeTopUp(known, { off: false, card: MASTERCARD, pending: nu
 replies = { "GET /api/deskwisp/credit/card-on-file": offline };
 assert.equal((await get()).status, 502);
 replies = { "GET /api/deskwisp/credit/card-on-file": () => json(401, { error: "Invalid API key" }) };
-assert.deepEqual(await get(), { status: 401, body: { error: "Horafirm didn't accept this Mac's sign-in. Sign out, then sign in again." } });
+assert.deepEqual(await get(), { status: 401, body: { error: "Deskwisp didn't accept this PC's sign-in. Sign out, then sign in again." } });
 
 /* ---------------- Amounts are checked here too ---------------- */
 
@@ -242,11 +242,11 @@ assert.deepEqual([charges.at(-1).body.card_handle, charges.at(-1).headers["idemp
 // as a new purchase, and no Checkout meanwhile (it would be a second payment). Cancel keeps it.
 onCard(offline);
 r = await buy(5000);
-assert.deepEqual(r, { status: 502, body: { code: "horafirm_unreachable", error: "Couldn't reach Horafirm. Try again: you won't be charged twice." } });
+assert.deepEqual(r, { status: 502, body: { code: "horafirm_unreachable", error: "Couldn't reach Deskwisp. Try again: you won't be charged twice." } });
 step = C.afterAnswer(purchase, C.topUpNext(r.status, r.body));
 assert.equal(step.kind, "open");
 assert.equal(step.purchase.unresolved, true);
-assert.deepEqual(C.confirmCopy(step.purchase), { title: "Add $50 of AI credit?", line: "Charged once to Visa ending 4242.", error: "Couldn't reach Horafirm. Try again: you won't be charged twice.", confirmLabel: "Try again", otherWay: false });
+assert.deepEqual(C.confirmCopy(step.purchase), { title: "Add $50 of AI credit?", line: "Charged once to Visa ending 4242.", error: "Couldn't reach Deskwisp. Try again: you won't be charged twice.", confirmLabel: "Try again", otherWay: false });
 assert.equal(C.afterCancel(step.purchase), step.purchase, "kept through Cancel");
 assert.equal(C.afterCancel(purchase), null, "a settled one isn't");
 assert.equal(C.resumePurchase(step.purchase, step.purchase.startedAt + 60_000).kind, "open");
@@ -292,7 +292,7 @@ assert.deepEqual(r, { status: 503, body: { error: "Adding credit opens soon.", c
 // Horafirm turned the key down: over, in plain words.
 onCard(() => json(401, { error: "Invalid API key" }));
 r = await buy(5000);
-assert.deepEqual(r, { status: 401, body: { error: "Horafirm didn't accept this Mac's sign-in. Sign out, then sign in again.", code: "signed_out" } });
+assert.deepEqual(r, { status: 401, body: { error: "Deskwisp didn't accept this PC's sign-in. Sign out, then sign in again.", code: "signed_out" } });
 assert.equal(C.afterAnswer(purchase, C.topUpNext(r.status, r.body)).kind, "stop");
 
 // The confirm reads the card again as it opens: a new card is named, none means Checkout.
@@ -308,13 +308,13 @@ for (const [status, body, want] of [
   [404, { error: "Not found" }, { status: 503, body: { error: "Adding credit opens soon.", code: "deskwisp_credit_off" } }],
   [400, { code: "invalid_amount", error: "Choose $20, $50, $100, or any whole-dollar amount from $5 to $1,000." }, { status: 400, body: { code: "invalid_amount", error: "Choose $20, $50, $100, or any whole-dollar amount from $5 to $1,000." } }],
   [502, { code: "checkout_unavailable", error: "Checkout could not be opened." }, { status: 502, body: { code: "checkout_unavailable", error: "Checkout could not be opened." } }],
-  [200, { url: "http://not-https.example" }, { status: 502, body: { error: "Horafirm couldn't open checkout (200). Try again in a minute." } }],
+  [200, { url: "http://not-https.example" }, { status: 502, body: { error: "Deskwisp couldn't open checkout (200). Try again in a minute." } }],
 ]) {
   replies = { "POST /api/deskwisp/credit/checkout": () => json(status, body) };
   assert.deepEqual(await post({ amount_cents: 2000 }), want, JSON.stringify(body));
 }
 replies = { "POST /api/deskwisp/credit/checkout": offline };
-assert.deepEqual(await post({ amount_cents: 2000 }), { status: 502, body: { error: "Couldn't reach Horafirm. Check your internet connection and try again.", code: "horafirm_unreachable" } });
+assert.deepEqual(await post({ amount_cents: 2000 }), { status: 502, body: { error: "Couldn't reach Deskwisp. Check your internet connection and try again.", code: "horafirm_unreachable" } });
 // A custom amount goes as typed, in cents.
 replies = { "POST /api/deskwisp/credit/checkout": () => json(200, { url: "https://checkout.stripe.com/c/pay/cs_test_2" }) };
 await post({ amount_cents: C.typedCents("75") });

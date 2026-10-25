@@ -318,7 +318,7 @@ console.log("taking over: said to be in use, then woken; handed back with Horafi
 asleepFor();
 pc.woken = 0;
 n = calls.length;
-await X.ensureScreens(PC);
+await X.ensureScreen(PC, 100);
 assert.equal(asked("POST", `/api/computers/${PC}/screens`, n), 0, "no screen made on top of the ones it has");
 assert.deepEqual([pc.status, pc.woken], ["running", 1], "woken once, by an action");
 assert.deepEqual(
@@ -328,8 +328,8 @@ assert.deepEqual(
 assert.match(calls[n + 3].body.command, /deskwisp-chrome 100$/, "then its Chrome, as before");
 // A computer that's up and lists every screen: nothing extra.
 n = calls.length;
-await X.ensureScreens(PC);
-assert.equal(asked("GET", `/api/computers/${PC}/screens`, n), 3, "one look per screen (the boot screen needs none)");
+await X.ensureScreen(PC, 100);
+assert.equal(asked("GET", `/api/computers/${PC}/screens`, n), 1, "one look at the list");
 assert.ok(!calls.slice(n).some((c) => c.body?.command === "true"), "no wake when every screen is there");
 // The common real case: asleep, with its screens on Horafirm's record. Each is found in the list, so no extra
 // wake: the screen's Chrome check (a command) wakes it, and no screen is made.
@@ -337,7 +337,7 @@ asleepFor();
 pc.recorded = [100, 101, 102];
 pc.woken = 0;
 n = calls.length;
-await X.ensureScreens(PC);
+await X.ensureScreen(PC, 100);
 assert.ok(!calls.slice(n).some((c) => c.body?.command === "true"), "no extra wake: its screen was on record");
 assert.match(calls[n + 1].body?.command ?? "", /curl .*\|\| deskwisp-chrome 100$/, "found, then its Chrome check wakes it");
 assert.deepEqual([pc.status, pc.woken], ["running", 1]);
@@ -348,7 +348,7 @@ asleepFor();
 pc.screens409 = true;
 pc.woken = 0;
 n = calls.length;
-await X.ensureScreens(PC);
+await X.ensureScreen(PC, 100);
 assert.deepEqual(
   calls.slice(n, n + 3).map((c) => `${c.method} ${c.path}${c.body?.command ? ` ${c.body.command}` : ""}`),
   [`GET /api/computers/${PC}/screens`, `POST /api/computers/${PC}/bash true`, `GET /api/computers/${PC}/screens`],
@@ -414,7 +414,7 @@ assert.ok(Date.now() - t0 < 900, "neither waited");
 // Getting a screen ready while it wakes: its list is read again after an action, as for one asleep.
 pc.answers = [waking()];
 n = calls.length;
-await X.ensureScreens(PC);
+await X.ensureScreen(PC, 100);
 assert.deepEqual(
   calls.slice(n, n + 3).map((c) => `${c.method} ${c.path}${c.body?.command ? ` ${c.body.command}` : ""}`),
   [`GET /api/computers/${PC}/screens`, `POST /api/computers/${PC}/bash true`, `GET /api/computers/${PC}/screens`],

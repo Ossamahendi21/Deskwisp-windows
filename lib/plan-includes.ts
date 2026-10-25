@@ -187,7 +187,8 @@ export function computerShort(tier: DeskwispTier, held: number, more = 1): PlanR
   const limit = DESKWISP_TIERS[tier].computers;
   if (held + more <= limit) return null;
   // Every plan has one computer: what grows with the plan is its screens.
-  return { text: `${DESKWISP_TIERS[tier].name} includes ${limit} Deskwisp computer. A bigger plan gives it more screens.`, upgrade: tier === "max_deskwisp" ? null : "max" };
+  const max = tier === "max_deskwisp";
+  return { text: `${DESKWISP_TIERS[tier].name} includes ${limit} Deskwisp computer${max ? ", with all its screens" : ". A bigger plan gives it more screens"}.`, upgrade: max ? null : "max" };
 }
 
 /* ---------------- People ---------------- */

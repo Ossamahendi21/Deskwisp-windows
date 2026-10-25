@@ -382,7 +382,8 @@ const woke = await task("Check the inbox", "Inbox");
 assert.equal(S.session(woke).status, "done", `it finished (${S.session(woke).error ?? ""})`);
 const sinceThen = horafirmCalls.slice(sinceAsleep);
 const saidInUse = sinceThen.indexOf("POST /deskwisp/computer/active");
-const firstLook = sinceThen.indexOf(`GET /computers/${COMPUTER}/screens`);
+// Its first call (the screen list, or on the boot screen the Chrome check, a command on the computer).
+const firstLook = sinceThen.findIndex((c) => c.includes(`/computers/${COMPUTER}/`));
 assert.ok(saidInUse >= 0 && firstLook > saidInUse, `said to be in use before its first look: ${sinceThen.slice(0, 4).join(", ")}`);
 assert.equal(pc.status, "running", "woken by that look");
 assert.ok(!sinceThen.includes(`POST /computers/${COMPUTER}/screens`), "no screen made");
@@ -442,7 +443,7 @@ const out = await task("Find a flight", "Flight");
 s = S.session(out);
 assert.equal(s.status, "failed");
 assert.equal(s.error, Cl.OUT_OF_CREDIT, "told apart from any other error (its 402 isn't lost on the way)");
-assert.ok(S.getState().messages.some((m) => m.text === Cl.OUT_OF_CREDIT && m.resultOf === out), "the chat says so, with Upgrade");
+assert.ok(S.getState().messages.some((m) => m.text === Cl.outOfCreditOn(s.title) && m.resultOf === out), "the chat says so, with Upgrade, and that it picks the task up again");
 assert.ok(!S.getState().messages.some((m) => m.resultOf === out && m.text.startsWith("I couldn't finish")), "not as a failure");
 
 assert.equal(answers.length, 0, "every answer was asked for");

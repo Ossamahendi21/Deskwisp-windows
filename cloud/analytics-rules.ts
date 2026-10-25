@@ -15,7 +15,7 @@
 /**
  * Deskwisp's own PostHog project key, once it has one (a project's public key, meant to ship in pages
  * and apps; it can only send events). Empty: no usage events leave at all (telemetryHere is false).
- * It was Horafirm's project; Deskwisp's users' events must never go there.
+ * The key the code first came with was someone else's project; Deskwisp's users' events must never go there.
  */
 export const POSTHOG_PROJECT = "";
 export const POSTHOG_HOST = "https://us.i.posthog.com";

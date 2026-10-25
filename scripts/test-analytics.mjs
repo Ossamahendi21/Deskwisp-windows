@@ -56,7 +56,13 @@ registerHooks({
     if (url.endsWith("/lib/server/persist-cloud.ts"))
       return { format: "module", shortCircuit: true, source: `export { fileStore as cloudStore } from ${JSON.stringify(project + "lib/server/persist.ts")};` };
     const file = fileURLToPath(url);
-    const source = readFileSync(file, "utf8");
+    let source = readFileSync(file, "utf8");
+    // Deskwisp has no PostHog project yet (POSTHOG_PROJECT is "", so nothing is sent): a made-up key here, so
+    // what would be sent can be checked. The file's own key is checked as it is below.
+    if (url.endsWith("/cloud/analytics-rules.ts")) {
+      globalThis.__realPosthogProject = source.match(/^export const POSTHOG_PROJECT = "(.*)";$/m)?.[1];
+      source = source.replace(/^export const POSTHOG_PROJECT = ".*";$/m, 'export const POSTHOG_PROJECT = "phc_test_project_key_0123456789";');
+    }
     const name = url.match(/\/lib\/server\/([a-z-]+)\.ts$/)?.[1];
     if (name && STAND_INS.has(name)) {
       const names = [...source.matchAll(/^export (?:async )?(?:function\*? |const |let |class )([A-Za-z_$][\w$]*)/gm)].map((m) => m[1]);
@@ -115,7 +121,8 @@ for (const [event, spec] of Object.entries(R.EVENTS)) {
     assert.ok(!SUPER_KEYS.includes(prop), `${event}.${prop} doesn't collide with a property on every event`);
   }
 }
-assert.ok(R.POSTHOG_PROJECT.startsWith("phc_") && R.POSTHOG_PROJECT.length > 20, "the project key is a PostHog project key");
+const realKey = globalThis.__realPosthogProject;
+assert.ok(realKey === "" || (realKey.startsWith("phc_") && realKey.length > 20), "no project key yet (nothing is sent), or a PostHog project key");
 assert.equal(R.POSTHOG_HOST, "https://us.i.posthog.com");
 
 const clean = R.cleanProperties;

@@ -208,6 +208,8 @@ const releaseOpenai = () => {
 };
 async function openaiAnswer(req) {
   const body = JSON.parse(await req.text());
+  // A quick check (decide.ts asks OpenAI when there's no Typesafe): unanswered, so it gives no answer, as before.
+  if (body.text?.format?.name === "answers") return json({ error: { message: "not faked", type: "invalid_request_error" } }, 400);
   if (body.text?.format?.name !== "memory_items") {
     openai.other.push(body);
     return json({ error: { message: "not faked", type: "invalid_request_error" } }, 400);
@@ -471,9 +473,9 @@ await section("The gate: every account signed in, memory set up, on this Mac", a
   signInAs("sam@example.com");
   assert.equal(MC.categoriesOn(), true, "on for an account outside Horafirm too");
   signInAs("maya@deskwisp.com");
+  // Without Honcho, memory is Deskwisp's own (local-memory.ts): still on.
   delete process.env.HONCHO_API_KEY;
-  assert.equal(Mem.memoryOn(), false);
-  await closed("with memory off");
+  assert.equal(Mem.memoryOn(), true, "Deskwisp's own memory without Honcho");
   process.env.HONCHO_API_KEY = HONCHO_KEY;
   // The Mac app signed out: no user's folder to keep anything in.
   delete process.env.DESKWISP_SELF_HOSTED;

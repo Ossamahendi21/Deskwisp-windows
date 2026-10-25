@@ -316,7 +316,7 @@ async function withSession(session) {
 
 assert.equal(Cl.cloudUrl(), CLOUD);
 assert.equal(Cl.cloudOn(), false, "signed out");
-await assert.rejects(Cl.cloudSession(), /Sign in with Horafirm first\./);
+await assert.rejects(Cl.cloudSession(), /Sign in to Deskwisp first\./);
 assert.equal(Cl.cloudSessionNow(), null);
 assert.equal(Cl.cloudProxy("openai"), null);
 assert.equal(cloud.requests.length, 0, "signed out: nothing is asked");
@@ -353,7 +353,7 @@ await until(() => Cl.cloudSessionNow(), "the session again");
 
 // What goes wrong, in words the app can show; a failure stands 10 seconds before the cloud is asked again.
 const problems = [
-  [{ status: 401, json: { error: "Sign in with Horafirm" } }, 401, "Deskwisp Cloud didn't accept your Horafirm sign-in. Sign out and sign in again."],
+  [{ status: 401, json: { error: "Sign in with Horafirm" } }, 401, "Deskwisp Cloud didn't accept your sign-in. Sign out and sign in again."],
   [{ status: 503, json: { error: "db down" } }, 503, "Deskwisp Cloud isn't working right now (503). Try again in a minute."],
   [{ status: 403, json: { error: "This Horafirm account can't use Deskwisp yet" } }, 403, "This Horafirm account can't use Deskwisp yet"],
   [{ status: 200, body: "<html>" }, 200, "Deskwisp Cloud sent back something Deskwisp couldn't read."],
@@ -380,14 +380,18 @@ console.log("session: asked once per key, kept, forgotten on sign-out, errors in
 await withSession(BARE);
 assert.deepEqual([M.mailOn(), P.phoneOn(), Mem.memoryOn(), C.composioOn(), V.verifyOn()], [false, false, false, false, false]);
 n = cloud.requests.length;
-assert.equal(await D.decide({ x: 1 }, { ok: { type: "noul", instructions: "Is it?" } }), null);
-assert.equal(since(n).length, 0, "no Typesafe call without it");
+// Without Typesafe, a question goes to OpenAI through the cloud instead (or nowhere, for reads that run on every page change).
+await D.decide({ x: 1 }, { ok: { type: "noul", instructions: "Is it?" } });
+assert.ok(since(n).every((r) => !r.path.includes("typesafe")), "no Typesafe call without it");
+n = cloud.requests.length;
+assert.equal(await D.decide({ x: 1 }, { ok: { type: "noul", instructions: "Is it?" } }, { jevOnly: true }), null);
+assert.equal(since(n).length, 0, "nothing asked for a Typesafe-only read");
 await assert.rejects(Cl.executorKey(), /can't run tasks on computers/);
 await assert.rejects(C.connectApp("gmail"), /^Error: Connected apps aren't available right now\.$/);
 await withSession(SESSION);
 assert.deepEqual([M.mailOn(), P.phoneOn(), Mem.memoryOn(), C.composioOn(), V.verifyOn()], [true, true, true, true, true]);
-// Self-hosting goes by the keys in .env.local, as before.
-await selfHosted({}, () => assert.deepEqual([M.mailOn(), P.phoneOn(), Mem.memoryOn(), C.composioOn(), V.verifyOn()], [false, false, false, false, false]));
+// Self-hosting goes by the keys in .env.local, as before (memory is always on: Deskwisp's own, in a file, without Honcho).
+await selfHosted({}, () => assert.deepEqual([M.mailOn(), P.phoneOn(), Mem.memoryOn(), C.composioOn(), V.verifyOn()], [false, false, true, false, false]));
 await selfHosted({ AGENTMAIL_API_KEY: "x", AGENTPHONE_API_KEY: "x", HONCHO_API_KEY: "x", COMPOSIO_API_KEY: "x", TWILIO_VERIFY_SERVICE_SID: "VA1", TWILIO_API_KEY_SID: "SK1", TWILIO_API_KEY_SECRET: "x" }, () =>
   assert.deepEqual([M.mailOn(), P.phoneOn(), Mem.memoryOn(), C.composioOn(), V.verifyOn()], [true, true, true, true, true]),
 );
@@ -418,7 +422,7 @@ await selfHosted({ OPENAI_API_KEY: "sk-self" }, async () => {
 });
 await selfHosted({}, () => assert.rejects(ai.responses.create({ model: "x", input: "x" }), /No OpenAI key is set: add OPENAI_API_KEY to \.env\.local\./));
 signOut();
-await assert.rejects(ai.responses.create({ model: "x", input: "x" }), /Sign in with Horafirm first\./);
+await assert.rejects(ai.responses.create({ model: "x", input: "x" }), /Sign in to Deskwisp first\./);
 await signIn();
 
 // AgentPhone: <cloud>/proxy/agentphone/v1 on the Horafirm key, never naming a sub-account (the cloud acts in the user's own).
@@ -842,7 +846,7 @@ for (const [e, want] of [
   [null, false],
 ])
   assert.equal(Cl.outOfCredits(e), want, String(e?.message));
-assert.equal(Cl.OUT_OF_CREDIT, "I'm out of AI credit, so I've stopped. Upgrade in Settings to keep me going.");
+assert.equal(Cl.OUT_OF_CREDIT, "I'm out of AI credit, so I've stopped. Upgrade and I'll keep going right where I left off.");
 cloud.handle = null;
 
 // Out: the bots don't ask the cloud for AI work, and Horafirm isn't asked again for a few minutes. Then it
@@ -871,7 +875,7 @@ S.update((s) => (s.credits = undefined));
 assert.deepEqual(await L.readDeskwispPlan(KEY), {
   tier: "pro_deskwisp",
   name: "Pro",
-  priceCents: 2000,
+  priceCents: (await import(`${root}/cloud/protocol.ts`)).DESKWISP_TIERS.pro_deskwisp.priceCents,
   status: "active",
   periodEnd: Date.parse("2026-11-06T00:00:00Z"),
   credit: { leftMicros: 19_975_000, planLeftMicros: 20_000_000, resetsAt: Date.parse("2026-11-06T00:00:00Z"), freeLeftMicros: -25_000 },
@@ -1053,7 +1057,7 @@ for (let i = 0; i < 2; i++) {
   assert.equal(res.status, 200);
 }
 assert.equal(callNote("1").length, 1, "handed over twice, noted once");
-assert.equal(callNote("1")[0].text, 'While your Mac was away, you called: "Remind me to call Ana"\n\nCaller: Remind me to call Ana\nBot: Will do.');
+assert.equal(callNote("1")[0].text, 'While your PC was away, you called: "Remind me to call Ana"\n\nCaller: Remind me to call Ana\nBot: Will do.');
 assert.deepEqual(callNote("1")[0].call, { seconds: 42, phone: "+14155550166" });
 // The owner's call goes into memory too, as a call this Mac answers does (phone-voice.ts), once.
 await until(() => remembered.length, "the owner's call in memory");
@@ -1068,7 +1072,7 @@ for (let i = 0; i < 2; i++) {
   assert.equal(res.status, 200);
 }
 assert.equal(callNote("2").length, 1);
-assert.equal(callNote("2")[0].text, 'While your Mac was away, someone called and left a message (Ana): "Send the deck" Reach them at +14155550124.\n\nCaller: Can you pass on a message?\nBot: Sure.');
+assert.equal(callNote("2")[0].text, 'While your PC was away, someone called and left a message (Ana): "Send the deck" Reach them at +14155550124.\n\nCaller: Can you pass on a message?\nBot: Sure.');
 assert.deepEqual([callNote("2")[0].sms.from, callNote("2")[0].call, callNote("2")[0].ping], ["+14155550123", { seconds: 65, phone: "+14155550123" }, true]);
 assert.equal(S.getState().ownerPhones.some((p) => p.number === "+14155550123"), false, "a stranger's number is nobody's");
 assert.equal(remembered.length, 1, "a stranger's call isn't the user's memory");
@@ -1267,7 +1271,7 @@ await CH.syncSlackLinks({ now: true });
 assert.equal(linksPut().length, l0 + 1, "nothing changed: nothing sent");
 // The cloud's public pages: the bots' pictures and the page after an app's sign-in.
 assert.equal(C.publicUrl(), "https://cloud.example");
-assert.equal(CH.mascotUrl(S.getState().bots.find((b) => b.isMain)), "https://cloud.example/mascot/main-0A0A0A.png");
+assert.equal(CH.mascotUrl(S.getState().bots.find((b) => b.isMain)), "https://cloud.example/mascot/main-16132B.png");
 
 // Each message its own ts, as Slack gives them (seconds and a sequence): a message seen before isn't handled again.
 let slackSeq = 0;
@@ -1300,7 +1304,7 @@ res = await viaTunnel(dm("my code is 424242"));
 assert.equal(res.status, 200);
 await until(() => posted().length > before, "the pairing hint");
 assert.match(posted().at(-1).markdown_text, /To pair with me, send me the code shown in Deskwisp/);
-assert.equal(posted().at(-1).icon_url, "https://cloud.example/mascot/main-0A0A0A.png", "the bot's picture, from the cloud");
+assert.equal(posted().at(-1).icon_url, "https://cloud.example/mascot/main-16132B.png", "the bot's picture, from the cloud");
 {
   // The cloud counts the bot's Slack post for the bot and the app (its Composio calls, at $0 for now).
   const sent = cloud.requests.filter((x) => x.path === "/proxy/composio/api/v3.1/tools/execute/proxy" && json(x).endpoint === "/chat.postMessage").at(-1);
@@ -1576,7 +1580,7 @@ R.relayAfterSignIn();
 await until(() => S.getState().relay?.on, "routing on by default", 15_000);
 assert.equal(S.getState().relay.deviceId, "dev_1");
 assert.equal(S.getState().relay.turnedOff, undefined);
-assert.deepEqual(JSON.parse(readFileSync(join(scratch, "keychain", encodeURIComponent("horafirm-relay:u1")), "utf8")), { deviceId: "dev_1", code: "code_dev_1" }, "the pairing code in the Keychain");
+assert.deepEqual(JSON.parse(await (await import(`${root}/lib/server/keychain.ts`)).getSecret("horafirm-relay:u1")), { deviceId: "dev_1", code: "code_dev_1" }, "the pairing code in the Keychain");
 await until(async () => (await statusNow()).running, "the relay running", 15_000);
 let rs = await statusNow();
 assert.deepEqual([rs.available, rs.on], [true, true]);
