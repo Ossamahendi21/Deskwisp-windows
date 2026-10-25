@@ -1,7 +1,7 @@
 # Secret scan (gitleaks, in CI): findings checked by hand and known not to be secrets.
 # deploy/vps/cloud.env.example: an empty value in the example settings
-44f8365d71d38c6a34affdd7f6e286102fe2d7cc:deploy/vps/cloud.env.example:generic-api-key:15
+6b7c64512174ac31a6ac96d7bfdb98bfbfc63259:deploy/vps/cloud.env.example:generic-api-key:15
 # cloud/test/mail-env.ts: a made-up value the mail tests run with
-66bdb51e8f0a61013cdf9e669a348cfb076e6202:cloud/test/mail-env.ts:generic-api-key:4
+424358c79ef032f1246a102dcba8d361f244bf5d:cloud/test/mail-env.ts:generic-api-key:4
 # dcloud/test/billing.test.ts: a made-up value the billing tests run with
-abf9a4de4d124487d3bfb1974c39607c59370368:dcloud/test/billing.test.ts:generic-api-key:50
+d5b8b181db822ec69c3f30f642e1cfa3170a80f4:dcloud/test/billing.test.ts:generic-api-key:50
