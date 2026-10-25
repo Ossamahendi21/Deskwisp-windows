@@ -769,11 +769,15 @@ export async function ensureComputer(botId: string): Promise<void> {
     const startedAt = Date.now();
     let wokenAt = 0;
     let firstWakeAt = 0;
+    let running = false;
+    let lastStatus: string | undefined;
     for (;;) {
       const c = await horafirm.computer(clone.id).catch(() => null);
       if (swapped()) return;
+      lastStatus = c?.status ?? lastStatus;
       if (c?.status === "running") {
         if (c.ram) update(() => (b.computerRam = c.ram));
+        running = true;
         break;
       }
       if (c && BROKEN.has(c.status)) {
@@ -791,6 +795,14 @@ export async function ensureComputer(botId: string): Promise<void> {
       }
       if (Date.now() >= setupWaitUntil(startedAt, firstWakeAt)) break;
       await new Promise((r) => setTimeout(r, setupWait.pollMs));
+    }
+    // Not running by the end of the wait: still asleep is a failed setup (the tasks are told, the computer
+    // kept for one more try). Otherwise Horafirm's status may only lag behind: it's up if its screens can be
+    // listed, and the setup fails with Horafirm's words if they can't.
+    if (!running) {
+      if (lastStatus === "suspended") throw new Error("it didn't wake up in time");
+      await horafirm.screens(clone.id);
+      if (swapped()) return;
     }
     await horafirm.growDisk(clone.id).catch((e: Error) => console.warn(`[disk] ${b.id}: ${e.message}`));
     // Its screen streams over UDP (Horafirm's WebRTC) where Horafirm can; the app falls back to VNC where it can't.
@@ -1267,7 +1279,7 @@ export async function stopScreen(botId: string, n: number) {
 }
 
 /** Screens live in the computer's memory, so recreate any that a restart or clone dropped. */
-async function ensureScreen(computerId: string, display: number) {
+export async function ensureScreen(computerId: string, display: number) {
   if (display !== 99) {
     // Asleep with nothing on Horafirm's record to list (409 computer_asleep), or waking from storage: an action
     // wakes it (and waits while it does), then it's listed.

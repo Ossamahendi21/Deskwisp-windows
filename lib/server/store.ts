@@ -1,7 +1,6 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { workspaceOf, MAIN_WORKSPACE, botChatId, type AppState, type Bot, type Chat, type Message, type Session, type Reaction, type Tapback } from "@/lib/types";
-import { oldBotIds, renameBotIds } from "@/lib/bot-ids";
 import { fileStore, onPostgres, selfHosted, type Persistence, type StateAccess } from "./persist";
 import { cloudStore } from "./persist-cloud";
 import { pgStore } from "./persist-pg";
@@ -18,11 +17,8 @@ const freshMain = (): Bot => ({ id: "wispy", name: "Wispy", role: "Chief of Staf
 
 const botChat = (botId: string, at = Date.now()): Chat => ({ id: botChatId(botId), kind: "bot", botIds: [botId], createdAt: at, typing: [] });
 
-/** Bring older saved state up to the current shape: every bot has a chat, sessions are threads, main bots have Wispy ids. */
+/** Bring older saved state up to the current shape: every bot has a chat, sessions are threads. */
 function migrate(raw: Record<string, unknown>): AppState {
-  // Main bots from before Deskwisp's own ids get them, everywhere they're named (lib/bot-ids.ts).
-  const old = oldBotIds(Array.isArray(raw.bots) ? (raw.bots as { id: string }[]).filter((b) => typeof b?.id === "string") : []);
-  if (old.size) raw = renameBotIds(raw, old);
   const state = raw as unknown as AppState & { samThinking?: boolean };
   // A fresh start is the main bot (Wispy) alone; it (or you) adds the rest of the team. It can't be removed.
   state.bots ??= [freshMain()];

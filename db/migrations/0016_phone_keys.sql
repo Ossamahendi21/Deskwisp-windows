@@ -2,7 +2,7 @@
 -- for their numbers, calls and texts, and gives Deskwisp their API key, which every AgentPhone call of
 -- theirs then uses (proxy.ts) in place of Deskwisp's. Kept sealed (crypto.ts), with its last four
 -- characters to show which key it is.
--- Run as deskwisp_app after 0015 (cloud/db.ts migrate() does it at start). Safe to run again.
+-- Run as deskwisp_app after the ones before it (cloud/db.ts migrate() does it at start). Safe to run again.
 
 BEGIN;
 

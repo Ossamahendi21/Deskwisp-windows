@@ -74,6 +74,8 @@ globalThis.fetch = async (input, init) => {
   const url = new URL(req.url);
   if (url.origin === "https://api.openai.com" && url.pathname === "/v1/responses") {
     const b = JSON.parse(await req.text());
+    // A quick check (decide.ts asks OpenAI when there's no Typesafe): no answer, and not one of the bot's calls.
+    if (b.text?.format?.type === "json_schema") return json({ error: { message: "not in this test" } }, 400);
     asked.push(b);
     const next = answers.shift();
     return json(next ? await next(b) : response(`resp_${asked.length}`, [said("Done.")]));
@@ -170,8 +172,10 @@ const decode = (bytes) => {
     return new TextDecoder("windows-1252").decode(bytes);
   }
 };
+// (The window decodes 0x80 as €, as Chromium does; Node's own decoder gives U+0080, a control character the cell drops.)
 const ansi = decode(Uint8Array.from([...Buffer.from("Name,Price\nCaf"), 0xe9, 0x2c, 0x80, ...Buffer.from("9.50\n")]));
-assert.deepEqual(C.parseCsv(ansi).rows, [["Café", "€9.50"]]);
+const euro = decode(Uint8Array.from([0x80])) === "€" ? "€" : "";
+assert.deepEqual(C.parseCsv(ansi).rows, [["Café", `${euro}9.50`]]);
 assert.equal(C.parseNumber(C.parseCsv(ansi).rows[0][1]), 9.5);
 assert.equal(decode(Buffer.from("Name\nZoë\n")), "Name\nZoë\n", "UTF-8 stays UTF-8");
 // Cells: control characters out, one kind of line break, no tabs, trimmed, 2,000 characters at most.
@@ -724,7 +728,7 @@ assert.ok(!JSON.stringify(outside.input).includes("CRM files:"));
 process.env.DESKWISP_DATABASE_URL = "postgres://nobody@localhost:1/none";
 assert.equal(K.crmOn(), false);
 assert.deepEqual((await list()).body, { off: true });
-assert.deepEqual((await create({ name: "X", template: "pipeline" })).body, { error: "The CRM is only in the Mac app." });
+assert.deepEqual((await create({ name: "X", template: "pipeline" })).body, { error: "The CRM is only in the PC app." });
 assert.deepEqual(K.CRM_TOOLS(wispy), []);
 assert.equal(K.crmNote(wispy, "chat"), "");
 assert.equal(K.crmNowLine(wispy), "");

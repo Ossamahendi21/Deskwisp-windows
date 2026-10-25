@@ -211,7 +211,7 @@ assert.deepEqual(ready.seats, { plan: "max_deskwisp", canAdd: true, limit: 5, us
 assert.equal(ready.seatsError, undefined);
 assert.equal(ready.horafirmUrl, `https://horafirm.test/workspaces?project_id=${WS}`);
 assert.equal(ready.host, "horafirm");
-assert.equal(ready.fullAccess, "not_yet", "Full access isn't offered yet");
+assert.equal(ready.fullAccess, "on", "Full access is offered on Deskwisp Cloud");
 assert.equal(ready.keysOnComputers, false, "nothing of Deskwisp' on the computers");
 assert.ok(!JSON.stringify(ready).includes(KEY), "the key never goes to the window");
 // The upgrade horafirm-web offers, in the app's words; seats it couldn't read; an horafirm-web without times.
@@ -436,28 +436,13 @@ console.log("ok - nobody is added without horafirm-web's seats");
 
 list = { members: MEMBERS, invites: INVITES, seats: seatsOf() };
 replies = usual();
-// Not offered yet: View only only, and moving someone to View only always works.
-n = invited().length;
-r = await route("POST", { email: "new@example.com", role: "admin" });
-assert.deepEqual([r.status, r.body.code, r.body.error], [409, "FULL_ACCESS_NOT_YET", M.WORDS.fullAccessNotYet]);
-r = await route("PATCH", { memberId: "u-jamie", role: "admin" });
-assert.deepEqual([r.status, r.body.code], [409, "FULL_ACCESS_NOT_YET"]);
-assert.equal(invited().length, n);
-assert.equal(calls.at(-1).method === "PATCH", false, "nothing changed on Horafirm");
-// Deskwisp' own keys on the computers are said even while Full access isn't offered: people added on deskwisp.com can have it.
-for (const [k, v] of [
-  ["HOSTNAME", "0.0.0.0"],
-  ["TAILSCALE_AUTH_KEY", "tskey-auth-example"],
-  ["DESKWISP_COMPUTER_TOOL", "0"],
-]) {
-  const was = process.env[k];
-  process.env[k] = v;
-  r = await get();
-  assert.deepEqual([r.body.fullAccess, r.body.keysOnComputers], ["not_yet", true], k);
-  if (was === undefined) delete process.env[k];
-  else process.env[k] = was;
-}
-// Offered (DESKWISP_MEMBERS_FULL_ACCESS=1), and nothing of Deskwisp' on the computers: on.
+// A server of your own (no Deskwisp Cloud) doesn't offer Full access yet; Deskwisp Cloud does, as it gives the
+// computers new passwords when someone with it goes.
+const cloudOrigin = process.env.DESKWISP_HORAFIRM_ORIGIN;
+delete process.env.DESKWISP_HORAFIRM_ORIGIN;
+assert.equal((await import(`${root}/lib/server/members.ts`)).fullAccessNow(), "not_yet");
+process.env.DESKWISP_HORAFIRM_ORIGIN = cloudOrigin;
+// Offered, and nothing of Deskwisp's on the computers: on.
 process.env.DESKWISP_MEMBERS_FULL_ACCESS = "1";
 r = await get();
 assert.deepEqual([r.body.fullAccess, r.body.keysOnComputers], ["on", false]);
@@ -517,10 +502,9 @@ r = await route("DELETE", { email: "pat@example.com" }, { headers: { cookie: "a=
 assert.equal(r.status, 200, "the window's cookie");
 assert.equal((await get()).status, 200, "reading isn't a change (proxy.ts holds reads to the window)");
 delete process.env.DESKWISP_UI_TOKEN;
-// No signed-in key: HORAFIRM_API_KEY (a self-hoster's) and the Horafirm CLI's login are never used.
+// No signed-in key (and no HORAFIRM_API_KEY of a self-hoster's): signed out, and the Horafirm CLI's login is never used.
 globalThis.deskwispHorafirmKey = null;
 globalThis.deskwispHorafirmKeyMissAt = Date.now();
-process.env.HORAFIRM_API_KEY = "sk_live_not_the_users_0123456789";
 n = calls.length;
 assert.deepEqual((await get()).body, { state: "signed_out", why: "no_key" });
 assert.deepEqual((await get("?count=1")).body, { state: "signed_out" });
@@ -531,10 +515,11 @@ assert.equal(r.status, 401);
 assert.equal(calls.length, n, "no key, no call");
 delete process.env.HORAFIRM_API_KEY;
 globalThis.deskwispHorafirmKey = KEY;
-// Self-hosted (and hosted): people are added on deskwisp.com, and Horafirm isn't asked.
+// Self-hosted (and hosted) on a server of its own, not Deskwisp Cloud: people are added on deskwisp.com, and Horafirm isn't asked.
 process.env.DESKWISP_SELF_HOSTED = "1";
+delete process.env.DESKWISP_HORAFIRM_ORIGIN;
 n = calls.length;
-assert.deepEqual((await get()).body, { state: "self_hosted", horafirmUrl: "https://horafirm.test/workspaces" });
+assert.deepEqual((await get()).body, { state: "self_hosted", horafirmUrl: "https://app.deskwisp.com/workspaces" });
 assert.deepEqual((await get("?count=1")).body, { state: "self_hosted" });
 for (const [method, body] of [
   ["POST", { email: "new@example.com", role: "viewer" }],
@@ -546,6 +531,7 @@ for (const [method, body] of [
 }
 assert.equal(calls.length, n, "self-hosted: nothing asked of Horafirm");
 delete process.env.DESKWISP_SELF_HOSTED;
+process.env.DESKWISP_HORAFIRM_ORIGIN = cloudOrigin;
 console.log("ok - only the Deskwisp window, the signed-in key and Deskwisp Cloud");
 
 /* ---------------- 9. The count on the button ---------------- */

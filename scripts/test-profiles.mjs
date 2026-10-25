@@ -11,12 +11,12 @@
 //
 // Deskwisp Cloud is the real one (cloud/server.ts, run as a child process) on the local test Postgres
 // (DESKWISP_TEST_DATABASE_URL, as cloud/test/edge-fakes.ts: 127.0.0.1:55432); Horafirm is a fake on
-// 127.0.0.1; the Keychain is a folder; Deskwisp Cloud's tunnel, the relay, the bots' sessions and the Mac check are
+// 127.0.0.1; the vault is a sealed file on a known key; Deskwisp Cloud's tunnel, the relay, the bots' sessions and the Mac check are
 // stand-ins. Nothing reaches a real service.
 // Usage: node --conditions=react-server scripts/test-profiles.mjs
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createDecipheriv, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire, registerHooks } from "node:module";
@@ -45,38 +45,18 @@ const scratch = mkdtempSync(join(tmpdir(), "deskwisp-test-profiles-"));
 process.chdir(scratch);
 process.env.HOME = scratch;
 symlinkSync(join(root, "node_modules"), join(scratch, "node_modules"));
-const bin = join(scratch, "bin");
-mkdirSync(bin);
-mkdirSync(join(scratch, "keychain"));
-process.env.DESKWISP_TEST_KEYCHAIN = join(scratch, "keychain");
-// macOS's `security`, with a folder for a Keychain (as scripts/test-cloud.mjs).
-writeFileSync(
-  join(bin, "security"),
-  `#!/usr/bin/env node
-const fs = require("fs"), path = require("path");
-const file = (a) => path.join(process.env.DESKWISP_TEST_KEYCHAIN, encodeURIComponent(a));
-const arg = (args, flag) => args[args.indexOf(flag) + 1];
-function run(args) {
-  if (args[0] === "find-generic-password") {
-    if (!fs.existsSync(file(arg(args, "-a")))) process.exit(44);
-    process.stdout.write(fs.readFileSync(file(arg(args, "-a")), "utf8") + "\\n");
-  } else if (args[0] === "delete-generic-password") fs.rmSync(file(arg(args, "-a")), { force: true });
-  else if (args[0] === "add-generic-password") {
-    // A slow Keychain, when a test asks for one.
-    if (process.env.DESKWISP_TEST_KEYCHAIN_SLOW_MS) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Number(process.env.DESKWISP_TEST_KEYCHAIN_SLOW_MS));
-    fs.writeFileSync(file(arg(args, "-a")), Buffer.from(arg(args, "-X"), "hex").toString("utf8"));
-  }
-  else process.exit(1);
+// The vault (lib/server/keychain.ts, off a Mac): a sealed file in .data, on a key the test knows, so it can be read here.
+process.env.DESKWISP_VAULT_KEY = randomBytes(32).toString("base64");
+/** What the vault holds: { account: value }. */
+function vault() {
+  const f = join(scratch, ".data", "vault.sealed");
+  if (!existsSync(f)) return {};
+  const raw = Buffer.from(readFileSync(f, "utf8").trim(), "base64");
+  const d = createDecipheriv("aes-256-gcm", Buffer.from(process.env.DESKWISP_VAULT_KEY, "base64"), raw.subarray(0, 12));
+  d.setAuthTag(raw.subarray(12, 28));
+  return JSON.parse(Buffer.concat([d.update(raw.subarray(28)), d.final()]).toString("utf8"));
 }
-if (process.argv[2] === "-i") {
-  let input = "";
-  process.stdin.on("data", (d) => (input += d)).on("end", () => run(input.trim().match(/"[^"]*"|\\S+/g).map((x) => x.replace(/^"|"$/g, ""))));
-} else run(process.argv.slice(2));
-`,
-  { mode: 0o755 },
-);
-process.env.PATH = `${bin}:${process.env.PATH}`;
-const keychain = () => readdirSync(join(scratch, "keychain")).map(decodeURIComponent).sort();
+const keychain = () => Object.keys(vault()).sort();
 
 const freePort = () =>
   new Promise((resolve) => {
@@ -115,6 +95,8 @@ const horafirmServer = createServer((req, res) => {
 await new Promise((r) => horafirmServer.listen(0, "127.0.0.1", r));
 const HORAFIRM = `http://127.0.0.1:${horafirmServer.address().port}`;
 process.env.DESKWISP_HORAFIRM_ORIGIN = HORAFIRM;
+/** The vault slot the signed-in key is kept in: one per server (horafirm-auth.ts keyAccount). */
+const KEY_SLOT = `deskwisp-key@${new URL(HORAFIRM).host}`;
 
 /* ---------------- Deskwisp Cloud: the real server, on the test Postgres ---------------- */
 
@@ -355,7 +337,7 @@ try {
   assert.equal(S.stateReady(), false);
   assert.equal(S.getState().account, undefined);
   assert.equal(texts().length, 0, "A's chats left memory");
-  assert.equal(keychain().includes("horafirm-api-key"), false, "A's key left the Keychain");
+  assert.equal(keychain().includes(KEY_SLOT), false, "A's key left the Keychain");
 
   await signIn(B);
   assert.equal(texts().some((t) => t.startsWith("A:") || t === LEGACY_TEXT || t === "Booked for Tuesday."), false, "none of A's chats");
@@ -427,7 +409,7 @@ try {
   await assert.rejects(L.pollSignIn(), (e) => e instanceof L.SignInError && e.reason === "cloud", "Couldn't load your Deskwisp from Deskwisp Cloud");
   assert.equal(S.stateReady(), false);
   assert.equal(S.getState().account, undefined);
-  assert.equal(keychain().includes("horafirm-api-key"), false, "the key isn't kept until the state loads");
+  assert.equal(keychain().includes(KEY_SLOT), false, "the key isn't kept until the state loads");
   await startCloudServer();
   // Try again: the key Horafirm gave is still held, so no new code.
   const again = await L.pollSignIn();
@@ -674,23 +656,17 @@ try {
 
   /* ---------------- The key comes in with the state, before the Keychain has it ---------------- */
 
-  // A signs in over B with a slow Keychain: from the moment A's state is in memory, the key in use is A's
-  // (nothing runs on B's key over A's state: a bot's computer it can't see would look deleted).
-  process.env.DESKWISP_TEST_KEYCHAIN_SLOW_MS = "1500";
+  // A signs in over B: from the moment A's state is in memory, the key in use is A's (nothing runs on B's
+  // key over A's state: a bot's computer it can't see would look deleted), and then the vault has it.
   horafirm.next = A;
   await L.startSignIn();
   const landing = L.pollSignIn();
-  try {
-    await until(() => S.stateUser() === A, "A's state to load", 20_000);
-    assert.equal(readFileSync(join(scratch, "keychain", "horafirm-api-key"), "utf8"), keyOf(B), "the Keychain is still being written");
-    assert.equal(OA.horafirmKey(), keyOf(A), "but the key in use is A's already");
-    assert.equal((await landing).status, "approved");
-  } finally {
-    delete process.env.DESKWISP_TEST_KEYCHAIN_SLOW_MS;
-  }
-  assert.equal(readFileSync(join(scratch, "keychain", "horafirm-api-key"), "utf8"), keyOf(A));
+  await until(() => S.stateUser() === A, "A's state to load", 20_000);
+  assert.equal(OA.horafirmKey(), keyOf(A), "the key in use is A's already");
+  assert.equal((await landing).status, "approved");
+  await until(() => vault()[KEY_SLOT] === keyOf(A), "A's key in the vault");
   assert.equal(S.getState().account?.user.id, A);
-  console.log("signing in over another account: the new key comes in with the new state, before the Keychain is written");
+  console.log("signing in over another account: the new key comes in with the new state, then goes in the vault");
 
   /* ---------------- Merging, on its own ---------------- */
 
