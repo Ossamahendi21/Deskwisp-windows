@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.10-7C5CFF?labelColor=16132B" alt="Version 0.1.10">
+  <img src="https://img.shields.io/badge/version-0.1.10-7C5CFF?labelColor=16132B" alt="Version 0.1.12">
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011%20x64-7C5CFF?labelColor=16132B" alt="Windows 10 and 11, x64">
   <img src="https://img.shields.io/badge/plan-Free%20to%20start-7C5CFF?labelColor=16132B" alt="Free to start">
 </p>
