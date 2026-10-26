@@ -8,6 +8,8 @@
 <p align="center">
   <a href="https://deskwisp.com/download/Deskwisp-Setup.exe"><b>Download for Windows</b></a>
   &nbsp;·&nbsp;
+  <a href="https://apps.microsoft.com/detail/9N9QZ5QT9Q2N">Microsoft Store</a>
+  &nbsp;·&nbsp;
   <a href="https://deskwisp.com">deskwisp.com</a>
   &nbsp;·&nbsp;
   <a href="#plans">Plans</a>
@@ -21,6 +23,10 @@
   <img src="https://img.shields.io/badge/version-0.1.10-7C5CFF?labelColor=16132B" alt="Version 0.1.10">
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011%20x64-7C5CFF?labelColor=16132B" alt="Windows 10 and 11, x64">
   <img src="https://img.shields.io/badge/plan-Free%20to%20start-7C5CFF?labelColor=16132B" alt="Free to start">
+</p>
+
+<p align="center">
+  <a href="https://apps.microsoft.com/detail/9N9QZ5QT9Q2N?referrer=appbadge&mode=direct"><img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="Get it from Microsoft"></a>
 </p>
 
 <br>
@@ -124,13 +130,14 @@ As many bots as you like on every plan. You pay for the computer time and AI cre
 3. Sign in with Google or with your email. You start on Free.
 4. Say hi to Wispy. It takes it from there.
 
+Or get it from the **Microsoft Store**: [Deskwisp in the Store](https://apps.microsoft.com/detail/9N9QZ5QT9Q2N). It installs without the SmartScreen question, and the Store keeps it up to date. The two are separate apps with separate data, so pick one.
+
 The installer is per-user (no admin needed) and adds Start menu and desktop shortcuts. Deskwisp updates itself: it finds a new version within the hour and offers it the next time it opens. Your bots, chats and settings stay.
 
 <br clear="right">
 
 ## Roadmap
 
-- **Microsoft Store.** Deskwisp in the Store, beside the download from deskwisp.com. The package is ready (see [The Microsoft Store package](#the-microsoft-store-package)); it's on its way through the Store's review.
 - **Android app.** Your bots, chats and memory on your phone. The app already has a place for it (the Phone tab says Coming soon).
 - **WhatsApp.** Reach your bots where most people already are.
 
@@ -228,7 +235,7 @@ git push
 bash scripts/release-store.sh       # after release-win.sh, on Windows (Git Bash)
 ```
 
-It builds the same version as an MSIX package, `dist-store/Deskwisp-<version>-x64.appx`, to upload in Partner Center (Apps and games → Deskwisp → the submission → Packages). The Store signs it and keeps it up to date.
+It builds the same version as an MSIX package, `dist-store/Deskwisp-<version>-x64.appx`, to upload in Partner Center (Apps and games → Deskwisp → the submission → Packages). The Store signs it and keeps it up to date. The listing: [apps.microsoft.com/detail/9N9QZ5QT9Q2N](https://apps.microsoft.com/detail/9N9QZ5QT9Q2N).
 
 - It's its own app beside the one from deskwisp.com: its own id (`HorafirmLLC.Deskwisp`, Store ID `9N9QZ5QT9Q2N`) and its own data, so the two never mix. It never runs Deskwisp's updater; About says its updates come from the Store.
 - Its identity is the `appx` part of `electron-builder.win.json`, as Partner Center's Product identity page gives it. Its pictures are in `build/appx/` (`scripts/render-store-assets.mjs` draws them from the logo).

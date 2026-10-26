@@ -56,6 +56,7 @@
           "operatingSystem": "Windows 10, Windows 11",
           "url": "https://deskwisp.com/",
           "downloadUrl": "https://deskwisp.com/download/Deskwisp-Setup.exe",
+          "installUrl": "https://apps.microsoft.com/detail/9N9QZ5QT9Q2N",
           "image": "https://deskwisp.com/og.png",
           "publisher": {
             "@id": "https://deskwisp.com/#org"
@@ -223,6 +224,15 @@
       }
       .ctas .quiet:hover {
         border-color: var(--spark);
+      }
+      .store-badge {
+        display: inline-block;
+        line-height: 0;
+        border-radius: 8px;
+      }
+      .store-badge img {
+        width: 158px;
+        height: auto;
       }
       .fine {
         color: var(--faint);
@@ -1485,6 +1495,11 @@
       .final .button:hover {
         background: var(--spark-soft);
       }
+      .final .store-badge {
+        display: block;
+        width: max-content;
+        margin: 16px auto 0;
+      }
       .final .meta {
         margin: 18px auto 0;
         font-family: var(--mono);
@@ -1550,9 +1565,10 @@
           <p class="lede">Deskwisp gives your small business a team of AI agents. Each one works on its own computer, with its own email and memory. Ask in a chat, and the work gets done. Nothing goes out without your OK.</p>
           <div class="ctas">
             <a class="button" href="/download/Deskwisp-Setup.exe"><svg><use href="#windows" /></svg>Download for Windows</a>
+            <a class="store-badge" href="https://apps.microsoft.com/detail/9N9QZ5QT9Q2N?referrer=appbadge&amp;mode=direct"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Get it from Microsoft" width="158" height="57" referrerpolicy="no-referrer" /></a>
             <a class="quiet" href="#pricing">See the plans</a>
           </div>
-          <p class="fine">Free plan. Windows 10 and 11, 64-bit.</p>
+          <p class="fine">Free plan. Windows 10 and 11, 64-bit. From deskwisp.com or the Microsoft Store.</p>
         </div>
 
         <div class="chat" role="img" aria-label="A chat: you ask Wispy to chase three unpaid invoices; Fadwa finds them, writes the reminders, and sends them once you approve.">
@@ -1820,7 +1836,8 @@
           <h2 class="h2">Your first AI agent is free.</h2>
           <p class="lead">Download Deskwisp for Windows, sign in and give Wispy its first task. The app keeps itself up to date.</p>
           <a class="button" href="/download/Deskwisp-Setup.exe" id="dl"><svg><use href="#windows" /></svg>Download for Windows</a>
-          <p class="meta" id="meta">Windows 10 and 11, 64-bit. If Windows asks before the first install, choose More info, then Run anyway.</p>
+          <a class="store-badge" href="https://apps.microsoft.com/detail/9N9QZ5QT9Q2N?referrer=appbadge&amp;mode=direct"><img src="https://get.microsoft.com/images/en-us%20light.svg" alt="Get it from Microsoft" width="158" height="57" loading="lazy" referrerpolicy="no-referrer" /></a>
+          <p class="meta" id="meta">Windows 10 and 11, 64-bit. If Windows asks before the first install, choose More info, then Run anyway. The Microsoft Store version installs without that question and updates through the Store.</p>
         </div>
       </section>
     </main>
@@ -1937,7 +1954,7 @@
         .then((l) => {
           if (!l || !/^\d+\.\d+\.\d+$/.test(l.version)) return;
           const when = l.released ? new Date(l.released).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "";
-          document.getElementById("meta").textContent = `Version ${l.version}${when ? `, ${when}` : ""}. Windows 10 and 11, 64-bit. If Windows asks before the first install, choose More info, then Run anyway.`;
+          document.getElementById("meta").textContent = `Version ${l.version}${when ? `, ${when}` : ""}. Windows 10 and 11, 64-bit. If Windows asks before the first install, choose More info, then Run anyway. The Microsoft Store version installs without that question and updates through the Store.`;
         })
         .catch(() => {});
     </script>

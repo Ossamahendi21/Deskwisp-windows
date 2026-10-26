@@ -19,6 +19,7 @@
 
 - Home: https://deskwisp.com/
 - Download for Windows: https://deskwisp.com/download/Deskwisp-Setup.exe
+- Microsoft Store: https://apps.microsoft.com/detail/9N9QZ5QT9Q2N
 - Privacy policy: https://deskwisp.com/privacy/
 - Terms of service: https://deskwisp.com/terms/
 - Contact: hello@deskwisp.com

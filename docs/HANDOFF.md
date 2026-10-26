@@ -1,7 +1,7 @@
 # Deskwisp: handoff for a new session
 
 Everything a new Claude Code session needs to carry on. Read it whole before doing anything, then the files
-it points to as the task needs them. State as of **Oct 25, 2026**.
+it points to as the task needs them. State as of **Oct 26, 2026**.
 
 ## 1. Working with Ossama
 
@@ -108,9 +108,10 @@ Migrations run at the cloud's start. Since the history rewrite the server alread
 
 - **App:** 0.1.11 is live on deskwisp.com. 0.1.12 (Deskwisp's name in every user-facing text instead of
   Horafirm) was handed over and may be released by now: check `package.json` and `git log`.
-- **Microsoft Store:** submission 1 (0.1.11) in certification, **private audience**, "publish when I
-  click Publish now". Next: when it passes, Ossama tests it; then a new submission with the 0.1.12+
-  package and **Public audience**; then add a "Get it from Microsoft" badge to the site and README.
+- **Microsoft Store:** live and public since Oct 26 (0.1.12):
+  https://apps.microsoft.com/detail/9N9QZ5QT9Q2N. The "Get it from Microsoft" badge is on deskwisp.com
+  (hero and the last band) and in the README. Certification once failed on other brands' names in the
+  keywords (Slack, Discord): keep the Store keywords generic (7 at most, 21 words in total).
 - **Legal:** terms and privacy (`deploy/vps/site/terms`, `privacy`) as Ossama wanted: footer "© 2026
   Deskwisp", no company name on the site, the user is responsible for what they give the bots
   (information, files, accounts, numbers, skills, plugins), phone numbers are on the user's own
@@ -121,14 +122,13 @@ Migrations run at the cloud's start. Since the history rewrite the server alread
 
 ## 7. What's next
 
-1. **Store go-live** (above).
-2. **Phone app, Android and iPhone from one codebase**, built step by step with Ossama in Claude Code:
+1. **Phone app, Android and iPhone from one codebase**, built step by step with Ossama in Claude Code:
    first an APK he tests himself, then Google Play (new personal accounts need **12+ testers opted in to a
    closed test for 14 days in a row** before production), then iPhone once revenue pays the $99 Apple
    year. It talks to `cloud/agent.ts` (works with the PC off) and should look and feel like the Grok app.
    Recruit testers from active Windows users (a Google Group "Deskwisp Android beta"); a "Join the Android
    beta" button on the app's Phone tab (now "Coming soon") was suggested and not done yet.
-3. **Marketing, $0 budget, English, worldwide, faceless:** the plan is the doc "Deskwisp Launch Plan"
+2. **Marketing, $0 budget, English, worldwide, faceless:** the plan is the doc "Deskwisp Launch Plan"
    (https://claude.ai/artifact/4sS3FoaBTvLvLJuhc462rN): goals (500 sign-ups, 15 Android testers in 6
    weeks), channels (TikTok/Reels/Shorts daily, Reddit, Product Hunt in week 5, Show HN, AI directories,
    X, LinkedIn, Facebook groups), a 30-day calendar, the tester funnel. A starter kit (3 videos, 6 images,
