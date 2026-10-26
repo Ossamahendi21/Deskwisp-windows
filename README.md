@@ -44,12 +44,12 @@ Deskwisp is a Windows app that gives your business a team of AI bots. Wispy, you
 
 ## What's new in 0.1.12
 
-<img src="docs/images/update.png" width="320" align="right" alt="Update ready: Deskwisp 0.1.10, Restart to update">
+<img src="docs/images/update.png" width="320" align="right" alt="Update ready: Deskwisp 0.1.12, Restart to update">
 
 - **Updates you can see.** When a new version is ready, Deskwisp says so with what's new. Restart to update shows its progress, the installer shows its own, and Deskwisp opens again on the new version.
 - **New terms and privacy.** Plain, short, and for everyone: [Terms](https://deskwisp.com/terms) and [Privacy](https://deskwisp.com/privacy).
 
-From 0.1.9:
+From 0.1.10:
 
 - **Skills and plugins**, from a free library or your own (see [Skills and plugins](#skills-and-plugins)).
 - **Add files** to any chat: documents, sheets, PDFs and pictures, which a task gets on its computer too.
