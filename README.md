@@ -42,7 +42,7 @@ Deskwisp is a Windows app that gives your business a team of AI bots. Wispy, you
 - **Watch or take over.** Watch any screen of the bots' computer live, take the mouse, then hand it back.
 - **One team, everywhere.** The same bots and the same memory in the app, your inbox, your phone and your team's chat.
 
-## What's new in 0.1.10
+## What's new in 0.1.12
 
 <img src="docs/images/update.png" width="320" align="right" alt="Update ready: Deskwisp 0.1.10, Restart to update">
 
