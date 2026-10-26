@@ -218,8 +218,8 @@ The relay also takes `/hooks/slack` for your own Slack app, and `/hooks/openai` 
 ## Releasing
 
 ```bash
-printf '# Deskwisp 0.1.11\n\n- What changed\n' > docs/releases/v0.1.11.md
-bash scripts/release-win.sh 0.1.11
+printf '# Deskwisp 0.1.12\n\n- What changed\n' > docs/releases/v0.1.12.md
+bash scripts/release-win.sh 0.1.12
 git push
 ```
 
