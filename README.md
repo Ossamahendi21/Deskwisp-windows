@@ -14,7 +14,7 @@
   &nbsp;·&nbsp;
   <a href="#plans">Plans</a>
   &nbsp;·&nbsp;
-  <a href="#whats-new-in-0110">What's new</a>
+  <a href="#whats-new-in-0112">What's new</a>
   &nbsp;·&nbsp;
   <a href="#roadmap">Roadmap</a>
 </p>
